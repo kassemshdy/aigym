@@ -21,11 +21,14 @@ toggle. Eleven screens across three surfaces:
 - **Coach iPad** — check-in queue, member card with a payment banner and injury warning,
   tap-to-answer calorie bands with quick meals, live set logger with pre-filled steppers
   and a rest timer, session summary, AI draft inbox with approve/reject.
-- **Member** — today's workout, coach's video library with muscle filters, embedded
-  player, progress, profile.
+- **Member** — phone + code sign-in, today's workout, coach's video library with muscle
+  filters and an embedded player, **food tracking with photo auditing** (photograph a meal,
+  get an estimate, correct the portion, confirm), **two chat assistants** (nutrition and
+  bodybuilding) that answer and log but escalate program changes to the coach, **private
+  progress photos**, progress, profile.
 
-Verified: 11 screens × 2 languages screenshot clean, no direction errors, no overflow, no
-console errors, 115 KB gzipped against a 200 KB budget.
+Verified: 17 screens × 2 languages screenshot clean, no direction errors, no overflow, no
+console errors, 120 KB gzipped against a 200 KB budget.
 
 ## Phase 2 — Backend core: tenancy, auth, members, money
 
@@ -42,17 +45,37 @@ sessions and sets. **Offline lands properly here**: service worker, precached sh
 IndexedDB outbox with ordered replay, visible pending count, conflict rules. Tested by
 killing the network mid-session. Coach screens go live.
 
-## Phase 4 — Members and content
+## Phase 4 — Members, content, and self-service
 
-Member auth (phone + OTP — most members have no email), video library CRUD for coaches,
-oEmbed metadata, view tracking, exercise↔video linking, progress and history. Member
-screens go live.
+Member auth (phone + code over WhatsApp — most members have no email), video library CRUD
+for coaches, oEmbed metadata, view tracking, exercise↔video linking, progress and history.
+
+Also the member's own data: **food entries** with a small local food table (manqoushe,
+labneh, shawarma — not a US database), **progress photos** with the privacy rules in
+decision 11 (private by default, per-photo sharing, real deletion), and object storage for
+both. Member screens go live.
 
 ## Phase 5 — AI
 
 Body and lifestyle intake, plan generation, per-session coach recommendations, nutrition
 guidance, guardrails, coach approval flow, eval harness in CI, Sentry AI tracing, and
 capture of coach edits as feedback signal.
+
+Plus the two member-facing assistants, which are the hardest part of this phase because
+they talk to members directly rather than through a coach:
+
+- **Context** — body data, lifestyle, recorded injuries, recent sessions, and today's food
+  are assembled per turn; the gym's own exercises and Coach Assaf's videos are retrieved so
+  answers reference what the gym actually has.
+- **Authority, enforced in code** — the reply schema carries a `draft` flag; anything
+  touching the program or targets is written to `ai_plan_drafts` and surfaced in the
+  coach's inbox. The model never gets to be the gate. See decision 10.
+- **Safety** — injury contraindications and a calorie floor are checked before a reply is
+  sent, not requested in the prompt. Medical questions get referred, not answered.
+- **Food vision** — meal photo in, estimate out, member confirms. Both the estimate and
+  the correction are stored (decision 12).
+- **Evals** — the golden set covers refusals as well as answers: an assistant that agrees
+  to change a program fails the suite.
 
 ## Phase 6 — Sell it
 

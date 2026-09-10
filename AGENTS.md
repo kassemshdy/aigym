@@ -15,7 +15,7 @@ Area guides:
 
 A multi-tenant SaaS gym platform for **Lebanese gyms**, with three surfaces — manager,
 coach-on-an-iPad, and member — plus an AI layer that drafts training and nutrition plans
-for a coach to approve.
+for a coach to approve, and two assistants the member can chat with.
 
 ## The five constraints that decide arguments
 
@@ -69,6 +69,13 @@ not a screenshot tool.
 - **Do not add a dependency without checking the budget.** `npm run budget` after.
 - **Money is USD only.** No currency field, no exchange rate, no conversion. See
   `docs/DECISIONS.md`.
+- **An assistant never changes a program or a calorie target.** It answers, and it may log
+  food the member reports. Anything touching the plan becomes a draft for the coach —
+  enforced by the `draft` flag in code, never by asking the model nicely. Decision 10.
+- **Progress photos are private by default.** `sharedWithCoach` starts false, sharing is
+  per-photo and explicit, deletion is real. Never add a bulk-share setting or a default
+  that shows a member's body to anyone. Decision 11.
+- **A food estimate is never logged without the member confirming it.** Decision 12.
 
 ## Skills
 

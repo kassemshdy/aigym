@@ -22,6 +22,7 @@
   /* Touch targets: phone / iPad */
   --spacing-tap: 3rem;
   --spacing-tap-lg: 3.5rem;
+  --spacing-nav: 4rem;
 }
 
 html,

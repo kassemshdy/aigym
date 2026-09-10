@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import { AppShell } from '@/components/AppShell'
 import { ManagerHome } from '@/features/manager/Home'
 import { ManagerMembers } from '@/features/manager/Members'
@@ -11,13 +11,26 @@ import { CoachMemberCard } from '@/features/coach/MemberCard'
 import { CoachSession } from '@/features/coach/Session'
 import { CoachAiDrafts } from '@/features/coach/AiDrafts'
 import { MemberToday } from '@/features/member/Today'
+import { MemberLogin } from '@/features/member/Login'
+import { MemberFood } from '@/features/member/Food'
+import { MemberChat, MemberChatPicker } from '@/features/member/Chat'
+import { MemberPhotos } from '@/features/member/Photos'
+import { useStore } from '@/state/store'
 import { MemberVideoDetail, MemberVideos } from '@/features/member/Videos'
 import { MemberProgress } from '@/features/member/Progress'
 import { MemberProfile } from '@/features/member/Profile'
 
+/** Member screens hold personal data; the other two surfaces get real auth in Phase 2. */
+function RequireMember({ children }: { children: React.ReactNode }) {
+  const { state } = useStore()
+  if (!state.signedIn) return <Navigate to="/login" replace />
+  return <>{children}</>
+}
+
 export default function App() {
   return (
     <Routes>
+      <Route path="/login" element={<MemberLogin />} />
       <Route element={<AppShell />}>
         <Route index element={<Navigate to="/manager" replace />} />
 
@@ -37,11 +50,22 @@ export default function App() {
           <Route path="ai" element={<CoachAiDrafts />} />
         </Route>
 
-        <Route path="member">
+        <Route
+          path="member"
+          element={
+            <RequireMember>
+              <Outlet />
+            </RequireMember>
+          }
+        >
           <Route index element={<MemberToday />} />
+          <Route path="food" element={<MemberFood />} />
+          <Route path="chat" element={<MemberChatPicker />} />
+          <Route path="chat/:agent" element={<MemberChat />} />
           <Route path="videos" element={<MemberVideos />} />
           <Route path="videos/:id" element={<MemberVideoDetail />} />
           <Route path="progress" element={<MemberProgress />} />
+          <Route path="photos" element={<MemberPhotos />} />
           <Route path="profile" element={<MemberProfile />} />
         </Route>
 

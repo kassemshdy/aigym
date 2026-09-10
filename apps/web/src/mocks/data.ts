@@ -10,7 +10,7 @@ import type {
 } from './types'
 
 export const gym = {
-  name: { ar: 'نادي تيتان — الأشرفية', en: 'Titan Gym — Achrafieh' },
+  name: { ar: 'نادي تريبل إي — عرمون', en: 'Triple A Gym — Aaramoun' },
   coach: { ar: 'الكوتش عساف', en: 'Coach Assaf' },
 }
 

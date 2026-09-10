@@ -62,3 +62,49 @@ exchange. This is why there is no charting library — `Sparkline` is hand-writt
 
 `AGENTS.md` is the source of truth, `CLAUDE.md` is a one-line pointer to it, skills live in
 `.agents/skills/` with `.claude/skills` symlinked to that directory.
+
+## 10. Chat agents answer and log, but never change the program
+
+Two assistants the member can talk to: a **nutrition assistant** and a **bodybuilding
+assistant**. Both answer freely and may log food the member reports. Neither can change
+the training program or the calorie targets — a request like "add weight to my bench"
+becomes a pending draft in the coach's inbox, and the member is told so in the reply.
+
+This keeps the approval rule that already governs generated plans: nothing reaches a
+member's body without a human coach seeing it. It also protects the coach's relationship
+with their own clients — an assistant that quietly rewrites a program is competing with
+the coach, not helping them.
+
+*Enforced in code, not in the prompt.* The reply carries a `draft` flag and the store
+routes it to the coach; the model is never the thing standing between a suggestion and the
+member's program.
+
+## 11. Progress photos are private by default
+
+Members can add progress photos. Three rules, none of them opt-out:
+
+1. **Private by default** — `shared_with_coach` starts false, always.
+2. **Sharing is per-photo and explicit** — a separate confirm step, never a blanket
+   setting, never a consequence of joining a gym.
+3. **Delete really deletes** — including the stored file, not just the row.
+
+Body photos are the most sensitive data in the product. A gym owner or coach browsing
+members' bodies because the default allowed it is the kind of harm that ends a product,
+and "the member could have turned it off" is not a defence.
+
+Food photos carry none of this weight and are treated as ordinary log data.
+
+## 12. Food photo estimates always get a confirm step
+
+The member photographs a meal, the model estimates it, and **the member confirms or
+corrects before anything is logged** — with a portion stepper for the common case where
+the food is right and the amount is not.
+
+An estimate that logs itself silently is a number nobody trusts and everybody stops
+reading. The confirm step is also the cheapest training signal we will ever get: the
+difference between what the model guessed and what the member corrected.
+
+## 13. Member auth is phone + code, no email, no password
+
+Most members here do not use email, and a password is one more thing to forget at the
+door. The code goes over WhatsApp, which everyone already has open.

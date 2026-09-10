@@ -10,6 +10,7 @@ Target shape for Phase 2. Phase 1 mirrors a subset in `apps/web/src/mocks/types.
 | Programming | `exercises`, `workout_plans`, `plan_days`, `plan_exercises` |
 | Member data | `body_metrics`, `lifestyle_profiles`, `nutrition_logs` |
 | Content | `videos`, `video_views` |
+| Member self-service | `food_entries`, `progress_photos`, `agent_conversations`, `agent_messages` |
 | AI | `ai_generations`, `ai_plan_drafts`, `ai_recommendations`, `ai_feedback` |
 | Ops | `audit_log` |
 
@@ -40,3 +41,18 @@ RLS via `SET LOCAL app.current_gym_id` per request.
   and cost. This table *is* the AI observability trail.
 - **`idempotency_key` on every write-side table** — required for offline replay. See
   `.agents/skills/offline-sync`.
+
+## Member self-service (added with the member app)
+
+- **`food_entries`** — one row per logged meal: `kcal`, `protein`, `carbs`, `fat`,
+  `source` (`photo` / `manual` / `agent`), optional `photo_key`, and for photo entries the
+  model's original estimate alongside the member's correction. That pair is the feedback
+  signal for improving estimates; drop it and every correction is thrown away.
+- **`progress_photos`** — `shared_with_coach BOOLEAN NOT NULL DEFAULT false`. The default
+  is part of the schema, not the application, so no code path can accidentally invert it.
+  Deletion removes the object from storage, not just the row. See decision 11.
+- **`agent_conversations` / `agent_messages`** — one conversation per member per agent
+  (`nutrition` / `training`). Messages store role, text, the model and prompt version that
+  produced an agent turn, and a nullable `escalated_draft_id` pointing at the
+  `ai_plan_drafts` row the turn created. That column is the audit trail proving the agent
+  escalated rather than acted.

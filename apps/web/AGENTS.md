@@ -18,8 +18,17 @@ src/
 └── features/
     ├── manager/        Home, Members, MemberDetail, AddMember, Plans, Payments
     ├── coach/          Queue, MemberCard, Session, AiDrafts
-    └── member/         Today, Videos, Progress, Profile
+    └── member/         Login, Today, Food, Chat, Photos, Videos, Progress, Profile
 ```
+
+`src/state/store.tsx` holds prototype state (sign-in, food log, progress photos, chat
+transcripts). Components read it through `useStore()` rather than touching mocks, so
+Phase 2 can swap the implementation for the API plus the offline outbox without touching
+a screen.
+
+`src/mocks/agents.ts` is the stand-in for the two assistants. The authority boundary lives
+there and in the store: a reply may carry `food` (log it) or `draft` (escalate to the
+coach), never a program change.
 
 ## Conventions
 
@@ -30,6 +39,10 @@ src/
 - Money renders through `usd()` in `lib/format.ts`. Never format a currency inline.
 - WhatsApp messages go through `waLink()` with a `t('whatsapp.*')` template. Never build a
   `wa.me` URL by hand.
+- Anything a member writes or photographs goes through `useStore()` actions. Do not add a
+  second place that mutates food entries, photos, or chat.
+- New progress-photo code starts from `sharedWithCoach: false`. If you find yourself
+  writing a default that shares, stop and read decision 11.
 
 ## Before committing
 

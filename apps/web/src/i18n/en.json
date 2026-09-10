@@ -184,7 +184,8 @@
     "profile": {
       "title": "My details",
       "membership": "My membership",
-      "endsOn": "Ends on"
+      "endsOn": "Ends on",
+      "signOut": "Sign out"
     }
   },
   "muscle": {
@@ -216,11 +217,67 @@
     "workout": "Workout",
     "videos": "Videos",
     "progress": "Progress",
-    "profile": "Profile"
+    "profile": "Profile",
+    "food": "Food",
+    "chat": "Ask",
+    "photos": "Photos"
   },
   "aiKind": {
     "plan": "Training plan",
     "nutrition": "Nutrition",
     "tip": "Tip"
+  },
+  "login": {
+    "title": "Sign in",
+    "sub": "Enter your number and we'll send a code",
+    "phone": "Mobile number",
+    "sendCode": "Send me the code",
+    "code": "Code",
+    "codeSent": "We sent a code on WhatsApp",
+    "enter": "Enter",
+    "demo": "Prototype: any code works"
+  },
+  "food": {
+    "title": "My food today",
+    "kcal": "kcal",
+    "protein": "Protein",
+    "carbs": "Carbs",
+    "fat": "Fat",
+    "left": "Left",
+    "target": "Today's target",
+    "addPhoto": "Photograph your food",
+    "addManual": "Add manually",
+    "empty": "Nothing logged today",
+    "remove": "Remove",
+    "g": "g",
+    "analyzing": "Reading the photo…",
+    "estimate": "Food estimate",
+    "confirm": "Log it",
+    "portion": "Portion",
+    "mealName": "What is it",
+    "notSure": "If the estimate is off, correct it",
+    "sourcePhoto": "From photo",
+    "sourceManual": "Manual",
+    "sourceAgent": "From chat"
+  },
+  "chat": {
+    "title": "Ask the assistant",
+    "pick": "Who do you want to ask",
+    "placeholder": "Type your question…",
+    "send": "Send",
+    "suggestions": "Try asking",
+    "draftSent": "Sent to your coach to approve",
+    "foodLogged": "Added to today's food",
+    "disclaimer": "The assistant answers and logs your food, but never changes your program — that is the coach's call."
+  },
+  "photos": {
+    "title": "Progress photos",
+    "add": "Add photo",
+    "empty": "No photos yet",
+    "private": "Your photos are private — nobody sees them but you",
+    "shareWithCoach": "Share with coach",
+    "shared": "Shared with coach",
+    "unshare": "Stop sharing",
+    "delete": "Delete"
   }
 }

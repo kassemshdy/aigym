@@ -1,5 +1,8 @@
+import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Card, CardTitle } from '@/components/ui/Card'
+import { buttonClass } from '@/components/ui/Button'
+import { Icon } from '@/components/ui/Icon'
 import { Sparkline } from '@/components/ui/Sparkline'
 import { Empty, Page } from '@/components/ui/Page'
 import { currentMemberId, findMember, planForMember } from '@/mocks/data'
@@ -48,6 +51,11 @@ export function MemberProgress() {
           </span>
         </div>
       </Card>
+
+      <Link to="/member/photos" className={buttonClass('secondary', 'lg', true)}>
+        <Icon name="camera" />
+        {t('photos.title')}
+      </Link>
 
       {plan ? (
         <Card>

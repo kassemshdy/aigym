@@ -20,7 +20,8 @@ const TABS: Record<string, (t: (k: string) => string) => Tab[]> = {
   ],
   member: (t) => [
     { to: '/member', icon: 'dumbbell', label: t('nav.workout') },
-    { to: '/member/videos', icon: 'play', label: t('nav.videos') },
+    { to: '/member/food', icon: 'camera', label: t('nav.food') },
+    { to: '/member/chat', icon: 'chat', label: t('nav.chat') },
     { to: '/member/progress', icon: 'chart', label: t('nav.progress') },
     { to: '/member/profile', icon: 'user', label: t('nav.profile') },
   ],
@@ -74,12 +75,12 @@ export function AppShell() {
         </nav>
       </header>
 
-      <main className="flex-1 overflow-y-auto pb-24">
+      <main className="flex-1 overflow-y-auto">
         <Outlet />
       </main>
 
-      <nav className="bg-surface border-line fixed inset-x-0 bottom-0 z-10 mx-auto max-w-6xl border-t">
-        <div className="flex">
+      <nav className="bg-surface border-line fixed inset-x-0 bottom-0 z-10 mx-auto max-w-6xl border-t pb-[env(safe-area-inset-bottom)]">
+        <div className="flex h-nav">
           {tabs.map((tab) => (
             <NavLink
               key={tab.to}
@@ -87,7 +88,7 @@ export function AppShell() {
               end={tab.to === `/${role}`}
               className={({ isActive }) =>
                 cn(
-                  'min-h-tap-lg flex flex-1 flex-col items-center justify-center gap-1 px-1 pb-[env(safe-area-inset-bottom)] text-center text-[11px] font-semibold leading-tight',
+                  'flex h-full flex-1 flex-col items-center justify-center gap-1 px-1 text-center text-[11px] font-semibold leading-tight',
                   isActive ? 'text-ink' : 'text-muted',
                 )
               }

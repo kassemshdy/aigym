@@ -1,10 +1,13 @@
+import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Card, CardTitle } from '@/components/ui/Card'
+import { Button } from '@/components/ui/Button'
 import { StatusBadge } from '@/components/ui/Badge'
 import { Avatar } from '@/components/ui/Avatar'
 import { Row } from '@/components/ui/Field'
 import { Empty, Page } from '@/components/ui/Page'
 import { currentMemberId, findMember, findPlan, gym } from '@/mocks/data'
+import { useStore } from '@/state/store'
 import { shortDate, usd } from '@/lib/format'
 import type { Lang } from '@/i18n'
 
@@ -12,6 +15,8 @@ export function MemberProfile() {
   const { t, i18n } = useTranslation()
   const lang = i18n.language as Lang
   const me = findMember(currentMemberId)
+  const navigate = useNavigate()
+  const { actions } = useStore()
 
   if (!me) return <Page><Empty>{t('common.none')}</Empty></Page>
 
@@ -57,6 +62,18 @@ export function MemberProfile() {
         <Row label={t('manager.member.daysPerWeek')} value={me.daysPerWeek} />
         <Row label={t('manager.member.sleep')} value={me.sleepHours} />
       </Card>
+
+      <Button
+        variant="secondary"
+        size="lg"
+        full
+        onClick={() => {
+          actions.signOut()
+          navigate('/login')
+        }}
+      >
+        {t('member.profile.signOut')}
+      </Button>
     </Page>
   )
 }

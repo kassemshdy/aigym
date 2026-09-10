@@ -103,3 +103,40 @@ export interface AiDraft {
   status: 'pending' | 'approved' | 'rejected'
   createdAt: string
 }
+
+export type FoodSource = 'photo' | 'manual' | 'agent'
+
+export interface FoodEntry {
+  id: string
+  at: string
+  label: string
+  kcal: number
+  protein: number
+  carbs: number
+  fat: number
+  source: FoodSource
+  /** Data URL of the meal photo, when the entry came from the camera. */
+  photo?: string
+}
+
+export interface ProgressPhoto {
+  id: string
+  at: string
+  url: string
+  /**
+   * Progress photos are private to the member. The coach sees one only when the
+   * member shares that specific photo. Default is always false.
+   */
+  sharedWithCoach: boolean
+}
+
+export type AgentId = 'nutrition' | 'training'
+
+export interface ChatMessage {
+  id: string
+  role: 'member' | 'agent'
+  text: string
+  at: string
+  /** Set when the reply had a side effect worth showing in the transcript. */
+  note?: 'food_logged' | 'draft_sent'
+}
