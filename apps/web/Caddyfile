@@ -1,0 +1,42 @@
+{
+	admin off # no admin api needed in railway's environment
+	persist_config off # storage isn't persistent anyway
+	auto_https off # railway terminates tls; leaving this on breaks the deploy
+	log {
+		format json
+	}
+	servers {
+		trusted_proxies static private_ranges 100.0.0.0/8 # trust railway's proxy
+	}
+}
+
+# railway assigns $PORT at runtime
+:{$PORT:3000} {
+	log {
+		format json
+	}
+
+	root * dist
+	encode gzip zstd
+
+	# real health endpoint — does not depend on the app rendering
+	handle /health {
+		respond "ok" 200
+	}
+
+	# vite content-hashes everything in /assets, so it can be cached forever
+	@assets path /assets/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+
+	# Everything else resolves to index.html, so it must never be cached — a stale shell
+	# points at hashed assets that no longer exist, which is a white screen after a redeploy.
+	# Matching on the path (not "/index.html") is what covers "/" and every deep link.
+	@html not path /assets/*
+	header @html Cache-Control "no-cache"
+
+	# client-side routing: every unknown path is a react-router route, not a 404
+	handle {
+		file_server
+		try_files {path} /index.html
+	}
+}
