@@ -54,6 +54,20 @@ npm run verify
 If you touched layout, also run `scripts/shots.mjs` (see `.agents/skills/setup-dev`) — it
 catches direction and overflow regressions that typecheck cannot.
 
+## How this is served in production
+
+`Dockerfile` (Node builds → Caddy serves `dist/`) and `Caddyfile` sit in this directory, and
+Railway's service root directory points here. Two rules when touching either:
+
+- **Never remove `try_files {path} /index.html`.** Every route except `/` is client-side;
+  without it a refresh or a pasted link 404s.
+- **Never cache the HTML.** `/assets/*` is content-hashed and immutable; everything else is
+  `no-cache`. A stale shell after a redeploy points at assets that no longer exist.
+
+Test both without Docker: `npm run build`, then
+`PORT=8080 caddy run --config Caddyfile --adapter caddyfile`, then curl a deep link. See
+`docs/DEPLOY.md`.
+
 ## Phase 2 boundary
 
 When the API arrives, `src/mocks/` is replaced by a data layer; components keep their

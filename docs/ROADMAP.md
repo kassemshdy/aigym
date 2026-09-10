@@ -10,7 +10,9 @@ Six phases. Each one ends with something you can use, not a layer you cannot see
 layout, docs, GitHub Actions CI running typecheck, the RTL check, translation-key parity,
 build, and the bundle budget.
 
-## Phase 1 — Clickable prototype ✅ done
+## Phase 1 — Clickable prototype ✅ done, deployed
+
+**Live: https://web-production-ca41b.up.railway.app** — see `docs/DEPLOY.md`.
 
 React + Vite + TS + Tailwind, mock data, no backend. Arabic default with RTL, English
 toggle. Eleven screens across three surfaces:

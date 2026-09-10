@@ -118,3 +118,29 @@ This reverses the earlier Arabic-default choice. Nothing else changed: the RTL c
 run in CI, seed content is still bilingual `{ ar, en }` pairs, and a layout that only works
 in English still fails review. Defaulting to English is a starting point, not a demotion of
 Arabic.
+
+## 15. Dockerfile and Caddy on Railway, and no `railway.json`
+
+The web app deploys to Railway as a two-stage Docker build: Node produces `dist/`, Caddy
+serves it. No Node process at runtime.
+
+**No `railway.json`.** Railway's Config as Code is deprecated — existing files stop being read
+on **2026-12-01**, and new services cannot opt into it at all, so a config file added for this
+service would never have been read. Configuration instead lives in the Dockerfile (Railway
+always builds with one when it finds one) and in the service's own settings. Infrastructure as
+Code (`.railway/railway.ts`) is the supported replacement and is worth adopting in Phase 2,
+when there is an API, a worker, Postgres and Redis to describe rather than a single static
+service; it needs the Railway CLI and an interactive login, so it runs from a developer
+machine.
+
+**The SPA fallback is not optional.** 20 client-side routes means a plain static server 404s
+on 19 of them after a refresh or a pasted link — and a link people can open is the entire
+reason to deploy. `try_files {path} /index.html` handles it, and it is verified by curling
+deep links rather than assumed.
+
+**HTML is never cached, assets always are.** Vite content-hashes `/assets`, so those are
+immutable for a year; anything resolving to `index.html` is `no-cache`. Matching that on
+`not path /assets/*` rather than the literal `/index.html` is deliberate: the literal form
+misses `/` and every deep link, and a stale shell surviving a redeploy points at hashed assets
+that no longer exist — a white screen for someone on a bad connection who can least afford to
+debug it.

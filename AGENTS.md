@@ -81,6 +81,18 @@ not a screenshot tool.
   that shows a member's body to anyone. Decision 11.
 - **A food estimate is never logged without the member confirming it.** Decision 12.
 
+## Deploy
+
+Live at **https://web-production-ca41b.up.railway.app** (Railway project `aigym`, service
+`web`, region `europe-west4`). Pushing to `main` redeploys anything under `apps/web/**`.
+
+`apps/web/Dockerfile` builds with Node and serves with Caddy; `apps/web/Caddyfile` carries the
+SPA fallback, the `/health` endpoint, and the cache headers. **There is no `railway.json` and
+there must not be** — Config as Code is deprecated, new services cannot opt into it, and
+existing files stop being read on 2026-12-01. Service settings live on the service.
+
+Full runbook, including how to test the serving layer without Docker: `docs/DEPLOY.md`.
+
 ## Skills
 
 Task-specific guides live in `.agents/skills/<name>/SKILL.md` (`.claude/skills` is a
