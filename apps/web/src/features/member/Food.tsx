@@ -8,6 +8,8 @@ import { Icon } from '@/components/ui/Icon'
 import { Empty, Page } from '@/components/ui/Page'
 import { useStore } from '@/state/store'
 import type { FoodEntry } from '@/mocks/types'
+import { text } from '@/lib/format'
+import type { Lang } from '@/i18n'
 import { cn } from '@/lib/cn'
 
 const DAILY_KCAL = 2100
@@ -19,16 +21,18 @@ const DAILY_PROTEIN = 145
  * either way, because an estimate the member never checks is a number nobody trusts.
  */
 const GUESSES = [
-  { label: 'دجاج مشوي مع رز', kcal: 620, protein: 45, carbs: 68, fat: 14 },
-  { label: 'لبنة مع خبز وزيتون', kcal: 410, protein: 16, carbs: 44, fat: 19 },
-  { label: 'سلطة مع تونة', kcal: 280, protein: 28, carbs: 12, fat: 13 },
-  { label: 'منقوشة زعتر', kcal: 350, protein: 8, carbs: 46, fat: 15 },
+  { label: { ar: 'دجاج مشوي مع رز', en: 'Grilled chicken with rice' }, kcal: 620, protein: 45, carbs: 68, fat: 14 },
+  { label: { ar: 'لبنة مع خبز وزيتون', en: 'Labneh with bread and olives' }, kcal: 410, protein: 16, carbs: 44, fat: 19 },
+  { label: { ar: 'سلطة مع تونة', en: 'Salad with tuna' }, kcal: 280, protein: 28, carbs: 12, fat: 13 },
+  { label: { ar: 'منقوشة زعتر', en: 'Zaatar manqoushe' }, kcal: 350, protein: 8, carbs: 46, fat: 15 },
 ]
 
-type Draft = (typeof GUESSES)[number] & { photo?: string }
+/** Once the member edits the name it is a plain string in their own words. */
+type Draft = { label: string; kcal: number; protein: number; carbs: number; fat: number; photo?: string }
 
 export function MemberFood() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const lang = i18n.language as Lang
   const { state, actions } = useStore()
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -57,7 +61,8 @@ export function MemberFood() {
       setAnalyzing(true)
       // Stands in for the round trip to the vision model.
       setTimeout(() => {
-        setDraft({ ...GUESSES[Math.floor(Math.random() * GUESSES.length)], photo })
+        const guess = GUESSES[Math.floor(Math.random() * GUESSES.length)]
+        setDraft({ ...guess, label: guess.label[lang], photo })
         setPortion(1)
         setAnalyzing(false)
       }, 1200)
@@ -235,7 +240,8 @@ export function MemberFood() {
 }
 
 function FoodRow({ entry, onRemove }: { entry: FoodEntry; onRemove: () => void }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const lang = i18n.language as Lang
   const sourceKey = { photo: 'sourcePhoto', manual: 'sourceManual', agent: 'sourceAgent' } as const
 
   return (
@@ -248,7 +254,7 @@ function FoodRow({ entry, onRemove }: { entry: FoodEntry; onRemove: () => void }
         </span>
       )}
       <span className="min-w-0 flex-1">
-        <span className="block truncate font-semibold">{entry.label}</span>
+        <span className="block truncate font-semibold">{text(entry.label, lang)}</span>
         <span className="text-muted block text-xs">
           <bdi className="tnum">{entry.at}</bdi> · {t(`food.${sourceKey[entry.source]}`)}
         </span>

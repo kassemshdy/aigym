@@ -5,7 +5,7 @@ import { buttonClass } from '@/components/ui/Button'
 import { Icon } from '@/components/ui/Icon'
 import { Empty, Page } from '@/components/ui/Page'
 import { currentMemberId, findMember, gym, planForMember } from '@/mocks/data'
-import { shortDate } from '@/lib/format'
+import { shortDate, text } from '@/lib/format'
 import type { Lang } from '@/i18n'
 
 export function MemberToday() {
@@ -39,7 +39,7 @@ export function MemberToday() {
                   <span className="block truncate font-semibold">{e.name[lang]}</span>
                   <span className="text-muted block text-sm">
                     <bdi className="tnum">
-                      {e.sets} × {e.reps}
+                      {e.sets} × {text(e.reps, lang)}
                     </bdi>
                     {e.lastWeightKg ? (
                       <bdi className="tnum">

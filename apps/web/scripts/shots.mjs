@@ -49,7 +49,7 @@ const browser = await chromium.launch({
 })
 const errors = []
 
-for (const lang of ['ar', 'en']) {
+for (const lang of ['en', 'ar']) {
   for (const [name, path, size, prepare] of SCREENS) {
     const ctx = await browser.newContext({ viewport: SIZES[size], deviceScaleFactor: 2 })
     const page = await ctx.newPage()

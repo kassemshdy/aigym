@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/Button'
 import { Avatar } from '@/components/ui/Avatar'
 import { Icon } from '@/components/ui/Icon'
 import { Empty, Page } from '@/components/ui/Page'
-import { aiDrafts, findMember } from '@/mocks/data'
+import { aiDrafts, findMember, memberName } from '@/mocks/data'
 import type { AiDraft } from '@/mocks/types'
 import type { Lang } from '@/i18n'
 
@@ -36,9 +36,9 @@ export function CoachAiDrafts() {
         return (
           <Card key={d.id} className="p-4">
             <div className="flex items-center gap-3">
-              {m ? <Avatar name={m.name} /> : null}
+              {m ? <Avatar name={memberName(m, lang)} /> : null}
               <div className="min-w-0 flex-1">
-                <p className="truncate font-bold">{m ? (lang === 'ar' ? m.name : m.nameEn) : ''}</p>
+                <p className="truncate font-bold">{m ? memberName(m, lang) : ''}</p>
                 <p className="text-muted text-xs font-semibold">{t(`aiKind.${d.kind}`)}</p>
               </div>
             </div>

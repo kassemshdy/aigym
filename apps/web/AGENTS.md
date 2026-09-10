@@ -9,7 +9,7 @@ src/
 ├── main.tsx            entry — router, i18n, styles
 ├── App.tsx             the whole route tree
 ├── index.css           @theme tokens; the only place colours are defined
-├── i18n/               ar.json (write first), en.json, index.ts (sets <html dir>)
+├── i18n/               en.json (default), ar.json, index.ts (sets <html lang/dir>)
 ├── lib/                format.ts (usd, dates, mmss), whatsapp.ts, cn.ts
 ├── mocks/              types.ts + data.ts — replaced by API calls in Phase 2
 ├── components/
@@ -33,7 +33,8 @@ coach), never a program change.
 ## Conventions
 
 - One screen per file, exported as a named component; routes are wired only in `App.tsx`.
-- Bilingual content in mocks is `{ ar, en }` and read as `field[lang]`.
+- Bilingual content in mocks is `{ ar, en }`, read through `text(value, lang)` from
+  `lib/format.ts` — which also accepts a plain string for anything a member typed.
 - `lang` comes from `i18n.language as Lang`. Use it to pick **content**, never to pick a
   side or a direction — see `.agents/skills/i18n-rtl`.
 - Money renders through `usd()` in `lib/format.ts`. Never format a currency inline.

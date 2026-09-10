@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Card } from '@/components/ui/Card'
 import { Avatar } from '@/components/ui/Avatar'
 import { Page } from '@/components/ui/Page'
-import { findMember, payments } from '@/mocks/data'
+import { findMember, memberName, payments } from '@/mocks/data'
 import { shortDate, usd } from '@/lib/format'
 import type { Lang } from '@/i18n'
 
@@ -25,9 +25,9 @@ export function ManagerPayments() {
                   to={`/manager/members/${m.id}`}
                   className="border-line flex items-center gap-3 border-b px-4 py-3 last:border-0"
                 >
-                  <Avatar name={m.name} />
+                  <Avatar name={memberName(m, lang)} />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-semibold">{lang === 'ar' ? m.name : m.nameEn}</span>
+                    <span className="block truncate font-semibold">{memberName(m, lang)}</span>
                     <span className="text-muted block text-xs">
                       {shortDate(p.at, lang)} · {t(`manager.payments.${p.method}`)}
                     </span>

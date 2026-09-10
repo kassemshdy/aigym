@@ -1,5 +1,17 @@
 import type { Lang } from '@/i18n'
 
+/**
+ * Content is either a plain string (a member typed it, so it is already in their
+ * language) or a bilingual pair from seed data. `text()` resolves both.
+ */
+export type Text = string | { ar: string; en: string }
+
+export const text = (value: Text, lang: Lang) =>
+  typeof value === 'string' ? value : value[lang]
+
+/** Arabic separates list items with an Arabic comma, not a Latin one. */
+export const listSep = (lang: Lang) => (lang === 'ar' ? '، ' : ', ')
+
 /** USD only — one currency, no rate, no conversion. See docs/DECISIONS.md. */
 export const usd = (n: number) => `$${n.toLocaleString('en-US')}`
 

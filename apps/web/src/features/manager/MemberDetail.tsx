@@ -8,8 +8,8 @@ import { Row } from '@/components/ui/Field'
 import { Sparkline } from '@/components/ui/Sparkline'
 import { Icon } from '@/components/ui/Icon'
 import { Empty, Page } from '@/components/ui/Page'
-import { findMember, findPlan, gym, payments } from '@/mocks/data'
-import { shortDate, usd } from '@/lib/format'
+import { findMember, findPlan, gym, memberName, payments } from '@/mocks/data'
+import { listSep, shortDate, text, usd } from '@/lib/format'
 import { waLink } from '@/lib/whatsapp'
 import type { Lang } from '@/i18n'
 
@@ -21,7 +21,7 @@ export function ManagerMemberDetail() {
 
   if (!m) return <Page><Empty>{t('common.none')}</Empty></Page>
 
-  const name = lang === 'ar' ? m.name : m.nameEn
+  const name = memberName(m, lang)
   const message =
     m.status === 'due'
       ? t('whatsapp.dues', { name, gym: gym.name[lang], amount: m.owedUsd })
@@ -35,7 +35,7 @@ export function ManagerMemberDetail() {
 
       <Card className="p-4">
         <div className="flex items-center gap-3">
-          <Avatar name={m.name} size="lg" />
+          <Avatar name={memberName(m, lang)} size="lg" />
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-lg font-extrabold">{name}</h1>
             <p className="text-muted tnum text-sm" dir="ltr">{m.phone}</p>
@@ -75,7 +75,7 @@ export function ManagerMemberDetail() {
         <Row label={t('manager.member.bodyFat')} value={m.bodyFat ? `${m.bodyFat}%` : '—'} />
         <Row
           label={t('manager.member.injuries')}
-          value={m.injuries.length ? m.injuries.join('، ') : t('manager.member.noInjuries')}
+          value={m.injuries.length ? m.injuries.map((i) => text(i, lang)).join(listSep(lang)) : t('manager.member.noInjuries')}
         />
         <div className="flex items-center justify-between gap-3 px-4 py-3">
           <span className="text-muted text-sm">{t('manager.member.weightHistory')}</span>

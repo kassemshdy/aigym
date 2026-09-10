@@ -6,15 +6,25 @@ import { buttonClass } from '@/components/ui/Button'
 import { Avatar } from '@/components/ui/Avatar'
 import { Icon } from '@/components/ui/Icon'
 import { Empty, Page } from '@/components/ui/Page'
-import { findMember, nutrition, planForMember } from '@/mocks/data'
+import { findMember, memberName, nutrition, planForMember } from '@/mocks/data'
 import type { CalorieBand } from '@/mocks/types'
 import type { Lang } from '@/i18n'
+import { listSep, text } from '@/lib/format'
 import { cn } from '@/lib/cn'
 
 const BANDS: CalorieBand[] = ['low', 'ok', 'high', 'unknown']
 
 /** Tapped, not typed. Exact calories are optional and almost never entered on the floor. */
-const QUICK_MEALS = ['بيض', 'خبز', 'دجاج', 'رز', 'لبنة', 'سلطة', 'قهوة', 'موز']
+const QUICK_MEALS = [
+  { ar: 'بيض', en: 'Eggs' },
+  { ar: 'خبز', en: 'Bread' },
+  { ar: 'دجاج', en: 'Chicken' },
+  { ar: 'رز', en: 'Rice' },
+  { ar: 'لبنة', en: 'Labneh' },
+  { ar: 'سلطة', en: 'Salad' },
+  { ar: 'قهوة', en: 'Coffee' },
+  { ar: 'موز', en: 'Banana' },
+]
 
 export function CoachMemberCard() {
   const { id = '' } = useParams()
@@ -39,9 +49,9 @@ export function CoachMemberCard() {
 
       <Card className="p-4">
         <div className="flex items-center gap-4">
-          <Avatar name={m.name} size="lg" />
+          <Avatar name={memberName(m, lang)} size="lg" />
           <div className="min-w-0">
-            <h1 className="truncate text-xl font-extrabold">{lang === 'ar' ? m.name : m.nameEn}</h1>
+            <h1 className="truncate text-xl font-extrabold">{memberName(m, lang)}</h1>
             <p className="text-muted text-sm">
               {t(`goal.${m.goal}`)} · {t(`level.${m.level}`)}
             </p>
@@ -60,7 +70,7 @@ export function CoachMemberCard() {
 
         {m.injuries.length > 0 ? (
           <p className="bg-soon-bg text-soon mt-2 rounded-xl px-4 py-3 text-center text-sm font-bold">
-            {t('manager.member.injuries')}: {m.injuries.join('، ')}
+            {t('manager.member.injuries')}: {m.injuries.map((i) => text(i, lang)).join(listSep(lang))}
           </p>
         ) : null}
       </Card>
@@ -88,19 +98,19 @@ export function CoachMemberCard() {
           <div className="flex flex-wrap gap-2">
             {QUICK_MEALS.map((meal) => (
               <button
-                key={meal}
+                key={meal.en}
                 type="button"
                 onClick={() =>
                   setMeals((prev) =>
-                    prev.includes(meal) ? prev.filter((x) => x !== meal) : [...prev, meal],
+                    prev.includes(meal.en) ? prev.filter((x) => x !== meal.en) : [...prev, meal.en],
                   )
                 }
                 className={cn(
                   'min-h-11 rounded-full px-4 text-sm font-semibold',
-                  meals.includes(meal) ? 'bg-ink text-white' : 'border border-line bg-surface',
+                  meals.includes(meal.en) ? 'bg-ink text-white' : 'border border-line bg-surface',
                 )}
               >
-                {meal}
+                {meal[lang]}
               </button>
             ))}
           </div>
@@ -130,7 +140,7 @@ export function CoachMemberCard() {
                   <span className="font-semibold">{e.name[lang]}</span>
                   <span className="text-muted text-sm">
                     <bdi className="tnum">
-                      {e.sets} × {e.reps}
+                      {e.sets} × {text(e.reps, lang)}
                     </bdi>
                     {e.lastWeightKg ? (
                       <bdi className="tnum">

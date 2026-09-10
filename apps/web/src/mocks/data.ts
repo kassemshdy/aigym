@@ -1,3 +1,4 @@
+import type { Lang } from '@/i18n'
 import type {
   AiDraft,
   CheckIn,
@@ -26,7 +27,7 @@ export const members: Member[] = [
     id: 'm1', name: 'رامي حداد', nameEn: 'Rami Haddad', phone: '+96170123456',
     planId: 'p1', joinedAt: '2025-11-02', endsAt: '2026-09-08', status: 'due', owedUsd: 35,
     lastVisit: '2026-09-08', goal: 'lose', level: 'mid', heightCm: 178, weightKg: 92,
-    bodyFat: 26, injuries: ['أسفل الظهر'], daysPerWeek: 3, job: 'desk', sleepHours: 6,
+    bodyFat: 26, injuries: [{ ar: 'أسفل الظهر', en: 'Lower back' }], daysPerWeek: 3, job: 'desk', sleepHours: 6,
     weightTrend: [98, 97, 96, 95, 94, 93, 92],
   },
   {
@@ -47,14 +48,14 @@ export const members: Member[] = [
     id: 'm4', name: 'مايا شمعون', nameEn: 'Maya Chamoun', phone: '+96103445566',
     planId: 'p1', joinedAt: '2026-08-01', endsAt: '2026-09-01', status: 'due', owedUsd: 35,
     lastVisit: '2026-08-29', goal: 'health', level: 'new', heightCm: 170, weightKg: 68,
-    bodyFat: 29, injuries: ['ركبة يمين'], daysPerWeek: 2, job: 'shift', sleepHours: 5,
+    bodyFat: 29, injuries: [{ ar: 'ركبة يمين', en: 'Right knee' }], daysPerWeek: 2, job: 'shift', sleepHours: 5,
     weightTrend: [69, 69, 69, 68, 68, 68, 68],
   },
   {
     id: 'm5', name: 'علي حمدان', nameEn: 'Ali Hamdan', phone: '+96181220034',
     planId: 'pt', joinedAt: '2026-05-20', endsAt: '2026-09-20', status: 'paid', owedUsd: 0,
     lastVisit: '2026-09-10', goal: 'strength', level: 'strong', heightCm: 175, weightKg: 84,
-    bodyFat: 16, injuries: ['كتف يسار'], daysPerWeek: 5, job: 'active', sleepHours: 7,
+    bodyFat: 16, injuries: [{ ar: 'كتف يسار', en: 'Left shoulder' }], daysPerWeek: 5, job: 'active', sleepHours: 7,
     weightTrend: [82, 82, 83, 83, 83, 84, 84],
   },
   {
@@ -104,7 +105,7 @@ export const dayPlans: DayPlan[] = [
       { id: 'e1', name: { ar: 'بنش برس', en: 'Bench Press' }, sets: 4, reps: '8-10', lastWeightKg: 60, videoId: 'v1' },
       { id: 'e2', name: { ar: 'تفتيح دمبل', en: 'Dumbbell Fly' }, sets: 3, reps: '12', lastWeightKg: 12, videoId: 'v2' },
       { id: 'e3', name: { ar: 'ضغط مائل', en: 'Incline Press' }, sets: 3, reps: '10', lastWeightKg: 40, videoId: null },
-      { id: 'e4', name: { ar: 'بلانك', en: 'Plank' }, sets: 3, reps: '45 ثانية', lastWeightKg: null, videoId: 'v3' },
+      { id: 'e4', name: { ar: 'بلانك', en: 'Plank' }, sets: 3, reps: { ar: '45 ثانية', en: '45 sec' }, lastWeightKg: null, videoId: 'v3' },
     ],
   },
   {
@@ -181,6 +182,9 @@ export const aiDrafts: AiDraft[] = [
     },
   },
 ]
+
+/** The one place a member's display name is chosen. Avatars use it too, so initials match. */
+export const memberName = (m: Member, lang: Lang) => (lang === 'ar' ? m.name : m.nameEn)
 
 export const findMember = (id: string) => members.find((m) => m.id === id)
 export const findPlan = (id: string) => plans.find((p) => p.id === id)

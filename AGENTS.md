@@ -32,8 +32,10 @@ the market, not from taste.
    software should need no training.
 4. **Minimal typing for the coach.** Tap, don't type: steppers pre-filled from last
    session, calorie *bands* instead of numbers. Free text is always optional.
-5. **Arabic first.** Arabic is the default language and RTL is the default direction.
-   English is the translation, not the other way around.
+5. **English default, Arabic equal.** English is the default language and LTR the default
+   direction, but Arabic is a first-class language, not a translation bolted on: every RTL
+   rule holds, and seed content ships as `{ ar, en }` pairs. A layout that only works in
+   English is broken.
 
 ## Commands
 
@@ -61,8 +63,10 @@ not a screenshot tool.
 
 - **Never use physical-direction utilities.** `ms-*`/`me-*`/`ps-*`/`pe-*`/`start-*`/`end-*`,
   never `ml-*`/`pl-*`/`left-*`. `npm run rtl` fails the build on these.
-- **Never hard-code user-facing text.** Every string goes through `t()`, with the Arabic
-  key written first.
+- **Never hard-code user-facing text.** Every string goes through `t()`, and every key
+  exists in both `en.json` and `ar.json`.
+- **Never ship single-language seed content.** Data in `src/mocks/` is an `{ ar, en }`
+  pair, read through `text(value, lang)`.
 - **Never wrap mixed Arabic-and-number text in `dir="ltr"`.** Wrap only the numeric run,
   in `<bdi className="tnum">`. Putting an Arabic label inside an LTR run scrambles it.
 - **Green, amber and red are reserved for payment state.** Never decorative.

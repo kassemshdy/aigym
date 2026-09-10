@@ -44,7 +44,7 @@ const initial: State = {
     }
   })(),
   food: [
-    { id: 'f1', at: '08:20', label: 'بيض مع خبز', kcal: 340, protein: 22, carbs: 34, fat: 12, source: 'manual' },
+    { id: 'f1', at: '08:20', label: { ar: 'بيض مع خبز', en: 'Eggs with bread' }, kcal: 340, protein: 22, carbs: 34, fat: 12, source: 'manual' },
   ],
   photos: [],
   chats: { nutrition: [], training: [] },

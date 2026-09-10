@@ -67,7 +67,7 @@ const REPLIES: Record<AgentId, { match: RegExp; reply: AgentReply }[]> = {
           ar: 'سجّلتها: دجاج مشوي مع رز — تقريباً ٦٢٠ سعرة، ٤٥ غ بروتين. ضلّك ٨٠ غ بروتين لليوم.',
           en: "Logged it: grilled chicken with rice — roughly 620 kcal, 45 g protein. You have about 80 g of protein left today.",
         },
-        food: { label: 'دجاج مع رز', kcal: 620, protein: 45, carbs: 68, fat: 14 },
+        food: { label: { ar: 'دجاج مع رز', en: 'Chicken with rice' }, kcal: 620, protein: 45, carbs: 68, fat: 14 },
       },
     },
     {

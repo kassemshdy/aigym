@@ -1,19 +1,22 @@
 ---
 name: i18n-rtl
-description: Adding user-facing text, or building any layout with a direction. Arabic is the default language and RTL the default direction.
+description: Adding user-facing text, or building any layout with a direction. English is the default language; Arabic is fully supported and RTL must keep working.
 ---
 
-# Arabic first, RTL first
+# English default, Arabic equal
 
-Arabic is the product's primary language. English is a translation of it. Write the
-Arabic string first, in **plain Levantine Arabic** — how a gym manager in Beirut talks,
-not Modern Standard translated from an English software phrase. "مين جاي اليوم", not
-"لوحة تحكم الحضور".
+English is the default language and LTR the default direction. **Arabic is not an
+afterthought** — it is a first-class language of the product, and every RTL rule below
+still applies in full. A layout that only works in English is a broken layout.
+
+Write English plainly, and write the Arabic in **plain Levantine Arabic** — how a gym
+manager in Beirut actually talks, not Modern Standard translated word-for-word from the
+English. "مين جاي اليوم", not "لوحة تحكم الحضور".
 
 ## Adding a string
 
-1. Add the key to `src/i18n/ar.json`.
-2. Add the same key to `src/i18n/en.json`. Both files must have identical key sets.
+1. Add the key to `src/i18n/en.json`.
+2. Add the same key to `src/i18n/ar.json`. Both files must have identical key sets.
 3. Use it: `const { t } = useTranslation()` → `t('coach.queue.title')`.
 
 Never put user-facing text directly in JSX. Check parity any time you touch either file:
@@ -30,7 +33,7 @@ console.log('only in en:', en.filter(x=>!ar.includes(x)));
 ## Direction
 
 `src/i18n/index.ts` sets `<html lang>` and `<html dir>` on load and on every language
-change. **Nothing else in the app reads the language to decide a side.** If you find
+change — `ltr` for English, `rtl` for Arabic. **Nothing else in the app reads the language to decide a side.** If you find
 yourself writing `lang === 'ar' ? 'right' : 'left'`, you are working around the layout
 instead of writing it.
 
@@ -70,3 +73,16 @@ Phone numbers, clock times, and money are pure-Latin runs and take plain `dir="l
 
 Charts stay left-to-right in both languages — a time axis that flips with the UI language
 is harder to read, not easier. `Sparkline` handles this itself.
+
+## Seed content is bilingual, member content is not
+
+Anything shipped in `src/mocks/` — exercise names, injuries, suggested meals, food
+estimates — is an `{ ar, en }` pair, resolved with `text(value, lang)` from
+`lib/format.ts`. A single-language string in seed data shows up untranslated in the other
+language, which is the most common way this app breaks.
+
+Anything a member typed is a plain string and stays exactly as they wrote it. `text()`
+accepts both, so a food entry can start as a bilingual estimate and become the member's
+own words once they edit it.
+
+Lists join with `listSep(lang)` — Arabic uses `،`, not `,`.

@@ -6,7 +6,7 @@ import { StatusBadge } from '@/components/ui/Badge'
 import { Avatar } from '@/components/ui/Avatar'
 import { Icon } from '@/components/ui/Icon'
 import { Page } from '@/components/ui/Page'
-import { checkIns, gym, members, payments } from '@/mocks/data'
+import { checkIns, gym, memberName, members, payments } from '@/mocks/data'
 import { usd } from '@/lib/format'
 import { waLink } from '@/lib/whatsapp'
 import type { Lang } from '@/i18n'
@@ -61,16 +61,16 @@ export function ManagerHome() {
         <ul>
           {owing.map((m) => (
             <li key={m.id} className="border-line flex items-center gap-3 border-b px-4 py-3 last:border-0">
-              <Avatar name={m.name} />
+              <Avatar name={memberName(m, lang)} />
               <Link to={`/manager/members/${m.id}`} className="min-w-0 flex-1">
-                <p className="truncate font-semibold">{lang === 'ar' ? m.name : m.nameEn}</p>
+                <p className="truncate font-semibold">{memberName(m, lang)}</p>
                 <p className="text-due tnum text-sm font-bold">{usd(m.owedUsd)}</p>
               </Link>
               <a
                 href={waLink(
                   m.phone,
                   t('whatsapp.dues', {
-                    name: lang === 'ar' ? m.name : m.nameEn,
+                    name: memberName(m, lang),
                     gym: gym.name[lang],
                     amount: m.owedUsd,
                   }),
@@ -96,9 +96,9 @@ export function ManagerHome() {
                 to={`/manager/members/${m.id}`}
                 className="border-line flex items-center gap-3 border-b px-4 py-3 last:border-0"
               >
-                <Avatar name={m.name} />
+                <Avatar name={memberName(m, lang)} />
                 <span className="min-w-0 flex-1 truncate font-semibold">
-                  {lang === 'ar' ? m.name : m.nameEn}
+                  {memberName(m, lang)}
                 </span>
                 <StatusBadge status={m.status} />
               </Link>

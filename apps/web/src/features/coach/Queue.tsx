@@ -5,7 +5,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import { StatusBadge } from '@/components/ui/Badge'
 import { Icon } from '@/components/ui/Icon'
 import { Empty, Page } from '@/components/ui/Page'
-import { checkIns, findMember, planForMember } from '@/mocks/data'
+import { checkIns, findMember, memberName, planForMember } from '@/mocks/data'
 import type { CheckIn } from '@/mocks/types'
 import type { Lang } from '@/i18n'
 
@@ -39,10 +39,10 @@ export function CoachQueue() {
                         to={`/coach/member/${m.id}`}
                         className="border-line flex min-h-tap-lg items-center gap-4 border-b px-4 py-3 last:border-0"
                       >
-                        <Avatar name={m.name} size="lg" />
+                        <Avatar name={memberName(m, lang)} size="lg" />
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-lg font-bold">
-                            {lang === 'ar' ? m.name : m.nameEn}
+                            {memberName(m, lang)}
                           </span>
                           <span className="text-muted block truncate text-sm">
                             {plan ? plan.title[lang] : t('coach.card.noPlan')}

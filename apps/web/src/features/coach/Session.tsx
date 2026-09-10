@@ -6,9 +6,9 @@ import { Button, buttonClass } from '@/components/ui/Button'
 import { Stepper } from '@/components/ui/Stepper'
 import { Icon } from '@/components/ui/Icon'
 import { Empty, Page } from '@/components/ui/Page'
-import { findMember, planForMember } from '@/mocks/data'
+import { findMember, memberName, planForMember } from '@/mocks/data'
 import type { LoggedSet } from '@/mocks/types'
-import { mmss } from '@/lib/format'
+import { mmss, text } from '@/lib/format'
 import type { Lang } from '@/i18n'
 import { cn } from '@/lib/cn'
 
@@ -53,7 +53,7 @@ export function CoachSession() {
 
   if (finished) {
     return (
-      <Page title={t('coach.session.summary')} sub={lang === 'ar' ? member.name : member.nameEn}>
+      <Page title={t('coach.session.summary')} sub={memberName(member, lang)}>
         <div className="grid grid-cols-2 gap-3">
           <Card className="p-4">
             <p className="tnum text-3xl font-extrabold">{logged.length}</p>
@@ -95,7 +95,7 @@ export function CoachSession() {
     <Page>
       <div className="flex items-center justify-between gap-3">
         <Link to={`/coach/member/${member.id}`} className="text-muted text-sm font-semibold">
-          ← {lang === 'ar' ? member.name : member.nameEn}
+          ← {memberName(member, lang)}
         </Link>
         <span className="tnum text-muted text-sm" dir="ltr">
           {idx + 1} / {exercises.length}
@@ -117,7 +117,7 @@ export function CoachSession() {
         <h1 className="text-xl font-extrabold">{current.name[lang]}</h1>
         <p className="text-muted text-sm">
           <bdi className="tnum">
-            {current.sets} × {current.reps}
+            {current.sets} × {text(current.reps, lang)}
           </bdi>
           {current.lastWeightKg ? (
             <>

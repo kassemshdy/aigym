@@ -15,7 +15,7 @@ function initialLang(): Lang {
   } catch {
     /* private mode — fall through to the default */
   }
-  return 'ar'
+  return 'en'
 }
 
 /** The whole app mirrors from this one attribute; no component reads the language to pick sides. */
@@ -33,7 +33,7 @@ export function applyDir(lang: Lang) {
 void i18n.use(initReactI18next).init({
   resources: { ar: { translation: ar }, en: { translation: en } },
   lng: initialLang(),
-  fallbackLng: 'ar',
+  fallbackLng: 'en',
   interpolation: { escapeValue: false },
 })
 

@@ -6,9 +6,9 @@ import { StatusBadge } from '@/components/ui/Badge'
 import { Avatar } from '@/components/ui/Avatar'
 import { Row } from '@/components/ui/Field'
 import { Empty, Page } from '@/components/ui/Page'
-import { currentMemberId, findMember, findPlan, gym } from '@/mocks/data'
+import { currentMemberId, findMember, findPlan, gym, memberName } from '@/mocks/data'
 import { useStore } from '@/state/store'
-import { shortDate, usd } from '@/lib/format'
+import { listSep, shortDate, text, usd } from '@/lib/format'
 import type { Lang } from '@/i18n'
 
 export function MemberProfile() {
@@ -26,9 +26,9 @@ export function MemberProfile() {
     <Page title={t('member.profile.title')}>
       <Card className="p-4">
         <div className="flex items-center gap-4">
-          <Avatar name={me.name} size="lg" />
+          <Avatar name={memberName(me, lang)} size="lg" />
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-lg font-extrabold">{lang === 'ar' ? me.name : me.nameEn}</h1>
+            <h1 className="truncate text-lg font-extrabold">{memberName(me, lang)}</h1>
             <p className="text-muted text-sm">{gym.name[lang]}</p>
           </div>
           <StatusBadge status={me.status} big />
@@ -51,7 +51,7 @@ export function MemberProfile() {
         <Row label={t('manager.member.bodyFat')} value={me.bodyFat ? `${me.bodyFat}%` : '—'} />
         <Row
           label={t('manager.member.injuries')}
-          value={me.injuries.length ? me.injuries.join('، ') : t('manager.member.noInjuries')}
+          value={me.injuries.length ? me.injuries.map((i) => text(i, lang)).join(listSep(lang)) : t('manager.member.noInjuries')}
         />
       </Card>
 

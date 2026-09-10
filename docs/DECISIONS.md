@@ -108,3 +108,13 @@ difference between what the model guessed and what the member corrected.
 
 Most members here do not use email, and a password is one more thing to forget at the
 door. The code goes over WhatsApp, which everyone already has open.
+
+## 14. English is the default language, Arabic is equal
+
+The app opens in English and LTR. Arabic remains fully supported — same key coverage, same
+RTL layout rules, same plain-Levantine wording — and the toggle is one tap in the header.
+
+This reverses the earlier Arabic-default choice. Nothing else changed: the RTL checks still
+run in CI, seed content is still bilingual `{ ar, en }` pairs, and a layout that only works
+in English still fails review. Defaulting to English is a starting point, not a demotion of
+Arabic.

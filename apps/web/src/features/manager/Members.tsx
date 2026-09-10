@@ -6,7 +6,7 @@ import { Chip, StatusBadge } from '@/components/ui/Badge'
 import { Avatar } from '@/components/ui/Avatar'
 import { Input } from '@/components/ui/Field'
 import { Empty, Page } from '@/components/ui/Page'
-import { findPlan, members } from '@/mocks/data'
+import { findPlan, memberName, members } from '@/mocks/data'
 import type { DuesStatus } from '@/mocks/types'
 import { usd } from '@/lib/format'
 import type { Lang } from '@/i18n'
@@ -55,9 +55,9 @@ export function ManagerMembers() {
                   to={`/manager/members/${m.id}`}
                   className="border-line flex items-center gap-3 border-b px-4 py-3 last:border-0"
                 >
-                  <Avatar name={m.name} />
+                  <Avatar name={memberName(m, lang)} />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-semibold">{lang === 'ar' ? m.name : m.nameEn}</span>
+                    <span className="block truncate font-semibold">{memberName(m, lang)}</span>
                     <span className="text-muted block text-xs">
                       {findPlan(m.planId)?.name[lang]}
                       {m.owedUsd > 0 ? <span className="text-due tnum font-bold"> · {usd(m.owedUsd)}</span> : null}

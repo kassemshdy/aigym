@@ -1,3 +1,5 @@
+import type { Text } from '@/lib/format'
+
 export type Role = 'manager' | 'coach' | 'member'
 
 /** Derived on the server in Phase 2 from end date + latest payment. Never stored. */
@@ -26,7 +28,7 @@ export interface Member {
   heightCm: number
   weightKg: number
   bodyFat: number | null
-  injuries: string[]
+  injuries: Text[]
   daysPerWeek: number
   job: 'desk' | 'active' | 'shift'
   sleepHours: number
@@ -53,7 +55,7 @@ export interface PrescribedExercise {
   id: string
   name: { ar: string; en: string }
   sets: number
-  reps: string
+  reps: Text
   lastWeightKg: number | null
   videoId: string | null
 }
@@ -109,7 +111,7 @@ export type FoodSource = 'photo' | 'manual' | 'agent'
 export interface FoodEntry {
   id: string
   at: string
-  label: string
+  label: Text
   kcal: number
   protein: number
   carbs: number
