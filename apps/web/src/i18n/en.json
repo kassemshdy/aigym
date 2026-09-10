@@ -1,0 +1,226 @@
+{
+  "app": {
+    "name": "AIGym",
+    "poweredBy": "AI assisted"
+  },
+  "role": {
+    "manager": "Manager",
+    "coach": "Coach",
+    "member": "Member"
+  },
+  "common": {
+    "back": "Back",
+    "save": "Save",
+    "cancel": "Cancel",
+    "next": "Next",
+    "search": "Search name or number",
+    "all": "All",
+    "today": "Today",
+    "none": "Nothing here",
+    "add": "Add",
+    "done": "Done",
+    "usd": "$",
+    "kg": "kg",
+    "min": "min",
+    "offline": "No internet",
+    "pendingSync": "{{count}} waiting to sync",
+    "synced": "Everything saved"
+  },
+  "status": {
+    "paid": "Paid",
+    "soon": "Ending soon",
+    "due": "Payment due"
+  },
+  "goal": {
+    "lose": "Lose weight",
+    "gain": "Gain weight",
+    "strength": "Strength",
+    "health": "General health"
+  },
+  "level": {
+    "new": "Beginner",
+    "mid": "Intermediate",
+    "strong": "Advanced"
+  },
+  "job": {
+    "desk": "Desk job",
+    "active": "Active job",
+    "shift": "Shift work"
+  },
+  "manager": {
+    "home": {
+      "title": "Welcome",
+      "cameToday": "Came today",
+      "owes": "Owe money",
+      "endingSoon": "Ending soon",
+      "collected": "Collected this month",
+      "whoOwes": "Who owes money",
+      "seeAll": "See all",
+      "addMember": "Register new member"
+    },
+    "members": {
+      "title": "Members",
+      "count": "{{count}} members",
+      "empty": "No members match this filter"
+    },
+    "member": {
+      "phone": "Phone",
+      "plan": "Plan",
+      "ends": "Ends",
+      "owed": "Owed",
+      "lastVisit": "Last visit",
+      "never": "Never",
+      "whatsapp": "Remind on WhatsApp",
+      "recordPayment": "Record payment",
+      "body": "Body data",
+      "lifestyle": "Lifestyle",
+      "height": "Height",
+      "weight": "Weight",
+      "bodyFat": "Body fat",
+      "injuries": "Injuries",
+      "noInjuries": "None",
+      "daysPerWeek": "Days per week",
+      "sleep": "Sleep hours",
+      "weightHistory": "Weight over time"
+    },
+    "add": {
+      "title": "New member",
+      "step1": "Name and number",
+      "step2": "Plan",
+      "step3": "Body data",
+      "step4": "Lifestyle",
+      "name": "Name",
+      "phone": "Mobile number",
+      "goal": "Their goal",
+      "level": "Their level",
+      "finish": "Register",
+      "created": "Member registered"
+    },
+    "plans": {
+      "title": "Plans",
+      "price": "Price",
+      "duration": "Duration",
+      "days": "{{count}} days"
+    },
+    "payments": {
+      "title": "Payments",
+      "method": "Method",
+      "cash": "Cash",
+      "transfer": "Transfer",
+      "by": "Recorded by"
+    }
+  },
+  "coach": {
+    "queue": {
+      "title": "Who is in today",
+      "waiting": "Waiting",
+      "training": "Training",
+      "done": "Finished",
+      "tap": "Tap a name to start"
+    },
+    "card": {
+      "paidOk": "Membership is fine",
+      "paidDue": "Owes {{amount}}$ — tell the front desk",
+      "todayWorkout": "Today's workout",
+      "askFood": "What they ate today",
+      "foodQuestion": "What did you eat today?",
+      "start": "Start session",
+      "noPlan": "No workout set for today"
+    },
+    "food": {
+      "low": "Ate little",
+      "ok": "Ate well",
+      "high": "Ate a lot",
+      "unknown": "Doesn't remember",
+      "saved": "Saved",
+      "add": "Add a meal"
+    },
+    "session": {
+      "title": "Session",
+      "set": "Set",
+      "reps": "Reps",
+      "weight": "Weight",
+      "rest": "Rest",
+      "restDone": "Rest over",
+      "lastTime": "Last time",
+      "finish": "Finish session",
+      "summary": "Session summary",
+      "totalSets": "Sets",
+      "totalVolume": "Total volume",
+      "note": "Note (optional)"
+    },
+    "ai": {
+      "title": "AI suggestions",
+      "pending": "{{count}} waiting for you",
+      "approve": "Approve",
+      "reject": "Reject",
+      "why": "Why this suggestion",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "empty": "No new suggestions",
+      "notice": "Nothing reaches the member until you approve it"
+    }
+  },
+  "member": {
+    "today": {
+      "title": "Today's workout",
+      "start": "Start",
+      "watch": "Watch video",
+      "rest": "Rest day"
+    },
+    "videos": {
+      "title": "Coach videos",
+      "by": "Recorded by {{coach}}",
+      "views": "{{count}} views",
+      "filterMuscle": "Muscle",
+      "filterEquipment": "Equipment"
+    },
+    "progress": {
+      "title": "My progress",
+      "weight": "Weight",
+      "sessions": "Sessions this month",
+      "streak": "Day streak"
+    },
+    "profile": {
+      "title": "My details",
+      "membership": "My membership",
+      "endsOn": "Ends on"
+    }
+  },
+  "muscle": {
+    "chest": "Chest",
+    "back": "Back",
+    "legs": "Legs",
+    "shoulders": "Shoulders",
+    "arms": "Arms",
+    "core": "Core"
+  },
+  "equipment": {
+    "barbell": "Barbell",
+    "dumbbell": "Dumbbell",
+    "machine": "Machine",
+    "bodyweight": "Bodyweight"
+  },
+  "whatsapp": {
+    "dues": "Hi {{name}}, your membership at {{gym}} has ended and {{amount}}$ is due. See you soon 💪",
+    "expiring": "Hi {{name}}, your membership at {{gym}} ends on {{date}}. Want to renew?",
+    "welcome": "Welcome {{name}}! You're registered at {{gym}}. Check your workout and the coach's videos in the app 💪"
+  },
+  "nav": {
+    "today": "Today",
+    "members": "Members",
+    "plans": "Plans",
+    "payments": "Payments",
+    "queue": "Who is in",
+    "ai": "Suggestions",
+    "workout": "Workout",
+    "videos": "Videos",
+    "progress": "Progress",
+    "profile": "Profile"
+  },
+  "aiKind": {
+    "plan": "Training plan",
+    "nutrition": "Nutrition",
+    "tip": "Tip"
+  }
+}

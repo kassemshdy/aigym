@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - name: RTL check (no physical-direction utilities)
+        run: npm run rtl
+      - name: Translation key parity (ar and en must match)
+        run: |
+          node -e "
+          const k=o=>Object.entries(o).flatMap(([a,b])=>typeof b==='object'?k(b).map(x=>a+'.'+x):[a]);
+          const ar=k(require('./src/i18n/ar.json')), en=k(require('./src/i18n/en.json'));
+          const only=(a,b)=>a.filter(x=>!b.includes(x));
+          const miss=[...only(ar,en),...only(en,ar)];
+          if (miss.length) { console.error('Key mismatch:', miss); process.exit(1); }
+          console.log('Translation keys match:', ar.length);
+          "
+      - run: npm run build
+      - name: Bundle budget (200 KB gzipped)
+        run: npm run budget
