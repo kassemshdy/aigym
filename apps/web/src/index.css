@@ -31,6 +31,18 @@ body,
   height: 100%;
 }
 
+:root {
+  /*
+   * The tab bar is 4rem plus whatever the device reserves below it (home indicator,
+   * Safari's bottom chrome). Anything sitting above the bar measures from this, so a
+   * notched phone cannot hide content behind it.
+   *
+   * Headless browsers report the inset as 0, which is why an overlap here survives the
+   * screenshot suite and only shows up on a real handset. Do not hard-code 4rem.
+   */
+  --nav-total: calc(4rem + env(safe-area-inset-bottom, 0px));
+}
+
 body {
   background: var(--color-canvas);
   color: var(--color-ink);

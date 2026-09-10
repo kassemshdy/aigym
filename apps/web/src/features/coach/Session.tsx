@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Card, CardTitle } from '@/components/ui/Card'
+import { BackLink } from '@/components/ui/BackLink'
 import { Button, buttonClass } from '@/components/ui/Button'
 import { Stepper } from '@/components/ui/Stepper'
 import { Icon } from '@/components/ui/Icon'
@@ -94,9 +95,7 @@ export function CoachSession() {
   return (
     <Page>
       <div className="flex items-center justify-between gap-3">
-        <Link to={`/coach/member/${member.id}`} className="text-muted text-sm font-semibold">
-          ← {memberName(member, lang)}
-        </Link>
+        <BackLink to={`/coach/member/${member.id}`} label={memberName(member, lang)} />
         <span className="tnum text-muted text-sm" dir="ltr">
           {idx + 1} / {exercises.length}
         </span>

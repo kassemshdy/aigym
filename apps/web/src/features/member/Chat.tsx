@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Card } from '@/components/ui/Card'
+import { BackLink } from '@/components/ui/BackLink'
 import { Button } from '@/components/ui/Button'
 import { Icon } from '@/components/ui/Icon'
 import { Page } from '@/components/ui/Page'
@@ -69,9 +70,7 @@ export function MemberChat() {
   return (
     <div className="flex min-h-full flex-col">
       <div className="flex-1 space-y-4 p-4">
-        <Link to="/member/chat" className="text-muted text-sm font-semibold">
-          ← {t('common.back')}
-        </Link>
+        <BackLink to="/member/chat" />
 
         <div className="flex items-center gap-3">
           <span className="bg-ink flex size-11 shrink-0 items-center justify-center rounded-full text-white">
@@ -130,7 +129,7 @@ export function MemberChat() {
         </div>
       </div>
 
-      <div className="bg-surface border-line sticky bottom-nav border-t p-3">
+      <div className="bg-surface border-line sticky bottom-[var(--nav-total)] border-t p-3">
         <form
           className="flex gap-2"
           onSubmit={(e) => {

@@ -79,7 +79,10 @@ export function AppShell() {
         <Outlet />
       </main>
 
-      <nav className="bg-surface border-line fixed inset-x-0 bottom-0 z-10 mx-auto max-w-6xl border-t pb-[env(safe-area-inset-bottom)]">
+      <nav
+        data-tabbar
+        className="bg-surface border-line fixed inset-x-0 bottom-0 z-10 mx-auto max-w-6xl border-t pb-[env(safe-area-inset-bottom)]"
+      >
         <div className="flex h-nav">
           {tabs.map((tab) => (
             <NavLink

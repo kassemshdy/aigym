@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Card, CardTitle } from '@/components/ui/Card'
+import { BackLink } from '@/components/ui/BackLink'
 import { buttonClass } from '@/components/ui/Button'
 import { Avatar } from '@/components/ui/Avatar'
 import { Icon } from '@/components/ui/Icon'
@@ -43,9 +44,7 @@ export function CoachMemberCard() {
 
   return (
     <Page>
-      <Link to="/coach" className="text-muted text-sm font-semibold">
-        ← {t('common.back')}
-      </Link>
+      <BackLink to="/coach" />
 
       <Card className="p-4">
         <div className="flex items-center gap-4">

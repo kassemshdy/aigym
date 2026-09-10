@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 
 export function Page({ title, sub, children }: { title?: string; sub?: string; children: ReactNode }) {
   return (
-    <div className="space-y-4 p-4 pb-[calc(--spacing(nav)+--spacing(6))]">
+    <div className="space-y-4 p-4 pb-[calc(var(--nav-total)+1.5rem)]">
       {title ? (
         <div>
           <h1 className="text-xl font-extrabold">{title}</h1>

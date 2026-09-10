@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Card } from '@/components/ui/Card'
+import { BackLink } from '@/components/ui/BackLink'
 import { Chip } from '@/components/ui/Badge'
 import { Icon } from '@/components/ui/Icon'
 import { Empty, Page } from '@/components/ui/Page'
@@ -82,9 +83,7 @@ export function MemberVideoDetail() {
 
   return (
     <Page>
-      <Link to="/member/videos" className="text-muted text-sm font-semibold">
-        ← {t('common.back')}
-      </Link>
+      <BackLink to="/member/videos" />
       <Card className="overflow-hidden">
         {/* Unlisted embed: zero hosting cost, and the link is the only access control. */}
         <div className="bg-ink aspect-video">

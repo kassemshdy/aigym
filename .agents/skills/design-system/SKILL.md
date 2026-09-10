@@ -25,6 +25,28 @@ two metres away reads the colour before the word — if green ever means "succes
 decorative, that glance becomes unreliable. The brand accent is ink (near-black), which is
 why primary buttons are black.
 
+## The bottom tab bar covers content unless you measure it properly
+
+The bar is `4rem` **plus** `env(safe-area-inset-bottom)` — the home indicator on a notched
+phone, and Safari's bottom chrome. Use the `--nav-total` custom property in `index.css`,
+which is that whole sum:
+
+```css
+padding-bottom: calc(var(--nav-total) + 1.5rem);  /* content clearing the bar */
+bottom: var(--nav-total);                          /* something pinned above the bar */
+```
+
+Never hard-code `4rem` or `--spacing(nav)` for this. **Headless browsers report the inset as
+`0`**, so an overlap looks perfect in the screenshot suite and only appears on a real handset.
+`scripts/shots.mjs` now fakes a 34px inset on phone screens and fails if the last piece of
+content is hidden behind the bar — that check exists because this shipped once.
+
+## Back navigation
+
+Use `BackLink` (`components/ui/BackLink.tsx`). Never write a literal `←`: that character does
+not mirror, so it points *forward* in Arabic. `BackLink` rotates a chevron with
+`rotate-180 rtl:rotate-0` and is a full 48px tap target.
+
 ## Touch targets
 
 `--spacing-tap` = 48px (phone minimum), `--spacing-tap-lg` = 56px (coach iPad). Use

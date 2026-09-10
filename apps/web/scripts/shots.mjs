@@ -74,6 +74,35 @@ for (const lang of ['en', 'ar']) {
     )
     if (overflow) errors.push(`${lang} ${path}: horizontal overflow`)
 
+    // Headless Chromium reports env(safe-area-inset-bottom) as 0, so a tab bar that hides
+    // content on a notched phone looks perfect here. Fake the inset, scroll to the very
+    // bottom, and assert the last piece of content still clears the bar.
+    if (size === 'phone') {
+      await page.addStyleTag({
+        content: ':root{--nav-total:calc(4rem + 34px)} [data-tabbar]{padding-bottom:34px !important}',
+      })
+      const clearance = await page.evaluate(() => {
+        const nav = document.querySelector('[data-tabbar]')
+        const main = document.querySelector('main')
+        if (!nav || !main) return null
+        main.scrollTop = main.scrollHeight
+        const leaves = [...main.querySelectorAll('*')].filter(
+          (el) => el.children.length === 0 && el.textContent.trim() && el.getClientRects().length,
+        )
+        const last = leaves[leaves.length - 1]
+        if (!last) return null
+        return {
+          overlap: Math.round(last.getBoundingClientRect().bottom - nav.getBoundingClientRect().top),
+          text: last.textContent.trim().slice(0, 30),
+        }
+      })
+      if (clearance && clearance.overlap > 1) {
+        errors.push(
+          `${lang} ${path}: tab bar hides content by ${clearance.overlap}px ("${clearance.text}")`,
+        )
+      }
+    }
+
     await page.screenshot({ path: `${OUT}/${name}-${lang}.png`, fullPage: true })
     await ctx.close()
   }

@@ -1,6 +1,7 @@
-import { Link, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Card, CardTitle } from '@/components/ui/Card'
+import { BackLink } from '@/components/ui/BackLink'
 import { buttonClass } from '@/components/ui/Button'
 import { StatusBadge } from '@/components/ui/Badge'
 import { Avatar } from '@/components/ui/Avatar'
@@ -29,9 +30,7 @@ export function ManagerMemberDetail() {
 
   return (
     <Page>
-      <Link to="/manager/members" className="text-muted text-sm font-semibold">
-        ← {t('common.back')}
-      </Link>
+      <BackLink to="/manager/members" />
 
       <Card className="p-4">
         <div className="flex items-center gap-3">
