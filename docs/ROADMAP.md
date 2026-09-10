@@ -12,7 +12,7 @@ build, and the bundle budget.
 
 ## Phase 1 — Clickable prototype ✅ done, deployed
 
-**Live: https://web-production-ca41b.up.railway.app** — see `docs/DEPLOY.md`.
+**Live: https://triple-a.up.railway.app** — see `docs/DEPLOY.md`.
 
 React + Vite + TS + Tailwind, mock data, no backend. Arabic default with RTL, English
 toggle. Eleven screens across three surfaces:

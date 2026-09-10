@@ -83,7 +83,7 @@ not a screenshot tool.
 
 ## Deploy
 
-Live at **https://web-production-ca41b.up.railway.app** (Railway project `aigym`, service
+Live at **https://triple-a.up.railway.app** (Railway project `aigym`, service
 `web`, region `europe-west4`). Pushing to `main` redeploys anything under `apps/web/**`.
 
 `apps/web/Dockerfile` builds with Node and serves with Caddy; `apps/web/Caddyfile` carries the

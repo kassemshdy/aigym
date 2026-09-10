@@ -1,16 +1,23 @@
 # Deploy
 
-The prototype runs on Railway at **https://web-production-ca41b.up.railway.app**
+The prototype runs on Railway at **https://triple-a.up.railway.app**
 
 | | |
 |---|---|
 | Project | `aigym` (workspace PulseX) |
-| Service | `web` |
+| Service | `web` (the Railway API cannot rename a service — cosmetic only, see below) |
 | Region | `europe-west4` — closest of Railway's regions to Lebanon |
 | Source | `kassemshdy/aigym`, branch `main`, root directory `/apps/web` |
 | Build | `apps/web/Dockerfile` — Node builds, Caddy serves |
 | Health | `/health` |
 | Redeploys on | any push to `main` touching `apps/web/**` |
+
+The hostname is a **claimed** service domain, not the auto-generated one. Railway derives
+`<service>-<environment>-<hash>.up.railway.app` from the service name by default, which gave
+`web-production-ca41b` — machine noise, and not something to hand a gym owner. `triple-a` was
+claimed explicitly, so the hostname no longer follows the service name. That is why the
+service is still called `web` on the canvas while the URL reads `triple-a`: renaming a service
+is dashboard-only, and now purely cosmetic.
 
 ## How it serves
 
@@ -99,7 +106,7 @@ the live URL — it asserts correct direction, no overflow and no console errors
 in both languages:
 
 ```bash
-BASE=https://web-production-ca41b.up.railway.app node apps/web/scripts/shots.mjs ./shots
+BASE=https://triple-a.up.railway.app node apps/web/scripts/shots.mjs ./shots
 ```
 
 ## What is deployed
