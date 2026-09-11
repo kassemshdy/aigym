@@ -122,6 +122,67 @@ export function MemberFood() {
         </div>
       </Card>
 
+      {/* Water and supplements: tap counters, never a keyboard. */}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Card className="p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="tnum text-3xl font-extrabold">{state.water}</p>
+              <p className="text-muted mt-1 text-xs font-semibold">{t('food.water')}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                aria-label="-"
+                onClick={() => actions.addWater(-1)}
+                className="border-line size-12 rounded-xl border text-xl font-bold"
+              >
+                −
+              </button>
+              <button
+                type="button"
+                aria-label={t('food.addGlass')}
+                onClick={() => actions.addWater(1)}
+                className="bg-ink size-12 rounded-xl text-xl font-bold text-white"
+              >
+                +
+              </button>
+            </div>
+          </div>
+          <div className="mt-3 flex gap-1">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <span
+                key={i}
+                className={cn('h-2 flex-1 rounded-full', i < state.water ? 'bg-ink' : 'bg-line')}
+              />
+            ))}
+          </div>
+        </Card>
+
+        <Card className="p-4">
+          <p className="text-muted mb-3 text-xs font-semibold">{t('food.supplements')}</p>
+          <div className="space-y-2">
+            {(['protein', 'creatine', 'vitamins'] as const).map((sup) => {
+              const taken = state.supplements.includes(sup)
+              return (
+                <button
+                  key={sup}
+                  type="button"
+                  onClick={() => actions.toggleSupplement(sup)}
+                  className={cn(
+                    'min-h-tap flex w-full items-center justify-between rounded-xl px-4 text-sm font-bold',
+                    taken ? 'bg-paid-bg text-paid' : 'border border-line bg-surface',
+                  )}
+                >
+                  {t(`food.${sup}`)}
+                  {taken ? <Icon name="check" size={18} /> : null}
+                </button>
+              )
+            })}
+          </div>
+        </Card>
+      </div>
+
       {analyzing ? (
         <Card className="p-6 text-center">
           <p className="font-semibold">{t('food.analyzing')}</p>
@@ -191,7 +252,7 @@ export function MemberFood() {
 
       {!draft && !analyzing ? (
         <div className="grid grid-cols-2 gap-2">
-          <Button size="lg" onClick={() => fileRef.current?.click()}>
+          <Button variant="brand" size="lg" onClick={() => fileRef.current?.click()}>
             <Icon name="camera" />
             {t('food.addPhoto')}
           </Button>

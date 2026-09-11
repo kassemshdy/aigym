@@ -3,6 +3,16 @@
 @theme {
   --font-sans: 'IBM Plex Sans Arabic', 'Inter', ui-sans-serif, system-ui, sans-serif;
 
+  /*
+   * Triple A Gym brand: black and high-vis yellow, sampled from the gym's own flyers
+   * (#F9E54C appears on both). Yellow is an IDENTITY colour — chrome, the logo, and the
+   * single most important action on a screen. It is never a status.
+   */
+  --color-brand: #f9e54c;
+  --color-brand-dim: #d9c327;
+  --color-chrome: #0d0d0d;
+  --color-chrome-soft: #1b1b1b;
+
   /* Surfaces */
   --color-ink: #0b0f14;
   --color-ink-soft: #1c242e;
@@ -31,17 +41,16 @@ body,
   height: 100%;
 }
 
-:root {
-  /*
-   * The tab bar is 4rem plus whatever the device reserves below it (home indicator,
-   * Safari's bottom chrome). Anything sitting above the bar measures from this, so a
-   * notched phone cannot hide content behind it.
-   *
-   * Headless browsers report the inset as 0, which is why an overlap here survives the
-   * screenshot suite and only shows up on a real handset. Do not hard-code 4rem.
-   */
-  --nav-total: calc(4rem + env(safe-area-inset-bottom, 0px));
+/*
+ * The shell is h-dvh and the tab bar is a flex child, not fixed. Safari's collapsing
+ * address bar changes the visual viewport; height:100% resolves against the stale value,
+ * which used to leave the bar floating mid-screen with the page scrolling behind it.
+ * Nothing here is positioned, so there is nothing left to mis-position.
+ */
+body {
+  overscroll-behavior: none;
 }
+
 
 body {
   background: var(--color-canvas);

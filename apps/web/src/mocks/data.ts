@@ -1,6 +1,12 @@
 import type { Lang } from '@/i18n'
 import type {
   AiDraft,
+  AttendanceDay,
+  Booking,
+  Coach,
+  GymClass,
+  Machine,
+  SessionFeedback,
   CheckIn,
   DayPlan,
   Member,
@@ -23,6 +29,13 @@ export const plans: Plan[] = [
 ]
 
 export const members: Member[] = [
+  {
+    id: 'm0', name: 'قاسم شحادي', nameEn: 'Kassem Shehady', phone: '+96170622211',
+    planId: 'pt', joinedAt: '2026-03-02', endsAt: '2026-10-02', status: 'paid', owedUsd: 0,
+    lastVisit: '2026-09-10', goal: 'strength', level: 'mid', heightCm: 177, weightKg: 80,
+    bodyFat: 19, injuries: [], daysPerWeek: 3, job: 'desk', sleepHours: 7,
+    weightTrend: [84, 83, 83, 82, 81, 81, 80],
+  },
   {
     id: 'm1', name: 'رامي حداد', nameEn: 'Rami Haddad', phone: '+96170123456',
     planId: 'p1', joinedAt: '2025-11-02', endsAt: '2026-09-08', status: 'due', owedUsd: 35,
@@ -99,31 +112,41 @@ export const checkIns: CheckIn[] = [
 
 export const dayPlans: DayPlan[] = [
   {
+    memberId: 'm0',
+    title: { ar: 'دفع — صدر وكتف', en: 'Push — Chest and Shoulders' },
+    exercises: [
+      { id: 'k1', name: { ar: 'بنش برس', en: 'Bench Press' }, sets: 4, reps: '6-8', lastWeightKg: 70, videoId: 'v1', machineId: 'mc-bench' },
+      { id: 'k2', name: { ar: 'ضغط كتف بالدمبل', en: 'Dumbbell Shoulder Press' }, sets: 3, reps: '10', lastWeightKg: 22, videoId: 'v8', machineId: 'mc-dumbbell' },
+      { id: 'k3', name: { ar: 'تفتيح كابل', en: 'Cable Fly' }, sets: 3, reps: '12', lastWeightKg: 20, videoId: 'v2', machineId: 'mc-cable' },
+      { id: 'k4', name: { ar: 'بلانك', en: 'Plank' }, sets: 3, reps: { ar: '45 ثانية', en: '45 sec' }, lastWeightKg: null, videoId: 'v3', machineId: 'mc-floor' },
+    ],
+  },
+  {
     memberId: 'm1',
     title: { ar: 'صدر + بطن', en: 'Chest + Core' },
     exercises: [
-      { id: 'e1', name: { ar: 'بنش برس', en: 'Bench Press' }, sets: 4, reps: '8-10', lastWeightKg: 60, videoId: 'v1' },
-      { id: 'e2', name: { ar: 'تفتيح دمبل', en: 'Dumbbell Fly' }, sets: 3, reps: '12', lastWeightKg: 12, videoId: 'v2' },
-      { id: 'e3', name: { ar: 'ضغط مائل', en: 'Incline Press' }, sets: 3, reps: '10', lastWeightKg: 40, videoId: null },
-      { id: 'e4', name: { ar: 'بلانك', en: 'Plank' }, sets: 3, reps: { ar: '45 ثانية', en: '45 sec' }, lastWeightKg: null, videoId: 'v3' },
+      { id: 'e1', name: { ar: 'بنش برس', en: 'Bench Press' }, sets: 4, reps: '8-10', lastWeightKg: 60, videoId: 'v1' , machineId: 'mc-bench'},
+      { id: 'e2', name: { ar: 'تفتيح دمبل', en: 'Dumbbell Fly' }, sets: 3, reps: '12', lastWeightKg: 12, videoId: 'v2' , machineId: 'mc-dumbbell'},
+      { id: 'e3', name: { ar: 'ضغط مائل', en: 'Incline Press' }, sets: 3, reps: '10', lastWeightKg: 40, videoId: null , machineId: 'mc-incline'},
+      { id: 'e4', name: { ar: 'بلانك', en: 'Plank' }, sets: 3, reps: { ar: '45 ثانية', en: '45 sec' }, lastWeightKg: null, videoId: 'v3' , machineId: 'mc-floor'},
     ],
   },
   {
     memberId: 'm3',
     title: { ar: 'ظهر + باي', en: 'Back + Biceps' },
     exercises: [
-      { id: 'e5', name: { ar: 'سحب أرضي', en: 'Seated Row' }, sets: 4, reps: '10', lastWeightKg: 45, videoId: 'v4' },
-      { id: 'e6', name: { ar: 'عقلة بمساعدة', en: 'Assisted Pull-up' }, sets: 3, reps: '8', lastWeightKg: 20, videoId: 'v5' },
-      { id: 'e7', name: { ar: 'مرجحة باي', en: 'Bicep Curl' }, sets: 3, reps: '12', lastWeightKg: 14, videoId: null },
+      { id: 'e5', name: { ar: 'سحب أرضي', en: 'Seated Row' }, sets: 4, reps: '10', lastWeightKg: 45, videoId: 'v4' , machineId: 'mc-cable'},
+      { id: 'e6', name: { ar: 'عقلة بمساعدة', en: 'Assisted Pull-up' }, sets: 3, reps: '8', lastWeightKg: 20, videoId: 'v5' , machineId: 'mc-assist'},
+      { id: 'e7', name: { ar: 'مرجحة باي', en: 'Bicep Curl' }, sets: 3, reps: '12', lastWeightKg: 14, videoId: null , machineId: 'mc-dumbbell'},
     ],
   },
   {
     memberId: 'm5',
     title: { ar: 'رجل', en: 'Legs' },
     exercises: [
-      { id: 'e8', name: { ar: 'سكوات', en: 'Back Squat' }, sets: 5, reps: '5', lastWeightKg: 100, videoId: 'v6' },
-      { id: 'e9', name: { ar: 'رفعة ميتة رومانية', en: 'Romanian Deadlift' }, sets: 3, reps: '8', lastWeightKg: 80, videoId: 'v7' },
-      { id: 'e10', name: { ar: 'ضغط أرجل', en: 'Leg Press' }, sets: 3, reps: '12', lastWeightKg: 140, videoId: null },
+      { id: 'e8', name: { ar: 'سكوات', en: 'Back Squat' }, sets: 5, reps: '5', lastWeightKg: 100, videoId: 'v6' , machineId: 'mc-rack'},
+      { id: 'e9', name: { ar: 'رفعة ميتة رومانية', en: 'Romanian Deadlift' }, sets: 3, reps: '8', lastWeightKg: 80, videoId: 'v7' , machineId: 'mc-barbell'},
+      { id: 'e10', name: { ar: 'ضغط أرجل', en: 'Leg Press' }, sets: 3, reps: '12', lastWeightKg: 140, videoId: null , machineId: 'mc-legpress'},
     ],
   },
 ]
@@ -191,5 +214,128 @@ export const findPlan = (id: string) => plans.find((p) => p.id === id)
 export const findVideo = (id: string) => videos.find((v) => v.id === id)
 export const planForMember = (id: string) => dayPlans.find((d) => d.memberId === id)
 
-/** The member the "member app" tab is signed in as. */
-export const currentMemberId = 'm1'
+/** The member the "member app" tab is signed in as — the gym owner testing it. */
+export const currentMemberId = 'm0'
+
+/* ------------------------------------------------------------------ the gym */
+
+export const coaches: Coach[] = [
+  {
+    id: 'c-assaf',
+    name: { ar: 'الكوتش عساف', en: 'Coach Assaf' },
+    speciality: { ar: 'قوة وتقنية الرفع', en: 'Strength and lifting technique' },
+  },
+  {
+    id: 'c-karim',
+    name: { ar: 'الكوتش كريم', en: 'Coach Karim' },
+    speciality: { ar: 'تنحيف وكارديو', en: 'Fat loss and conditioning' },
+  },
+  {
+    id: 'c-abed',
+    name: { ar: 'الكوتش عبد', en: 'Coach Abed' },
+    speciality: { ar: 'كمال أجسام وتضخيم', en: 'Bodybuilding and hypertrophy' },
+  },
+]
+
+/** Stations on the floor. The coach records which one was actually used. */
+export const machines: Machine[] = [
+  { id: 'mc-bench', name: { ar: 'بنش', en: 'Bench' }, area: 'free-weights' },
+  { id: 'mc-incline', name: { ar: 'بنش مائل', en: 'Incline bench' }, area: 'free-weights' },
+  { id: 'mc-rack', name: { ar: 'قفص السكوات', en: 'Squat rack' }, area: 'free-weights' },
+  { id: 'mc-barbell', name: { ar: 'بار حر', en: 'Barbell' }, area: 'free-weights' },
+  { id: 'mc-dumbbell', name: { ar: 'دمبل', en: 'Dumbbells' }, area: 'free-weights' },
+  { id: 'mc-cable', name: { ar: 'جهاز الكابل', en: 'Cable tower' }, area: 'machines' },
+  { id: 'mc-legpress', name: { ar: 'ضغط أرجل', en: 'Leg press' }, area: 'machines' },
+  { id: 'mc-assist', name: { ar: 'جهاز العقلة المساعد', en: 'Assisted pull-up' }, area: 'machines' },
+  { id: 'mc-tread', name: { ar: 'مشاية', en: 'Treadmill' }, area: 'cardio' },
+  { id: 'mc-bike', name: { ar: 'بسكليت', en: 'Bike' }, area: 'cardio' },
+  { id: 'mc-floor', name: { ar: 'أرض التمرين', en: 'Floor' }, area: 'floor' },
+]
+
+/** The gym's real class schedule. 0 = Sunday. */
+export const classes: GymClass[] = [
+  {
+    id: 'cl-cardio',
+    title: { ar: 'كارديو وبطن', en: 'Cardio & Abs' },
+    coachId: 'c-karim',
+    weekdays: [2, 5],
+    time: '19:00',
+    durationMin: 45,
+  },
+  {
+    id: 'cl-strength',
+    title: { ar: 'قوة للمبتدئين', en: 'Strength Basics' },
+    coachId: 'c-assaf',
+    weekdays: [1, 3],
+    time: '18:00',
+    durationMin: 60,
+  },
+  {
+    id: 'cl-hyper',
+    title: { ar: 'تضخيم', en: 'Hypertrophy' },
+    coachId: 'c-abed',
+    weekdays: [0, 4],
+    time: '20:00',
+    durationMin: 60,
+  },
+]
+
+const iso = (daysFromToday: number) => {
+  const d = new Date()
+  d.setDate(d.getDate() + daysFromToday)
+  return d.toISOString().slice(0, 10)
+}
+
+export const bookings: Booking[] = [
+  { id: 'b1', memberId: 'm0', coachId: 'c-abed', date: iso(1), time: '18:00', kind: 'private', status: 'booked' },
+  { id: 'b2', memberId: 'm0', coachId: 'c-karim', date: iso(4), time: '19:00', kind: 'private', status: 'booked' },
+  { id: 'b3', memberId: 'm4', coachId: 'c-karim', date: iso(2), time: '17:00', kind: 'intro', status: 'booked' },
+]
+
+/**
+ * Attendance for the last eight weeks. Some members are deliberately lapsed so the
+ * "stopped coming" list has something true to show rather than an empty state.
+ */
+export const attendance: AttendanceDay[] = (() => {
+  const out: AttendanceDay[] = []
+  const pattern: Record<string, { days: number[]; until: number }> = {
+    m0: { days: [0, 2, 4], until: 0 },
+    m1: { days: [1, 4], until: 2 },
+    m2: { days: [0, 2, 3, 5], until: 1 },
+    m3: { days: [1, 3, 5], until: 0 },
+    m4: { days: [2], until: 23 }, // stopped coming three weeks ago
+    m5: { days: [0, 1, 3, 4], until: 1 },
+    m6: { days: [2, 5], until: 4 },
+    m7: { days: [1, 4], until: 12 }, // slipping
+    m8: { days: [3], until: 31 }, // gone a month
+  }
+  for (const [memberId, { days, until }] of Object.entries(pattern)) {
+    for (let back = until; back < 56; back++) {
+      const d = new Date()
+      d.setDate(d.getDate() - back)
+      if (days.includes(d.getDay())) out.push({ memberId, date: d.toISOString().slice(0, 10) })
+    }
+  }
+  return out
+})()
+
+export const sessionFeedback: SessionFeedback[] = [
+  { memberId: 'm0', date: iso(-2), band: 'good' },
+  { memberId: 'm0', date: iso(-5), band: 'hard', note: 'آخر مجموعتين كانوا صعبين' },
+  { memberId: 'm0', date: iso(-7), band: 'good' },
+  { memberId: 'm5', date: iso(-1), band: 'struggled', note: 'الكتف عم يوجع' },
+]
+
+export const findCoach = (id: string) => coaches.find((c) => c.id === id)
+export const findMachine = (id: string | null) => (id ? machines.find((m) => m.id === id) : undefined)
+
+/** Days since the member last showed up. Drives the "stopped coming" list. */
+export function daysSinceVisit(memberId: string) {
+  const days = attendance
+    .filter((a) => a.memberId === memberId)
+    .map((a) => a.date)
+    .sort()
+  const last = days[days.length - 1]
+  if (!last) return Infinity
+  return Math.round((Date.now() - new Date(last).getTime()) / 86_400_000)
+}

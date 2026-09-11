@@ -129,7 +129,7 @@ export function MemberChat() {
         </div>
       </div>
 
-      <div className="bg-surface border-line sticky bottom-[var(--nav-total)] border-t p-3">
+      <div className="bg-surface border-line sticky bottom-0 border-t p-3">
         <form
           className="flex gap-2"
           onSubmit={(e) => {

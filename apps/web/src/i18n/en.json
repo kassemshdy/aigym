@@ -147,7 +147,15 @@
       "summary": "Session summary",
       "totalSets": "Sets",
       "totalVolume": "Total volume",
-      "note": "Note (optional)"
+      "note": "Note (optional)",
+      "machine": "Machine",
+      "changeMachine": "Change machine",
+      "howWas": "How did they handle it today?",
+      "easy": "Easy for them",
+      "good": "Good",
+      "hard": "Hard",
+      "struggled": "Really struggled",
+      "feedbackSaved": "Saved"
     },
     "ai": {
       "title": "AI suggestions",
@@ -205,7 +213,8 @@
   "whatsapp": {
     "dues": "Hi {{name}}, your membership at {{gym}} has ended and {{amount}}$ is due. See you soon 💪",
     "expiring": "Hi {{name}}, your membership at {{gym}} ends on {{date}}. Want to renew?",
-    "welcome": "Welcome {{name}}! You're registered at {{gym}}. Check your workout and the coach's videos in the app 💪"
+    "welcome": "Welcome {{name}}! You're registered at {{gym}}. Check your workout and the coach's videos in the app 💪",
+    "missYou": "Hi {{name}}, we miss you at {{gym}}! Your last session was {{days}} days ago. See you soon 💪"
   },
   "nav": {
     "today": "Today",
@@ -220,7 +229,9 @@
     "profile": "Profile",
     "food": "Food",
     "chat": "Ask",
-    "photos": "Photos"
+    "photos": "Photos",
+    "calendar": "Calendar",
+    "lapsed": "Missing"
   },
   "aiKind": {
     "plan": "Training plan",
@@ -258,7 +269,14 @@
     "notSure": "If the estimate is off, correct it",
     "sourcePhoto": "From photo",
     "sourceManual": "Manual",
-    "sourceAgent": "From chat"
+    "sourceAgent": "From chat",
+    "water": "Water",
+    "glasses": "{{count}} glasses",
+    "addGlass": "Add a glass",
+    "supplements": "Supplements",
+    "creatine": "Creatine",
+    "vitamins": "Vitamins",
+    "taken": "Taken"
   },
   "chat": {
     "title": "Ask the assistant",
@@ -279,5 +297,37 @@
     "shared": "Shared with coach",
     "unshare": "Stop sharing",
     "delete": "Delete"
+  },
+  "calendar": {
+    "title": "My calendar",
+    "today": "Today",
+    "noPlans": "Nothing booked this day",
+    "class": "Group class",
+    "private": "Private session",
+    "intro": "Free intro session",
+    "with": "with",
+    "trained": "Trained",
+    "book": "Book a private session",
+    "minutes": "{{count}} min"
+  },
+  "book": {
+    "title": "Book a session",
+    "pickCoach": "Which coach",
+    "pickDay": "Which day",
+    "pickTime": "What time",
+    "kind": "Session type",
+    "free": "Free",
+    "confirm": "Confirm booking",
+    "done": "Booked",
+    "summary": "{{coach}} · {{day}} at {{time}}",
+    "introNote": "First intro session is free"
+  },
+  "lapsed": {
+    "title": "Missing members",
+    "sub": "Haven't been in for a while",
+    "days": "{{count}} days",
+    "never": "Never came",
+    "remind": "Remind",
+    "empty": "Everyone is showing up 👌"
   }
 }

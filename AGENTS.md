@@ -80,9 +80,11 @@ not a screenshot tool.
   per-photo and explicit, deletion is real. Never add a bulk-share setting or a default
   that shows a member's body to anyone. Decision 11.
 - **A food estimate is never logged without the member confirming it.** Decision 12.
-- **Never hard-code the tab bar's height.** Use `var(--nav-total)` — it includes
-  `env(safe-area-inset-bottom)`, which headless browsers report as `0`. Getting this wrong
-  hides content on a real phone while every automated check passes.
+- **Never make the tab bar `fixed`, and never use `h-full` for the shell.** It is
+  `h-dvh flex flex-col` with `main` as `flex-1 min-h-0 overflow-y-auto`. Safari's collapsing
+  address bar breaks `height:100%`, which left the bar floating mid-screen on a real phone.
+- **Yellow is identity, not status.** Chrome, logo, and one headline action per screen.
+  Green/amber/red still mean payment state only.
 - **Never write a literal `←`.** It does not mirror and points forward in Arabic. Use
   `BackLink`.
 

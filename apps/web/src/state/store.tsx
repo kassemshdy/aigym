@@ -1,6 +1,15 @@
 import { createContext, useContext, useMemo, useReducer, type ReactNode } from 'react'
 import { replyTo } from '@/mocks/agents'
-import type { AgentId, ChatMessage, FoodEntry, ProgressPhoto } from '@/mocks/types'
+import { bookings as seedBookings } from '@/mocks/data'
+import type {
+  AgentId,
+  Booking,
+  ChatMessage,
+  EffortBand,
+  FoodEntry,
+  ProgressPhoto,
+  SupplementId,
+} from '@/mocks/types'
 import type { Lang } from '@/i18n'
 
 /**
@@ -16,6 +25,12 @@ interface State {
   chats: Record<AgentId, ChatMessage[]>
   /** Suggestions the agents escalated to the coach instead of acting on. */
   draftsSent: number
+  /** Glasses of water today — tapped, never typed. */
+  water: number
+  supplements: SupplementId[]
+  bookings: Booking[]
+  /** Coach's read on how the last session went, keyed by member id. */
+  effort: Record<string, { band: EffortBand; note?: string }>
 }
 
 type Action =
@@ -27,6 +42,10 @@ type Action =
   | { type: 'setPhotoShared'; id: string; shared: boolean }
   | { type: 'removePhoto'; id: string }
   | { type: 'chat'; agent: AgentId; messages: ChatMessage[]; draft?: boolean }
+  | { type: 'water'; delta: number }
+  | { type: 'supplement'; id: SupplementId }
+  | { type: 'book'; booking: Booking }
+  | { type: 'effort'; memberId: string; band: EffortBand; note?: string }
 
 const now = () =>
   new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
@@ -49,6 +68,10 @@ const initial: State = {
   photos: [],
   chats: { nutrition: [], training: [] },
   draftsSent: 0,
+  water: 3,
+  supplements: ['protein'],
+  bookings: seedBookings,
+  effort: {},
 }
 
 function persistSignedIn(value: boolean) {
@@ -89,6 +112,22 @@ function reducer(state: State, action: Action): State {
         chats: { ...state.chats, [action.agent]: [...state.chats[action.agent], ...action.messages] },
         draftsSent: state.draftsSent + (action.draft ? 1 : 0),
       }
+    case 'water':
+      return { ...state, water: Math.max(0, state.water + action.delta) }
+    case 'supplement':
+      return {
+        ...state,
+        supplements: state.supplements.includes(action.id)
+          ? state.supplements.filter((x) => x !== action.id)
+          : [...state.supplements, action.id],
+      }
+    case 'book':
+      return { ...state, bookings: [...state.bookings, action.booking] }
+    case 'effort':
+      return {
+        ...state,
+        effort: { ...state.effort, [action.memberId]: { band: action.band, note: action.note } },
+      }
   }
 }
 
@@ -115,6 +154,18 @@ function makeActions(dispatch: (a: Action) => void) {
       dispatch({ type: 'setPhotoShared', id: photoId, shared }),
 
     removePhoto: (photoId: string) => dispatch({ type: 'removePhoto', id: photoId }),
+
+    addWater: (delta: number) => dispatch({ type: 'water', delta }),
+
+    toggleSupplement: (supplementId: SupplementId) =>
+      dispatch({ type: 'supplement', id: supplementId }),
+
+    book: (booking: Omit<Booking, 'id' | 'status'>) =>
+      dispatch({ type: 'book', booking: { ...booking, id: id(), status: 'booked' } }),
+
+    /** The coach's read on the session, tapped as they finish. */
+    recordEffort: (memberId: string, band: EffortBand, note?: string) =>
+      dispatch({ type: 'effort', memberId, band, note }),
 
     /** Sends a message and applies whatever the agent is allowed to do with it. */
     ask: (agent: AgentId, text: string, lang: Lang) => {

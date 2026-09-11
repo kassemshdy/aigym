@@ -8,6 +8,7 @@ import { Icon } from '@/components/ui/Icon'
 import { Page } from '@/components/ui/Page'
 import { checkIns, gym, memberName, members, payments } from '@/mocks/data'
 import { usd } from '@/lib/format'
+import { lapsedMembers } from './Lapsed'
 import { waLink } from '@/lib/whatsapp'
 import type { Lang } from '@/i18n'
 
@@ -43,7 +44,7 @@ export function ManagerHome() {
         <Tile n={usd(collected)} label={t('manager.home.collected')} />
       </div>
 
-      <Link to="/manager/members/new" className={buttonClass('primary', 'lg', true)}>
+      <Link to="/manager/members/new" className={buttonClass('brand', 'lg', true)}>
         <Icon name="users" />
         {t('manager.home.addMember')}
       </Link>
@@ -84,6 +85,38 @@ export function ManagerHome() {
               </a>
             </li>
           ))}
+        </ul>
+      </Card>
+
+      <Card>
+        <CardTitle
+          action={
+            <Link to="/manager/lapsed" className="text-muted text-sm font-semibold">
+              {t('manager.home.seeAll')}
+            </Link>
+          }
+        >
+          {t('lapsed.title')}
+        </CardTitle>
+        <ul>
+          {lapsedMembers()
+            .slice(0, 3)
+            .map(({ member, days }) => (
+              <li key={member.id}>
+                <Link
+                  to="/manager/lapsed"
+                  className="border-line flex items-center gap-3 border-b px-4 py-3 last:border-0"
+                >
+                  <Avatar name={memberName(member, lang)} />
+                  <span className="min-w-0 flex-1 truncate font-semibold">
+                    {memberName(member, lang)}
+                  </span>
+                  <span className="text-soon tnum text-sm font-bold">
+                    {t('lapsed.days', { count: days })}
+                  </span>
+                </Link>
+              </li>
+            ))}
         </ul>
       </Card>
 

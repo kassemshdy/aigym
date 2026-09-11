@@ -10,11 +10,14 @@ const SCREENS = [
   ['manager-members', '/manager/members', 'phone'],
   ['manager-member', '/manager/members/m1', 'phone'],
   ['manager-add', '/manager/members/new', 'phone'],
+  ['manager-lapsed', '/manager/lapsed', 'phone'],
   ['coach-queue', '/coach', 'ipad'],
   ['coach-card', '/coach/member/m1', 'ipad'],
   ['coach-session', '/coach/session/m1', 'ipad'],
   ['coach-ai', '/coach/ai', 'ipad'],
   ['member-today', '/member', 'phone'],
+  ['member-calendar', '/member/calendar', 'phone'],
+  ['member-book', '/member/book', 'phone'],
   ['member-food', '/member/food', 'phone'],
   ['member-chat-pick', '/member/chat', 'phone'],
   [
@@ -74,32 +77,27 @@ for (const lang of ['en', 'ar']) {
     )
     if (overflow) errors.push(`${lang} ${path}: horizontal overflow`)
 
-    // Headless Chromium reports env(safe-area-inset-bottom) as 0, so a tab bar that hides
-    // content on a notched phone looks perfect here. Fake the inset, scroll to the very
-    // bottom, and assert the last piece of content still clears the bar.
+    // The tab bar is a flex child of an h-dvh column, so two things must hold on every
+    // screen: the PAGE must not scroll (only <main> does), and the bar must sit exactly at
+    // the bottom of the viewport. The previous guard only measured padding, which is why
+    // the bar-floating-mid-screen bug reached a real phone.
     if (size === 'phone') {
-      await page.addStyleTag({
-        content: ':root{--nav-total:calc(4rem + 34px)} [data-tabbar]{padding-bottom:34px !important}',
-      })
-      const clearance = await page.evaluate(() => {
+      const shell = await page.evaluate(() => {
         const nav = document.querySelector('[data-tabbar]')
         const main = document.querySelector('main')
         if (!nav || !main) return null
         main.scrollTop = main.scrollHeight
-        const leaves = [...main.querySelectorAll('*')].filter(
-          (el) => el.children.length === 0 && el.textContent.trim() && el.getClientRects().length,
-        )
-        const last = leaves[leaves.length - 1]
-        if (!last) return null
         return {
-          overlap: Math.round(last.getBoundingClientRect().bottom - nav.getBoundingClientRect().top),
-          text: last.textContent.trim().slice(0, 30),
+          pageScrolls: document.documentElement.scrollHeight > window.innerHeight + 1,
+          navGap: Math.round(window.innerHeight - nav.getBoundingClientRect().bottom),
+          mainScrolls: main.scrollHeight > main.clientHeight,
         }
       })
-      if (clearance && clearance.overlap > 1) {
-        errors.push(
-          `${lang} ${path}: tab bar hides content by ${clearance.overlap}px ("${clearance.text}")`,
-        )
+      if (shell?.pageScrolls) {
+        errors.push(`${lang} ${path}: the page scrolls — only <main> should`)
+      }
+      if (shell && Math.abs(shell.navGap) > 1) {
+        errors.push(`${lang} ${path}: tab bar is ${shell.navGap}px off the viewport bottom`)
       }
     }
 

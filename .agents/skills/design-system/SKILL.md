@@ -25,21 +25,37 @@ two metres away reads the colour before the word — if green ever means "succes
 decorative, that glance becomes unreliable. The brand accent is ink (near-black), which is
 why primary buttons are black.
 
-## The bottom tab bar covers content unless you measure it properly
+## The shell is a fixed-height column — nothing is positioned
 
-The bar is `4rem` **plus** `env(safe-area-inset-bottom)` — the home indicator on a notched
-phone, and Safari's bottom chrome. Use the `--nav-total` custom property in `index.css`,
-which is that whole sum:
-
-```css
-padding-bottom: calc(var(--nav-total) + 1.5rem);  /* content clearing the bar */
-bottom: var(--nav-total);                          /* something pinned above the bar */
+```
+h-dvh flex flex-col
+  header  flex-none
+  main    flex-1 min-h-0 overflow-y-auto
+  nav     flex-none + pb-[env(safe-area-inset-bottom)]
 ```
 
-Never hard-code `4rem` or `--spacing(nav)` for this. **Headless browsers report the inset as
-`0`**, so an overlap looks perfect in the screenshot suite and only appears on a real handset.
-`scripts/shots.mjs` now fakes a 34px inset on phone screens and fails if the last piece of
-content is hidden behind the bar — that check exists because this shipped once.
+`dvh`, not `h-full`: Safari's address bar collapses on scroll and changes the visual
+viewport, while `height:100%` resolves against the stale value. `min-h-0` on `main` or the
+flex child grows instead of scrolling, and then the *page* scrolls and carries the header
+away.
+
+**Do not make the tab bar `fixed`.** It was, and it floated mid-screen on a real iPhone with
+white space beneath it. As a flex child it cannot be mis-positioned, and no page needs
+bottom padding to clear it. `scripts/shots.mjs` asserts the page does not scroll and the
+bar's bottom equals the viewport bottom.
+
+## Brand: Triple A Gym
+
+Black (`bg-chrome`) and high-vis yellow (`--color-brand: #f9e54c`, sampled from the gym's
+own flyers). The chrome — header and tab bar — is black with yellow for the active state;
+yellow on black clears contrast comfortably, yellow on white does not.
+
+**Yellow is identity, never status.** Chrome, the logo, and the single most important action
+on a screen (`<Button variant="brand">` — the flyers spend yellow exactly this way). Green,
+amber and red still mean payment state and nothing else; spreading yellow around dilutes the
+glance and edges it toward the amber that means "ending soon".
+
+The logo lives at `public/logo.png` (and `apple-touch-icon.png`).
 
 ## Back navigation
 

@@ -1,11 +1,17 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import { cn } from '@/lib/cn'
 
-type Variant = 'primary' | 'secondary' | 'ghost' | 'danger'
+type Variant = 'primary' | 'brand' | 'secondary' | 'ghost' | 'danger'
 type Size = 'md' | 'lg'
 
 const VARIANTS: Record<Variant, string> = {
   primary: 'bg-ink text-white active:bg-ink-soft',
+  /*
+   * The gym's signature: high-vis yellow, black text. Used for the ONE action that
+   * matters most on a screen — the flyers spend yellow the same way. Overusing it makes
+   * it stop meaning anything, and edges it toward the amber that means "ending soon".
+   */
+  brand: 'bg-brand text-chrome active:bg-brand-dim',
   secondary: 'bg-surface text-ink border border-line active:bg-canvas',
   ghost: 'bg-transparent text-ink active:bg-line/60',
   danger: 'bg-due text-white active:opacity-90',

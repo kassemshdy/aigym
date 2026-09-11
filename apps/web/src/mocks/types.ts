@@ -58,6 +58,7 @@ export interface PrescribedExercise {
   reps: Text
   lastWeightKg: number | null
   videoId: string | null
+  machineId: string | null
 }
 
 export interface DayPlan {
@@ -142,3 +143,57 @@ export interface ChatMessage {
   /** Set when the reply had a side effect worth showing in the transcript. */
   note?: 'food_logged' | 'draft_sent'
 }
+
+export interface Coach {
+  id: string
+  name: Text
+  speciality: Text
+}
+
+/** A physical station on the gym floor. The coach records which one was used. */
+export interface Machine {
+  id: string
+  name: Text
+  area: 'free-weights' | 'machines' | 'cardio' | 'floor'
+}
+
+export interface GymClass {
+  id: string
+  title: Text
+  coachId: string
+  /** 0 = Sunday, matching Date.getDay() */
+  weekdays: number[]
+  time: string
+  durationMin: number
+}
+
+export type BookingKind = 'private' | 'intro'
+
+export interface Booking {
+  id: string
+  memberId: string
+  coachId: string
+  /** ISO date */
+  date: string
+  time: string
+  kind: BookingKind
+  status: 'booked' | 'done' | 'cancelled'
+}
+
+/** How the member handled the session — tapped by the coach as they finish. */
+export type EffortBand = 'easy' | 'good' | 'hard' | 'struggled'
+
+export interface SessionFeedback {
+  memberId: string
+  date: string
+  band: EffortBand
+  note?: string
+}
+
+export interface AttendanceDay {
+  memberId: string
+  /** ISO date */
+  date: string
+}
+
+export type SupplementId = 'protein' | 'creatine' | 'vitamins'

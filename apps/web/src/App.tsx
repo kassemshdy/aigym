@@ -15,6 +15,9 @@ import { MemberLogin } from '@/features/member/Login'
 import { MemberFood } from '@/features/member/Food'
 import { MemberChat, MemberChatPicker } from '@/features/member/Chat'
 import { MemberPhotos } from '@/features/member/Photos'
+import { MemberCalendar } from '@/features/member/Calendar'
+import { MemberBook } from '@/features/member/Book'
+import { ManagerLapsed } from '@/features/manager/Lapsed'
 import { useStore } from '@/state/store'
 import { MemberVideoDetail, MemberVideos } from '@/features/member/Videos'
 import { MemberProgress } from '@/features/member/Progress'
@@ -39,6 +42,7 @@ export default function App() {
           <Route path="members" element={<ManagerMembers />} />
           <Route path="members/new" element={<ManagerAddMember />} />
           <Route path="members/:id" element={<ManagerMemberDetail />} />
+          <Route path="lapsed" element={<ManagerLapsed />} />
           <Route path="plans" element={<ManagerPlans />} />
           <Route path="payments" element={<ManagerPayments />} />
         </Route>
@@ -59,6 +63,8 @@ export default function App() {
           }
         >
           <Route index element={<MemberToday />} />
+          <Route path="calendar" element={<MemberCalendar />} />
+          <Route path="book" element={<MemberBook />} />
           <Route path="food" element={<MemberFood />} />
           <Route path="chat" element={<MemberChatPicker />} />
           <Route path="chat/:agent" element={<MemberChat />} />

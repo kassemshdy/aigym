@@ -2,13 +2,14 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Card, CardTitle } from '@/components/ui/Card'
+import { useStore } from '@/state/store'
 import { BackLink } from '@/components/ui/BackLink'
 import { Button, buttonClass } from '@/components/ui/Button'
 import { Stepper } from '@/components/ui/Stepper'
 import { Icon } from '@/components/ui/Icon'
 import { Empty, Page } from '@/components/ui/Page'
-import { findMember, memberName, planForMember } from '@/mocks/data'
-import type { LoggedSet } from '@/mocks/types'
+import { findMachine, findMember, machines, memberName, planForMember } from '@/mocks/data'
+import type { EffortBand, LoggedSet } from '@/mocks/types'
 import { mmss, text } from '@/lib/format'
 import type { Lang } from '@/i18n'
 import { cn } from '@/lib/cn'
@@ -20,6 +21,7 @@ export function CoachSession() {
   const { t, i18n } = useTranslation()
   const lang = i18n.language as Lang
 
+  const { actions } = useStore()
   const member = findMember(id)
   const plan = planForMember(id)
   const exercises = useMemo(() => plan?.exercises ?? [], [plan])
@@ -28,6 +30,10 @@ export function CoachSession() {
   const [logged, setLogged] = useState<LoggedSet[]>([])
   const [rest, setRest] = useState(0)
   const [finished, setFinished] = useState(false)
+  /** The coach can swap the station when the member uses a different one. */
+  const [machineFor, setMachineFor] = useState<Record<string, string>>({})
+  const [pickingMachine, setPickingMachine] = useState(false)
+  const [effort, setEffort] = useState<EffortBand | null>(null)
 
   const current = exercises[idx]
   const [weight, setWeight] = useState(current?.lastWeightKg ?? 20)
@@ -49,6 +55,7 @@ export function CoachSession() {
     return <Page><Empty>{t('coach.card.noPlan')}</Empty></Page>
   }
 
+  const machine = findMachine(machineFor[current.id] ?? current.machineId)
   const doneForCurrent = logged.filter((s) => s.exerciseId === current.id)
   const totalVolume = logged.reduce((sum, s) => sum + s.reps * s.weightKg, 0)
 
@@ -85,7 +92,35 @@ export function CoachSession() {
           })}
         </Card>
 
-        <Link to="/coach" className={buttonClass('primary', 'lg', true)}>
+        <Card>
+          <CardTitle>{t('coach.session.howWas')}</CardTitle>
+          <div className="grid grid-cols-2 gap-2 p-4">
+            {(['easy', 'good', 'hard', 'struggled'] as EffortBand[]).map((band) => (
+              <button
+                key={band}
+                type="button"
+                onClick={() => {
+                  setEffort(band)
+                  actions.recordEffort(member.id, band)
+                }}
+                className={cn(
+                  'min-h-tap-lg rounded-xl px-3 text-base font-bold',
+                  effort === band ? 'bg-ink text-white' : 'border border-line bg-surface',
+                )}
+              >
+                {t(`coach.session.${band}`)}
+              </button>
+            ))}
+          </div>
+          {effort ? (
+            <p className="text-paid flex items-center gap-2 px-4 pb-4 text-sm font-bold">
+              <Icon name="check" size={18} />
+              {t('coach.session.feedbackSaved')}
+            </p>
+          ) : null}
+        </Card>
+
+        <Link to="/coach" className={buttonClass('brand', 'lg', true)}>
           {t('common.done')}
         </Link>
       </Page>
@@ -114,6 +149,15 @@ export function CoachSession() {
 
       <Card className="p-4">
         <h1 className="text-xl font-extrabold">{current.name[lang]}</h1>
+        {machine ? (
+          <button
+            type="button"
+            onClick={() => setPickingMachine(true)}
+            className="border-line text-muted mt-1 inline-flex min-h-9 items-center gap-1.5 rounded-lg border px-3 text-xs font-semibold"
+          >
+            {t('coach.session.machine')}: {text(machine.name, lang)}
+          </button>
+        ) : null}
         <p className="text-muted text-sm">
           <bdi className="tnum">
             {current.sets} × {text(current.reps, lang)}
@@ -173,6 +217,30 @@ export function CoachSession() {
           ))}
         </div>
       </Card>
+
+      {pickingMachine ? (
+        <Card>
+          <CardTitle>{t('coach.session.changeMachine')}</CardTitle>
+          <div className="grid grid-cols-2 gap-2 p-4">
+            {machines.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => {
+                  setMachineFor((prev) => ({ ...prev, [current.id]: m.id }))
+                  setPickingMachine(false)
+                }}
+                className={cn(
+                  'min-h-tap rounded-xl px-3 text-sm font-semibold',
+                  m.id === machine?.id ? 'bg-ink text-white' : 'border border-line bg-surface',
+                )}
+              >
+                {text(m.name, lang)}
+              </button>
+            ))}
+          </div>
+        </Card>
+      ) : null}
 
       <div className="flex gap-2">
         <Button

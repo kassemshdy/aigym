@@ -156,7 +156,7 @@ export function CoachMemberCard() {
       </Card>
 
       {plan ? (
-        <Link to={`/coach/session/${m.id}`} className={buttonClass('primary', 'lg', true)}>
+        <Link to={`/coach/session/${m.id}`} className={buttonClass('brand', 'lg', true)}>
           <Icon name="dumbbell" />
           {t('coach.card.start')}
         </Link>

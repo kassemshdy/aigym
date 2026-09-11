@@ -23,13 +23,26 @@ export function MemberLogin() {
   const [sent, setSent] = useState(false)
 
   return (
-    <div className="mx-auto flex min-h-full max-w-md flex-col justify-center gap-4 p-4">
-      <div className="text-center">
-        <h1 className="text-2xl font-extrabold">{gym.name[lang]}</h1>
-        <p className="text-muted mt-1 text-sm">{t('login.sub')}</p>
-      </div>
+    <div className="bg-chrome relative min-h-full overflow-hidden">
+      {/* The angular yellow wedge is lifted straight from the gym's flyers. */}
+      <div
+        aria-hidden
+        className="bg-brand/90 pointer-events-none absolute -top-24 end-[-30%] size-72 rotate-45"
+      />
+      <div className="relative mx-auto flex min-h-full max-w-md flex-col justify-center gap-4 p-4">
+        <div className="text-center">
+          <img
+            src="/logo.png"
+            alt=""
+            width={96}
+            height={96}
+            className="mx-auto size-24 rounded-2xl"
+          />
+          <h1 className="mt-4 text-2xl font-extrabold text-white">{gym.name[lang]}</h1>
+          <p className="mt-1 text-sm text-white/60">{t('login.sub')}</p>
+        </div>
 
-      <Card className="space-y-4 p-4">
+        <Card className="space-y-4 p-4">
         <Field label={t('login.phone')}>
           <Input
             value={phone}
@@ -42,7 +55,13 @@ export function MemberLogin() {
         </Field>
 
         {!sent ? (
-          <Button full size="lg" disabled={phone.trim().length < 6} onClick={() => setSent(true)}>
+          <Button
+            variant="brand"
+            full
+            size="lg"
+            disabled={phone.trim().length < 6}
+            onClick={() => setSent(true)}
+          >
             {t('login.sendCode')}
           </Button>
         ) : (
@@ -61,6 +80,7 @@ export function MemberLogin() {
               />
             </Field>
             <Button
+              variant="brand"
               full
               size="lg"
               disabled={code.trim().length < 4}
@@ -74,7 +94,8 @@ export function MemberLogin() {
             <p className="text-muted text-center text-xs">{t('login.demo')}</p>
           </>
         )}
-      </Card>
+        </Card>
+      </div>
     </div>
   )
 }
