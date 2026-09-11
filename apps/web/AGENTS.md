@@ -68,6 +68,21 @@ Test both without Docker: `npm run build`, then
 `PORT=8080 caddy run --config Caddyfile --adapter caddyfile`, then curl a deep link. See
 `docs/DEPLOY.md`.
 
+## Recording the demo video
+
+`scripts/demo.mjs` drives the real app and records a captioned walkthrough.
+
+```bash
+npm run build
+npx vite preview --port 4173 &
+node scripts/demo.mjs en ./out       # or: ar
+ffmpeg -i out/*.webm -vf "scale=1080:-2,fps=30" -c:v libx264 -crf 23 \
+  -pix_fmt yuv420p -movflags +faststart demo-en.mp4
+```
+
+**The transcode is not optional.** Playwright's bundled ffmpeg is VP8-only, and a `.webm`
+will not play on an iPhone or forward through WhatsApp on iOS.
+
 ## Phase 2 boundary
 
 When the API arrives, `src/mocks/` is replaced by a data layer; components keep their
