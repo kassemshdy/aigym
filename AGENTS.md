@@ -88,10 +88,34 @@ not a screenshot tool.
 - **Never write a literal `←`.** It does not mirror and points forward in Arabic. Use
   `BackLink`.
 
+## Branching
+
+| Branch | Job |
+|---|---|
+| `develop` | All work. Commit here. |
+| `main` | What is deployed. Only ever reached by a merge from `develop`. |
+
+**A push to `develop` deploys nothing. A merge to `main` deploys.** That separation is the
+whole point: the live URL is in the investor deck and goes out to gym owners, so it should
+only move when someone decides it should.
+
+```bash
+# releasing
+git checkout main && git merge --no-ff develop && git push origin main
+git checkout develop
+```
+
+`--no-ff` keeps a visible release point instead of a flat history, so "what shipped, and
+when" stays answerable from the log.
+
+`claude/gym-management-app-3wvw97` is an old session branch, four commits behind and fully
+merged. Ignore it; it is kept only because deleting someone's branch is not ours to do.
+
 ## Deploy
 
 Live at **https://triple-a.up.railway.app** (Railway project `aigym`, service
-`web`, region `europe-west4`). Pushing to `main` redeploys anything under `apps/web/**`.
+`web`, region `europe-west4`). Railway watches **`main`** and redeploys anything under
+`apps/web/**` — so a deploy follows a merge from `develop`, not a direct push.
 
 `apps/web/Dockerfile` builds with Node and serves with Caddy; `apps/web/Caddyfile` carries the
 SPA fallback, the `/health` endpoint, and the cache headers. **There is no `railway.json` and

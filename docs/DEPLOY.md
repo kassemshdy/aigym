@@ -10,7 +10,7 @@ The prototype runs on Railway at **https://triple-a.up.railway.app**
 | Source | `kassemshdy/aigym`, branch `main`, root directory `/apps/web` |
 | Build | `apps/web/Dockerfile` — Node builds, Caddy serves |
 | Health | `/health` |
-| Redeploys on | any push to `main` touching `apps/web/**` |
+| Redeploys on | `main` moving, for anything under `apps/web/**` — i.e. a merge from `develop` |
 
 The hostname is a **claimed** service domain, not the auto-generated one. Railway derives
 `<service>-<environment>-<hash>.up.railway.app` from the service name by default, which gave
@@ -61,14 +61,18 @@ from a developer machine, not from CI.
 
 ## Deploying a change
 
-Push to `main`. That is the whole procedure.
+Work lands on `develop`. Deploying means merging it into `main`:
 
 ```bash
-git push origin main
+git checkout main && git merge --no-ff develop && git push origin main
+git checkout develop
 ```
 
 Anything under `apps/web/**` triggers a build. Changes only to `docs/` or `AGENTS.md` do not,
 which is intended — documentation should not cost a deploy.
+
+Pushing to `develop` never deploys. If you want a change on the live URL, it has to go through
+the merge above; that is deliberate, since the URL is in the investor deck.
 
 ## When a deploy fails
 
