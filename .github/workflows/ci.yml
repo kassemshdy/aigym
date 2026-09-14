@@ -61,7 +61,7 @@ jobs:
       PGPASSWORD: postgres
       AIGYM_DATABASE_URL: postgresql+psycopg://aigym_app:aigym_app@localhost:5432/aigym
       AIGYM_DATABASE_URL_MIGRATIONS: postgresql+psycopg://postgres:postgres@localhost:5432/aigym
-      AIGYM_JWT_SECRET: ci-test-secret
+      AIGYM_JWT_SECRET: ci-test-secret-32-bytes-minimum-length
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5

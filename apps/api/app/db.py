@@ -29,6 +29,25 @@ def get_sessionmaker() -> async_sessionmaker[AsyncSession]:
     return async_sessionmaker(get_engine(), expire_on_commit=False)
 
 
+@lru_cache
+def get_owner_engine() -> AsyncEngine:
+    return create_async_engine(get_settings().database_url_migrations, pool_pre_ping=True)
+
+
+@lru_cache
+def get_owner_sessionmaker() -> async_sessionmaker[AsyncSession]:
+    """A second, privileged connection pool for the one class of query the
+    app role structurally cannot make: reading an RLS-protected table before
+    app.gym_id is known. staff_gym_roles is gym-scoped (so a compromised
+    request can't list another gym's staff), but staff login has to ask
+    "which gym(s) does this already-PIN-verified person belong to" — that
+    query has no gym_id to scope by; it's what produces one. Used from
+    exactly one place (app/api/auth.py's staff login) after the caller's PIN
+    has already been checked; never for member/business data.
+    """
+    return async_sessionmaker(get_owner_engine(), expire_on_commit=False)
+
+
 @asynccontextmanager
 async def tenant_session(gym_id: UUID | None) -> AsyncIterator[AsyncSession]:
     """Open one transaction scoped to a gym for Row-Level Security.
