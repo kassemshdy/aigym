@@ -144,3 +144,74 @@ immutable for a year; anything resolving to `index.html` is `no-cache`. Matching
 misses `/` and every deep link, and a stale shell surviving a redeploy points at hashed assets
 that no longer exist — a white screen for someone on a bad connection who can least afford to
 debug it.
+
+## 16. Row-Level Security is enforced against a role that cannot bypass it
+
+Every gym-scoped table gets `ALTER TABLE … ENABLE ROW LEVEL SECURITY` *and*
+`FORCE ROW LEVEL SECURITY`, plus one policy:
+
+```sql
+CREATE POLICY tenant_isolation ON members
+  USING (gym_id = NULLIF(current_setting('app.gym_id', true), '')::uuid)
+  WITH CHECK (gym_id = NULLIF(current_setting('app.gym_id', true), '')::uuid)
+```
+
+Two traps this closes, both found by testing the policy itself rather than trusting it:
+
+**The owner-bypass trap.** A table's owner ignores its own RLS policies unless the table is
+also `FORCE`d — and Postgres superusers ignore RLS *regardless* of `FORCE`. So migrations run
+as the owning role (`AIGYM_DATABASE_URL_MIGRATIONS`), and the API connects as a separate,
+non-superuser role (`aigym_app`, `NOBYPASSRLS`) that owns nothing. Testing isolation through
+the owner connection would prove nothing; the isolation suite (`tests/test_tenancy_isolation.py`)
+deliberately uses `aigym_app`.
+
+**The reset-to-empty-string trap.** `current_setting('app.gym_id', true)` returns `NULL` — safe,
+matches no row — when the session has *never* touched `app.gym_id`. But once a transaction
+calls `set_config('app.gym_id', …, true)` (the parameterized equivalent of `SET LOCAL`, used so
+the value is a bound parameter rather than a string-built statement), Postgres resets the
+setting to `''`, not back to `NULL`, once that transaction ends. A pooled connection reused for
+a later, unscoped query would then hit `''::uuid`, a hard error, instead of failing closed.
+`NULLIF(…, '')` turns both cases into `NULL` before the cast, so "never scoped" and "scoped
+earlier, now out of scope" fail the same safe way: zero rows, no exception. Caught by testing
+the exact sequence — scope a transaction, commit, query again unscoped, on the real `aigym_app`
+role — not by reading the policy and assuming it was right.
+
+`gyms` and `staff_users` are the two tables *without* this policy — a gym cannot scope itself,
+and a staff login has to find a `staff_users` row by phone before any gym is known. Every other
+gym-scoped table gets it, including auth-adjacent ones like `refresh_tokens`. The one deliberate
+further exception is `member_login_codes`: verifying a member's 6-digit code is looked up by
+phone alone, before the gym is known, so it is unscoped like `gyms`/`staff_users` rather than
+routed through an elevated connection.
+
+## 17. Dues status is computed, never stored
+
+`app/domain/dues.py` is the only place `paid | soon | due` and `owed_usd` are computed, from a
+subscription's `ends_at` plus its plan's price and length — never written to a column. Storing
+it needs a nightly job and opens a class of bug where the badge and the truth disagree; computing
+it on every read costs nothing a gym's data volume will ever notice.
+
+## 18. Staff login resolves gym membership through a second, narrowly-scoped connection
+
+Decision 16 makes `staff_gym_roles` RLS-protected like every other gym-scoped table — but staff
+login has to ask "which gym(s) does this already-PIN-verified person belong to" *before* any
+`app.gym_id` is known, which is exactly the query that table's own RLS policy exists to block.
+
+Rather than weaken that policy, `app/db.py`'s `get_owner_sessionmaker()` opens a second
+connection pool on the migrations/owner role, used from exactly one call site — resolving a
+verified staff member's roles at login — and nowhere else. The PIN check happens first, on the
+unscoped `staff_users` table (no RLS, decision 16); only after that succeeds does the elevated
+read run, and only to answer "which gyms," never to read gym data itself.
+
+## 19. Member login codes are unscoped, not routed through an elevated connection
+
+`member_login_codes` (decision 16) takes the opposite approach from staff login: rather than an
+elevated connection, the table itself carries no RLS, the same treatment as `gyms` and
+`staff_users`. A verify request supplies only a phone number, so the lookup is
+`WHERE phone = :phone AND code_hash = :hash AND expires_at > now() AND used_at IS NULL` with no
+gym to scope by — the match itself is what reveals which gym to scope the resulting session to.
+
+This is safe specifically because the code is already hashed, single-use, 5-minute expiry, and
+rate-limited per member (decision 13) — the code's own properties are the defense, not table
+visibility. An elevated connection would work too, but for a table this narrow and this
+purpose-built, a second exception to the RLS-everywhere rule is more honest than laundering the
+same access through a connection meant for staff auth.

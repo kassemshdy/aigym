@@ -122,6 +122,10 @@ SPA fallback, the `/health` endpoint, and the cache headers. **There is no `rail
 there must not be** — Config as Code is deprecated, new services cannot opt into it, and
 existing files stop being read on 2026-12-01. Service settings live on the service.
 
+`apps/api` has its own Dockerfile and is meant to run as a second Railway service (plus a
+Postgres addon) in the same project, with `web` reading its URL from `VITE_API_URL`. Setup
+and current status: `docs/DEPLOY.md`.
+
 Full runbook, including how to test the serving layer without Docker: `docs/DEPLOY.md`.
 
 ## Skills
@@ -135,13 +139,17 @@ symlink to it). Read the matching skill before the task:
 | `design-system` | adding or restyling any component |
 | `i18n-rtl` | adding user-facing text, or any layout with direction |
 | `perf-budget` | adding a dependency or anything that ships JS |
-| `offline-sync` | anything that writes data (Phase 3+) |
+| `offline-sync` | anything that writes data — the server half is built (Phase 2), the client outbox is Phase 3+ |
+| `backend-conventions` | working in `apps/api` |
+| `tenancy-rules` | touching a gym-scoped table, a Row-Level Security policy, or anything that reads/writes across gyms |
+| `generate-migration` | adding or changing an Alembic migration |
 
-Backend skills (`backend-conventions`, `tenancy-rules`, `generate-migration`,
-`ai-prompt-eval`) land with the API in Phase 2 — they are deliberately absent rather than
-written against code that does not exist yet.
+`ai-prompt-eval` lands with the AI layer in Phase 5 — still deliberately absent rather
+than written against code that does not exist yet.
 
 ## Phases
 
-See `docs/ROADMAP.md`. Phase 1 (clickable prototype, mock data, no backend) is the current
-state. Do not add API calls, auth, or a database until Phase 2 is started.
+See `docs/ROADMAP.md`. Phase 2 (backend: tenancy, auth, members, money) is done — manager
+screens run on the API when `VITE_API_URL` is set, mocks otherwise. Coach and member
+screens are still Phase 1: mock data, no backend, no auth. Do not add API calls to a coach
+or member screen until Phase 3/4 gives that surface a reason to.
