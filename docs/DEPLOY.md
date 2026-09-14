@@ -157,14 +157,33 @@ values, set directly on the `api` service — not the `.env.example` placeholder
 recorded anywhere outside Railway's own variable store. `AIGYM_CORS_ORIGINS` is
 `["https://triple-a.up.railway.app"]` — the `web` origin only.
 
-### Seeding real content (not yet done)
+### Seeding real content, and setting the manager's PIN
 
-`uv run python scripts/seed.py`, run against `AIGYM_DATABASE_URL_MIGRATIONS` from a Railway
-shell, loads Triple A Gym's actual members, plans, coaches and class schedule. Onboard the
-real first manager through `POST /gyms` rather than the seed script, since the seeded staff
-row has no PIN set. This is the remaining step between "the live URL runs on real
-infrastructure" and "the live URL is actually usable by Triple A Gym" — until it's done,
-the production database has no gyms at all and `/manager/login` cannot succeed.
+Two one-off scripts, both run **inside** the running `api` container over Railway's private
+network — not locally. `railway run` / `railway shell` only export variables to your own
+machine, which can't resolve `postgres.railway.internal`; `railway ssh` is the one that
+actually opens a session inside the container (registers a local SSH key on first use):
+
+```bash
+railway ssh -s api -- uv run python scripts/seed.py
+```
+
+Loads Triple A Gym's actual members, plans, coaches and class schedule — idempotent, safe to
+re-run. It also creates the first manager's `staff_users` row, but with no PIN set, since a
+PIN is chosen interactively, not baked into seed data. Set it with:
+
+```bash
+railway ssh -s api -- uv run python scripts/set_staff_pin.py
+```
+
+Prompts for phone and PIN (via `getpass`, so neither lands in shell history) and hashes it
+onto the matching `staff_users` row. Works for any staff phone already in the database, not
+just the first manager — use it again for Karim or Abed, or to reset a forgotten PIN.
+
+Do **not** use `POST /gyms` to create the real manager account after seeding — it creates a
+brand-new gym and a brand-new `staff_users` row, and a second row sharing the seeded
+manager's phone number breaks `staff_login`'s lookup (it expects exactly one match). `POST
+/gyms` is for onboarding a gym that has no seed data at all.
 
 ### `web` is pointed at it
 
