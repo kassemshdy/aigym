@@ -72,6 +72,8 @@ jobs:
       - name: Bootstrap database and app role
         run: bash scripts/bootstrap_db.sh
       - run: uv run ruff check .
-      - run: uv run mypy app
+      - run: uv run mypy app scripts
       - run: uv run alembic upgrade head
+      - name: Seed Triple A Gym content (also proves the seed script itself works)
+        run: uv run python scripts/seed.py
       - run: uv run pytest -q
