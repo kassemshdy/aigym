@@ -161,6 +161,31 @@ async def test_lapsed_list_never_shows_the_other_gym(
     assert str(two_gyms.member_b) not in {m["id"] for m in lapsed.json()}
 
 
+async def test_payments_list_never_shows_the_other_gym(
+    client: AsyncClient, two_gyms: TwoGyms
+) -> None:
+    plan_a = (await client.get("/plans", headers=two_gyms.a.headers)).json()[0]["id"]
+    plan_b = (await client.get("/plans", headers=two_gyms.b.headers)).json()[0]["id"]
+
+    payment_a = await client.post(
+        f"/members/{two_gyms.member_a}/payments",
+        headers=_idem(two_gyms.a.headers),
+        json={"amount_usd": 50.0, "method": "cash", "plan_id": plan_a},
+    )
+    payment_b = await client.post(
+        f"/members/{two_gyms.member_b}/payments",
+        headers=_idem(two_gyms.b.headers),
+        json={"amount_usd": 50.0, "method": "cash", "plan_id": plan_b},
+    )
+    assert payment_a.status_code == 200, payment_a.text
+    assert payment_b.status_code == 200, payment_b.text
+
+    payments_a = await client.get("/payments", headers=two_gyms.a.headers)
+    member_ids_a = {p["member_id"] for p in payments_a.json()}
+    assert str(two_gyms.member_a) in member_ids_a
+    assert str(two_gyms.member_b) not in member_ids_a
+
+
 async def test_plans_never_shows_the_other_gym(client: AsyncClient, two_gyms: TwoGyms) -> None:
     plans_a = {p["id"] for p in (await client.get("/plans", headers=two_gyms.a.headers)).json()}
     plans_b = {p["id"] for p in (await client.get("/plans", headers=two_gyms.b.headers)).json()}

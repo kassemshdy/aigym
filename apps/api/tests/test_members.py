@@ -149,3 +149,25 @@ async def test_whatsapp_reminder_composer(client: AsyncClient) -> None:
     )
     assert reminder.status_code == 200
     assert reminder.json()["wa_link"].startswith("https://wa.me/96174000005")
+
+
+async def test_list_payments(client: AsyncClient) -> None:
+    _gym_id, headers = await _gym_and_staff_token(client, slug="members-e")
+    plan_id = await _get_a_plan_id(client, headers)
+    create = await client.post(
+        "/members", headers=_idem(headers), json=_member_payload(plan_id, "+96174000006")
+    )
+    member_id = create.json()["id"]
+
+    await client.post(
+        f"/members/{member_id}/payments",
+        headers=_idem(headers),
+        json={"amount_usd": 40.0, "method": "cash"},
+    )
+
+    payments = await client.get("/payments", headers=headers)
+    assert payments.status_code == 200
+    rows = payments.json()
+    assert len(rows) == 1
+    assert rows[0]["member_id"] == member_id
+    assert rows[0]["amount_usd"] == 40.0
