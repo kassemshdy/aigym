@@ -10,7 +10,7 @@ The prototype runs on Railway at **https://triple-a.up.railway.app**
 | Source | `kassemshdy/aigym`, branch `main`, root directory `/apps/web` |
 | Build | `apps/web/Dockerfile` — Node builds, Caddy serves |
 | Health | `/health` |
-| Redeploys on | any push to `main` touching `apps/web/**` |
+| Redeploys on | `main` moving, for anything under `apps/web/**` — i.e. a merge from `develop` |
 
 The hostname is a **claimed** service domain, not the auto-generated one. Railway derives
 `<service>-<environment>-<hash>.up.railway.app` from the service name by default, which gave
@@ -61,14 +61,18 @@ from a developer machine, not from CI.
 
 ## Deploying a change
 
-Push to `main`. That is the whole procedure.
+Work lands on `develop`. Deploying means merging it into `main`:
 
 ```bash
-git push origin main
+git checkout main && git merge --no-ff develop && git push origin main
+git checkout develop
 ```
 
 Anything under `apps/web/**` triggers a build. Changes only to `docs/` or `AGENTS.md` do not,
 which is intended — documentation should not cost a deploy.
+
+Pushing to `develop` never deploys. If you want a change on the live URL, it has to go through
+the merge above; that is deliberate, since the URL is in the investor deck.
 
 ## When a deploy fails
 
@@ -111,10 +115,77 @@ BASE=https://triple-a.up.railway.app node apps/web/scripts/shots.mjs ./shots
 
 ## What is deployed
 
-Phase 1: the clickable prototype. Mock data, no backend, no database. Member sign-in accepts
-any code and the role switcher lets any visitor open the manager and coach screens.
+The `web` service currently serves the Phase 1 prototype: mock data, no backend, no
+database, `VITE_API_URL` unset. Member sign-in accepts any code and the role switcher lets
+any visitor open the manager and coach screens.
 
 That is correct for a demo of entirely invented data, and it is exactly why **this URL must
-not be pointed at real member data while it stays public.** Phase 2 brings real auth and
-per-gym isolation; a password on the demo is about ten lines of Caddy `basic_auth` whenever
+not be pointed at real member data while it stays public** until the API below is deployed,
+`VITE_API_URL` is set on `web`, and real manager accounts replace the open role switcher —
+a password on the demo is about ten lines of Caddy `basic_auth` in the meantime, whenever
 it is wanted.
+
+## The API service (Phase 2)
+
+**Status: built and fully tested locally (`apps/api`, 36 tests including the isolation
+suite); not yet provisioned on Railway.** Everything below is the runbook for standing it
+up — provisioning itself is a deliberate step, not something to do as a side effect of
+merging code, since it means new billed Railway resources (a Postgres addon plus a second
+service) on the same project as the investor-deck URL.
+
+|  |  |
+|---|---|
+| Source | `kassemshdy/aigym`, branch `main`, root directory `/apps/api` |
+| Build | `apps/api/Dockerfile` — installs with `uv`, runs `alembic upgrade head` then `uvicorn` on container start |
+| Health | `/health` |
+| Needs | a Postgres addon in the same Railway project |
+
+### Provisioning, in order
+
+1. **Add a Postgres database** to the `aigym` project (Railway's own addon, not a
+   Dockerfile). Note its connection string.
+2. **Create the `api` service** from the same GitHub repo, root directory `/apps/api`. Like
+   `web`'s first deploy, the very first build happens before the root directory can be set
+   and will fail against the repo root — set it and redeploy, same as `web`'s history.
+3. **Bootstrap the database once**, against Postgres's own superuser connection (Railway's
+   default `postgres` user is one): run `scripts/bootstrap_db.sh` with `PGHOST`/`PGPORT`/
+   `PGUSER`/`PGPASSWORD` pointed at it, or the equivalent SQL by hand — it creates the
+   `aigym_app` role (`NOBYPASSRLS`, decision 16) that the running service connects as.
+4. **Set environment variables** on the `api` service:
+   - `AIGYM_ENV=production`
+   - `AIGYM_DATABASE_URL` — `postgresql+psycopg://aigym_app:<password>@<host>:<port>/<db>`
+     (the app role from step 3, never the Postgres addon's own superuser)
+   - `AIGYM_DATABASE_URL_MIGRATIONS` — the addon's own superuser connection string;
+     used only by the container's own `alembic upgrade head` on start and by
+     `scripts/seed.py` if it is run
+   - `AIGYM_JWT_SECRET` — 32+ random bytes,
+     `python3 -c "import secrets; print(secrets.token_urlsafe(32))"`, generated fresh —
+     never the `.env.example` placeholder
+   - `AIGYM_ONBOARDING_SECRET` — same generation method, a different value; this is the
+     only gate on `POST /gyms` and is handed to Kassem out of band, not committed anywhere
+   - `AIGYM_CORS_ORIGINS` — `["https://triple-a.up.railway.app"]`, the web origin only
+5. **Seed real content** (optional, once): `uv run python scripts/seed.py` against
+   `AIGYM_DATABASE_URL_MIGRATIONS`, from a Railway shell or a tunnel — loads Triple A Gym's
+   actual members, plans, coaches and class schedule. Onboard the real first manager
+   through `POST /gyms` rather than the seed script, since the seeded staff row has no PIN
+   set.
+6. **Point `web` at it**: set `VITE_API_URL` to the `api` service's Railway domain, which
+   forces a rebuild of `web` (Vite bakes `import.meta.env.VITE_API_URL` in at build time,
+   not runtime) — so this is a `web` redeploy, not just an `api` change.
+
+### Why migrations run in the container's own start command, not a release step
+
+Railway's Config as Code is what would normally carry a separate release command
+(decision 15 rules it out) and Infrastructure as Code (`.railway/railway.ts`) is the
+supported replacement but needs an interactive `railway login`, so it is not wired up yet.
+`alembic upgrade head` running before `uvicorn` in the Dockerfile's `CMD` is the simplest
+thing that is still correct **at one replica** — see `apps/api/AGENTS.md`'s note on moving
+this to a real release command if this service is ever scaled beyond that.
+
+### What cannot be verified from this environment
+
+`*.up.railway.app` is unreachable from this sandbox (403 on CONNECT) — the same
+restriction that already applies to `web`. The build, the container, and every route
+against a local Postgres are all verified (`apps/api`'s own test suite plus a manual
+browser run against `uvicorn` locally); the live deploy itself needs a phone or a browser
+with real internet, the same as `web`'s own deploys.

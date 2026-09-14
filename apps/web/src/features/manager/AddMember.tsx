@@ -5,8 +5,10 @@ import { Card } from '@/components/ui/Card'
 import { Button, buttonClass } from '@/components/ui/Button'
 import { Field, Input, Segmented } from '@/components/ui/Field'
 import { Icon } from '@/components/ui/Icon'
-import { Page } from '@/components/ui/Page'
-import { gym, plans } from '@/mocks/data'
+import { Empty, Page } from '@/components/ui/Page'
+import { gym } from '@/mocks/data'
+import { createMember, listPlans } from '@/data/queries'
+import { useAsync } from '@/data/useAsync'
 import { usd } from '@/lib/format'
 import { waLink } from '@/lib/whatsapp'
 import type { Lang } from '@/i18n'
@@ -18,13 +20,16 @@ export function ManagerAddMember() {
   const { t, i18n } = useTranslation()
   const lang = i18n.language as Lang
   const navigate = useNavigate()
+  const plans = useAsync(listPlans, [])
 
   const [step, setStep] = useState(0)
   const [done, setDone] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(false)
   const [form, setForm] = useState({
     name: '',
     phone: '',
-    planId: 'p1',
+    planId: '',
     heightCm: '',
     weightKg: '',
     goal: 'health' as 'lose' | 'gain' | 'strength' | 'health',
@@ -34,6 +39,35 @@ export function ManagerAddMember() {
   })
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) =>
     setForm((f) => ({ ...f, [k]: v }))
+
+  const selectedPlanId = form.planId || plans.data?.[0]?.id || ''
+
+  async function finish() {
+    setSaving(true)
+    setError(false)
+    try {
+      await createMember({
+        name: form.name,
+        name_en: form.name,
+        phone: form.phone,
+        plan_id: selectedPlanId,
+        goal: form.goal,
+        level: form.level,
+        height_cm: Number(form.heightCm) || 0,
+        weight_kg: Number(form.weightKg) || 0,
+        body_fat: null,
+        injuries: [],
+        days_per_week: Number(form.daysPerWeek),
+        job: form.job,
+        sleep_hours: 7,
+      })
+      setDone(true)
+    } catch {
+      setError(true)
+    } finally {
+      setSaving(false)
+    }
+  }
 
   if (done) {
     return (
@@ -95,22 +129,28 @@ export function ManagerAddMember() {
 
         {step === 1 && (
           <Field label={t('manager.plans.title')}>
-            <div className="space-y-2">
-              {plans.map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => set('planId', p.id)}
-                  className={cn(
-                    'min-h-tap-lg flex w-full items-center justify-between rounded-xl px-4 text-start',
-                    form.planId === p.id ? 'bg-ink text-white' : 'border border-line bg-surface',
-                  )}
-                >
-                  <span className="font-semibold">{p.name[lang]}</span>
-                  <span className="tnum font-bold">{usd(p.priceUsd)}</span>
-                </button>
-              ))}
-            </div>
+            {plans.loading ? (
+              <Empty>{t('common.loading')}</Empty>
+            ) : plans.error || !plans.data ? (
+              <Empty>{t('common.error')}</Empty>
+            ) : (
+              <div className="space-y-2">
+                {plans.data.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => set('planId', p.id)}
+                    className={cn(
+                      'min-h-tap-lg flex w-full items-center justify-between rounded-xl px-4 text-start',
+                      selectedPlanId === p.id ? 'bg-ink text-white' : 'border border-line bg-surface',
+                    )}
+                  >
+                    <span className="font-semibold">{p.name[lang]}</span>
+                    <span className="tnum font-bold">{usd(p.price_usd)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </Field>
         )}
 
@@ -161,6 +201,11 @@ export function ManagerAddMember() {
                 options={(['desk', 'active', 'shift'] as const).map((v) => ({ value: v, label: t(`job.${v}`) }))}
               />
             </Field>
+            {error ? (
+              <p className="bg-ink rounded-xl px-4 py-3 text-sm font-semibold text-white">
+                {t('common.error')}
+              </p>
+            ) : null}
           </>
         )}
       </Card>
@@ -178,8 +223,8 @@ export function ManagerAddMember() {
         <Button
           size="lg"
           full
-          disabled={step === 0 && (!form.name.trim() || !form.phone.trim())}
-          onClick={() => (step === STEPS.length - 1 ? setDone(true) : setStep((s) => s + 1))}
+          disabled={saving || (step === 0 && (!form.name.trim() || !form.phone.trim()))}
+          onClick={() => (step === STEPS.length - 1 ? void finish() : setStep((s) => s + 1))}
         >
           {step === STEPS.length - 1 ? t('manager.add.finish') : t('common.next')}
         </Button>

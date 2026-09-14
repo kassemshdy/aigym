@@ -5,12 +5,14 @@ import { buttonClass } from '@/components/ui/Button'
 import { StatusBadge } from '@/components/ui/Badge'
 import { Avatar } from '@/components/ui/Avatar'
 import { Icon } from '@/components/ui/Icon'
-import { Page } from '@/components/ui/Page'
-import { checkIns, gym, memberName, members, payments } from '@/mocks/data'
+import { Empty, Page } from '@/components/ui/Page'
+import { gym } from '@/mocks/data'
+import { listLapsedMembers, listMembers, listPayments, listTodaysCheckIns } from '@/data/queries'
+import { useAsync } from '@/data/useAsync'
 import { usd } from '@/lib/format'
-import { lapsedMembers } from './Lapsed'
 import { waLink } from '@/lib/whatsapp'
 import type { Lang } from '@/i18n'
+import { LAPSED_AFTER_DAYS } from './Lapsed'
 
 function Tile({ n, label, tone }: { n: string; label: string; tone?: 'due' | 'soon' }) {
   return (
@@ -31,14 +33,26 @@ export function ManagerHome() {
   const { t, i18n } = useTranslation()
   const lang = i18n.language as Lang
 
-  const owing = members.filter((m) => m.status === 'due')
-  const ending = members.filter((m) => m.status === 'soon')
-  const collected = payments.reduce((sum, p) => sum + p.amountUsd, 0)
+  const members = useAsync(listMembers, [])
+  const checkIns = useAsync(listTodaysCheckIns, [])
+  const payments = useAsync(listPayments, [])
+  const lapsed = useAsync(() => listLapsedMembers(LAPSED_AFTER_DAYS), [])
+
+  if (members.loading || checkIns.loading || payments.loading || lapsed.loading) {
+    return <Page title={t('manager.home.title')} sub={gym.name[lang]}><Empty>{t('common.loading')}</Empty></Page>
+  }
+  if (!members.data || !checkIns.data || !payments.data || !lapsed.data) {
+    return <Page title={t('manager.home.title')} sub={gym.name[lang]}><Empty>{t('common.error')}</Empty></Page>
+  }
+
+  const owing = members.data.filter((m) => m.dues?.status === 'due')
+  const ending = members.data.filter((m) => m.dues?.status === 'soon')
+  const collected = payments.data.reduce((sum, p) => sum + p.amount_usd, 0)
 
   return (
     <Page title={t('manager.home.title')} sub={gym.name[lang]}>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Tile n={String(checkIns.length)} label={t('manager.home.cameToday')} />
+        <Tile n={String(checkIns.data.length)} label={t('manager.home.cameToday')} />
         <Tile n={String(owing.length)} label={t('manager.home.owes')} tone="due" />
         <Tile n={String(ending.length)} label={t('manager.home.endingSoon')} tone="soon" />
         <Tile n={usd(collected)} label={t('manager.home.collected')} />
@@ -60,31 +74,30 @@ export function ManagerHome() {
           {t('manager.home.whoOwes')}
         </CardTitle>
         <ul>
-          {owing.map((m) => (
-            <li key={m.id} className="border-line flex items-center gap-3 border-b px-4 py-3 last:border-0">
-              <Avatar name={memberName(m, lang)} />
-              <Link to={`/manager/members/${m.id}`} className="min-w-0 flex-1">
-                <p className="truncate font-semibold">{memberName(m, lang)}</p>
-                <p className="text-due tnum text-sm font-bold">{usd(m.owedUsd)}</p>
-              </Link>
-              <a
-                href={waLink(
-                  m.phone,
-                  t('whatsapp.dues', {
-                    name: memberName(m, lang),
-                    gym: gym.name[lang],
-                    amount: m.owedUsd,
-                  }),
-                )}
-                target="_blank"
-                rel="noreferrer"
-                aria-label={t('manager.member.whatsapp')}
-                className="border-line text-paid flex size-12 items-center justify-center rounded-xl border"
-              >
-                <Icon name="whatsapp" />
-              </a>
-            </li>
-          ))}
+          {owing.map((m) => {
+            const name = lang === 'ar' ? m.name : m.name_en
+            return (
+              <li key={m.id} className="border-line flex items-center gap-3 border-b px-4 py-3 last:border-0">
+                <Avatar name={name} />
+                <Link to={`/manager/members/${m.id}`} className="min-w-0 flex-1">
+                  <p className="truncate font-semibold">{name}</p>
+                  <p className="text-due tnum text-sm font-bold">{usd(m.dues?.owed_usd ?? 0)}</p>
+                </Link>
+                <a
+                  href={waLink(
+                    m.phone,
+                    t('whatsapp.dues', { name, gym: gym.name[lang], amount: m.dues?.owed_usd ?? 0 }),
+                  )}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={t('manager.member.whatsapp')}
+                  className="border-line text-paid flex size-12 items-center justify-center rounded-xl border"
+                >
+                  <Icon name="whatsapp" />
+                </a>
+              </li>
+            )
+          })}
         </ul>
       </Card>
 
@@ -99,44 +112,44 @@ export function ManagerHome() {
           {t('lapsed.title')}
         </CardTitle>
         <ul>
-          {lapsedMembers()
-            .slice(0, 3)
-            .map(({ member, days }) => (
-              <li key={member.id}>
+          {lapsed.data.slice(0, 3).map((m) => {
+            const name = lang === 'ar' ? m.name : m.name_en
+            return (
+              <li key={m.id}>
                 <Link
                   to="/manager/lapsed"
                   className="border-line flex items-center gap-3 border-b px-4 py-3 last:border-0"
                 >
-                  <Avatar name={memberName(member, lang)} />
-                  <span className="min-w-0 flex-1 truncate font-semibold">
-                    {memberName(member, lang)}
-                  </span>
+                  <Avatar name={name} />
+                  <span className="min-w-0 flex-1 truncate font-semibold">{name}</span>
                   <span className="text-soon tnum text-sm font-bold">
-                    {t('lapsed.days', { count: days })}
+                    {t('lapsed.days', { count: m.days_since_visit ?? 0 })}
                   </span>
                 </Link>
               </li>
-            ))}
+            )
+          })}
         </ul>
       </Card>
 
       <Card>
         <CardTitle>{t('manager.home.endingSoon')}</CardTitle>
         <ul>
-          {ending.map((m) => (
-            <li key={m.id}>
-              <Link
-                to={`/manager/members/${m.id}`}
-                className="border-line flex items-center gap-3 border-b px-4 py-3 last:border-0"
-              >
-                <Avatar name={memberName(m, lang)} />
-                <span className="min-w-0 flex-1 truncate font-semibold">
-                  {memberName(m, lang)}
-                </span>
-                <StatusBadge status={m.status} />
-              </Link>
-            </li>
-          ))}
+          {ending.map((m) => {
+            const name = lang === 'ar' ? m.name : m.name_en
+            return (
+              <li key={m.id}>
+                <Link
+                  to={`/manager/members/${m.id}`}
+                  className="border-line flex items-center gap-3 border-b px-4 py-3 last:border-0"
+                >
+                  <Avatar name={name} />
+                  <span className="min-w-0 flex-1 truncate font-semibold">{name}</span>
+                  {m.dues ? <StatusBadge status={m.dues.status} /> : null}
+                </Link>
+              </li>
+            )
+          })}
         </ul>
       </Card>
     </Page>

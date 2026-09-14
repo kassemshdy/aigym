@@ -1,30 +1,41 @@
 # apps/web — React app
 
-Vite + React 19 + TypeScript + Tailwind v4. No Next.js. Phase 1: mock data only.
+Vite + React 19 + TypeScript + Tailwind v4. No Next.js. Manager screens run on the Phase 2
+API when `VITE_API_URL` is set, mocks when it isn't; coach and member screens stay on
+mocks until Phase 3.
 
 ## Layout
 
 ```
 src/
-├── main.tsx            entry — router, i18n, styles
-├── App.tsx             the whole route tree
-├── index.css           @theme tokens; the only place colours are defined
-├── i18n/               en.json (default), ar.json, index.ts (sets <html lang/dir>)
-├── lib/                format.ts (usd, dates, mmss), whatsapp.ts, cn.ts
-├── mocks/              types.ts + data.ts — replaced by API calls in Phase 2
+├── main.tsx          entry — router, i18n, styles
+├── App.tsx           the whole route tree
+├── index.css         @theme tokens; the only place colours are defined
+├── vite-env.d.ts     types import.meta.env.VITE_API_URL
+├── i18n/             en.json (default), ar.json, index.ts (sets <html lang/dir>)
+├── lib/              format.ts (usd, dates, mmss), whatsapp.ts, cn.ts
+├── mocks/            types.ts + data.ts — coach/member screens' only data source;
+│                     manager screens read this only through data/mockAdapter.ts
+├── data/             manager screens' data layer (Phase 2 boundary, see below)
+│   ├── client.ts       the only place `fetch` appears — bearer auth, Idempotency-Key,
+│   │                   one silent refresh-and-retry on 401
+│   ├── types.ts        shapes the live API and the mock adapter both return
+│   ├── mockAdapter.ts  adapts mocks/data.ts into those same shapes
+│   ├── queries.ts      the functions feature components actually call
+│   └── useAsync.ts     thin read-side hook — no TanStack Query, see decisions
 ├── components/
-│   ├── ui/             the design system — check here before writing a component
-│   └── AppShell.tsx    header, language toggle, role switcher, bottom tabs
+│   ├── ui/           the design system — check here before writing a component
+│   └── AppShell.tsx  header, language toggle, role switcher, bottom tabs
 └── features/
-    ├── manager/        Home, Members, MemberDetail, AddMember, Plans, Payments
-    ├── coach/          Queue, MemberCard, Session, AiDrafts
-    └── member/         Login, Today, Food, Chat, Photos, Videos, Progress, Profile
+    ├── manager/      Home, Members, MemberDetail, AddMember, Plans, Payments, Login
+    ├── coach/        Queue, MemberCard, Session, AiDrafts
+    └── member/       Login, Today, Food, Chat, Photos, Videos, Progress, Profile
 ```
 
-`src/state/store.tsx` holds prototype state (sign-in, food log, progress photos, chat
-transcripts). Components read it through `useStore()` rather than touching mocks, so
-Phase 2 can swap the implementation for the API plus the offline outbox without touching
-a screen.
+`src/state/store.tsx` holds member-app prototype state (sign-in, food log, progress
+photos, chat transcripts) — coach and member screens read it through `useStore()`. Manager
+screens do not use it; their state is `src/data/queries.ts` reads plus local component
+state, since there is nothing member-app-specific to share a reducer with.
 
 `src/mocks/agents.ts` is the stand-in for the two assistants. The authority boundary lives
 there and in the store: a reply may carry `food` (log it) or `draft` (escalate to the
@@ -44,6 +55,10 @@ coach), never a program change.
   second place that mutates food entries, photos, or chat.
 - New progress-photo code starts from `sharedWithCoach: false`. If you find yourself
   writing a default that shares, stop and read decision 11.
+- Manager reads go through `src/data/useAsync.ts` (`const { data, loading, error } =
+  useAsync(fn, deps)`); manager writes go through `src/data/queries.ts` functions, which
+  attach an `Idempotency-Key` automatically (`client.ts`'s `newIdempotencyKey()`) — never
+  call `apiFetch` for a POST/PATCH/DELETE without going through one of those functions.
 
 ## Before committing
 
@@ -85,6 +100,15 @@ will not play on an iPhone or forward through WhatsApp on iOS.
 
 ## Phase 2 boundary
 
-When the API arrives, `src/mocks/` is replaced by a data layer; components keep their
-props. Do not add `fetch` calls to feature components — that is what makes the offline
-outbox impossible to add later.
+`src/data/` is the only place `fetch` appears — never add one to a feature component, that
+is what makes the offline outbox impossible to add in Phase 3. Manager components import
+functions from `src/data/queries.ts`, never from `src/mocks/data` and never `@/data/client`
+directly. `VITE_API_URL` unset ⇒ `queries.ts` calls the mock adapter instead of the API;
+every function returns the identical shape either way, so a screen does not know or care
+which path it is on.
+
+Adding a new manager read or write: add the live call to `queries.ts` (through
+`apiFetch` in `client.ts`), add the matching mock implementation to `mockAdapter.ts`
+returning the exact same shape, and only then wire the component. A `queries.ts` function
+with no mock branch breaks `main`'s mock-only build — see the "must stay deployable"
+invariant in `docs/DECISIONS.md`.

@@ -1,9 +1,11 @@
-import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Icon, type IconName } from './ui/Icon'
 import { gym } from '@/mocks/data'
 import type { Lang } from '@/i18n'
 import { cn } from '@/lib/cn'
+import { API_URL, isManagerSignedIn } from '@/data/client'
+import { managerSignOut } from '@/data/queries'
 
 type Tab = { to: string; icon: IconName; label: string }
 
@@ -32,9 +34,11 @@ const ROLES = ['manager', 'coach', 'member'] as const
 export function AppShell() {
   const { t, i18n } = useTranslation()
   const { pathname } = useLocation()
+  const navigate = useNavigate()
   const role = (ROLES.find((r) => pathname.startsWith(`/${r}`)) ?? 'manager') as string
   const lang = i18n.language as Lang
   const tabs = TABS[role](t)
+  const showManagerSignOut = role === 'manager' && !!API_URL && isManagerSignedIn()
 
   return (
     <div className="mx-auto flex h-dvh max-w-6xl flex-col">
@@ -65,6 +69,18 @@ export function AppShell() {
             >
               {lang === 'ar' ? 'EN' : 'ع'}
             </button>
+            {showManagerSignOut ? (
+              <button
+                type="button"
+                onClick={() => {
+                  managerSignOut()
+                  navigate('/manager/login')
+                }}
+                className="min-h-11 rounded-xl border border-white/25 px-3 text-sm font-bold text-white"
+              >
+                {t('manager.login.signOut')}
+              </button>
+            ) : null}
           </div>
         </div>
 

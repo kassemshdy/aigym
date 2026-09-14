@@ -1,32 +1,60 @@
+import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Card, CardTitle } from '@/components/ui/Card'
 import { BackLink } from '@/components/ui/BackLink'
-import { buttonClass } from '@/components/ui/Button'
+import { Button, buttonClass } from '@/components/ui/Button'
 import { StatusBadge } from '@/components/ui/Badge'
 import { Avatar } from '@/components/ui/Avatar'
-import { Row } from '@/components/ui/Field'
+import { Field, Input, Row, Segmented } from '@/components/ui/Field'
 import { Sparkline } from '@/components/ui/Sparkline'
 import { Icon } from '@/components/ui/Icon'
 import { Empty, Page } from '@/components/ui/Page'
-import { findMember, findPlan, gym, memberName, payments } from '@/mocks/data'
+import { getMember, listPayments, recordPayment, whatsappReminderLink } from '@/data/queries'
+import { useAsync } from '@/data/useAsync'
 import { listSep, shortDate, text, usd } from '@/lib/format'
-import { waLink } from '@/lib/whatsapp'
 import type { Lang } from '@/i18n'
 
 export function ManagerMemberDetail() {
   const { id = '' } = useParams()
   const { t, i18n } = useTranslation()
   const lang = i18n.language as Lang
-  const m = findMember(id)
 
-  if (!m) return <Page><Empty>{t('common.none')}</Empty></Page>
+  const member = useAsync(() => getMember(id), [id])
+  const payments = useAsync(listPayments, [id])
 
-  const name = memberName(m, lang)
-  const message =
-    m.status === 'due'
-      ? t('whatsapp.dues', { name, gym: gym.name[lang], amount: m.owedUsd })
-      : t('whatsapp.expiring', { name, gym: gym.name[lang], date: shortDate(m.endsAt, lang) })
+  const [recording, setRecording] = useState(false)
+  const [amount, setAmount] = useState('')
+  const [method, setMethod] = useState<'cash' | 'transfer'>('cash')
+  const [saving, setSaving] = useState(false)
+
+  if (member.loading) return <Page><Empty>{t('common.loading')}</Empty></Page>
+  if (member.error || !member.data) return <Page><Empty>{t('common.none')}</Empty></Page>
+
+  const m = member.data
+  const name = lang === 'ar' ? m.name : m.name_en
+
+  async function openWhatsapp() {
+    const { wa_link } = await whatsappReminderLink(id, lang)
+    window.open(wa_link, '_blank', 'noreferrer')
+  }
+
+  async function submitPayment() {
+    const amountUsd = Number(amount)
+    if (!amountUsd || amountUsd <= 0) return
+    setSaving(true)
+    try {
+      await recordPayment(id, { amount_usd: amountUsd, method })
+      setRecording(false)
+      setAmount('')
+      member.reload()
+      payments.reload()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const memberPayments = (payments.data ?? []).filter((p) => p.member_id === id)
 
   return (
     <Page>
@@ -34,77 +62,131 @@ export function ManagerMemberDetail() {
 
       <Card className="p-4">
         <div className="flex items-center gap-3">
-          <Avatar name={memberName(m, lang)} size="lg" />
+          <Avatar name={name} size="lg" />
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-lg font-extrabold">{name}</h1>
             <p className="text-muted tnum text-sm" dir="ltr">{m.phone}</p>
           </div>
-          <StatusBadge status={m.status} big />
+          {m.dues ? <StatusBadge status={m.dues.status} big /> : null}
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-2">
-          <a href={waLink(m.phone, message)} target="_blank" rel="noreferrer" className={buttonClass('secondary', 'lg')}>
+          <button
+            type="button"
+            onClick={() => void openWhatsapp()}
+            className={buttonClass('secondary', 'lg')}
+          >
             <Icon name="whatsapp" />
             {t('manager.member.whatsapp')}
-          </a>
-          <button type="button" className={buttonClass('primary', 'lg')}>
+          </button>
+          <button
+            type="button"
+            onClick={() => setRecording((v) => !v)}
+            className={buttonClass('primary', 'lg')}
+          >
             <Icon name="money" />
             {t('manager.member.recordPayment')}
           </button>
         </div>
+
+        {recording ? (
+          <div className="border-line mt-4 space-y-3 border-t pt-4">
+            <Field label={t('manager.member.amount')}>
+              <Input
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                inputMode="decimal"
+                dir="ltr"
+                placeholder="35"
+                autoFocus
+              />
+            </Field>
+            <Field label={t('manager.payments.method')}>
+              <Segmented
+                value={method}
+                onChange={setMethod}
+                columns={2}
+                options={[
+                  { value: 'cash', label: t('manager.payments.cash') },
+                  { value: 'transfer', label: t('manager.payments.transfer') },
+                ]}
+              />
+            </Field>
+            <Button
+              full
+              size="lg"
+              disabled={saving || !Number(amount)}
+              onClick={() => void submitPayment()}
+            >
+              {t('common.save')}
+            </Button>
+          </div>
+        ) : null}
       </Card>
 
       <Card>
-        <Row label={t('manager.member.plan')} value={findPlan(m.planId)?.name[lang]} />
-        <Row label={t('manager.member.ends')} value={shortDate(m.endsAt, lang)} />
+        <Row label={t('manager.member.plan')} value={m.plan_name?.[lang]} />
+        <Row label={t('manager.member.ends')} value={m.ends_at ? shortDate(m.ends_at, lang) : '—'} />
         <Row
           label={t('manager.member.owed')}
-          value={<span className={m.owedUsd ? 'text-due tnum' : 'tnum'}>{usd(m.owedUsd)}</span>}
+          value={
+            <span className={m.dues && m.dues.owed_usd > 0 ? 'text-due tnum' : 'tnum'}>
+              {usd(m.dues?.owed_usd ?? 0)}
+            </span>
+          }
         />
         <Row
           label={t('manager.member.lastVisit')}
-          value={m.lastVisit ? shortDate(m.lastVisit, lang) : t('manager.member.never')}
+          value={m.last_visit ? shortDate(m.last_visit, lang) : t('manager.member.never')}
         />
       </Card>
 
-      <Card>
-        <CardTitle>{t('manager.member.body')}</CardTitle>
-        <Row label={t('manager.member.height')} value={`${m.heightCm} cm`} />
-        <Row label={t('manager.member.weight')} value={`${m.weightKg} ${t('common.kg')}`} />
-        <Row label={t('manager.member.bodyFat')} value={m.bodyFat ? `${m.bodyFat}%` : '—'} />
-        <Row
-          label={t('manager.member.injuries')}
-          value={m.injuries.length ? m.injuries.map((i) => text(i, lang)).join(listSep(lang)) : t('manager.member.noInjuries')}
-        />
-        <div className="flex items-center justify-between gap-3 px-4 py-3">
-          <span className="text-muted text-sm">{t('manager.member.weightHistory')}</span>
-          <span className="text-ink"><Sparkline values={m.weightTrend} /></span>
-        </div>
-      </Card>
+      {m.profile ? (
+        <>
+          <Card>
+            <CardTitle>{t('manager.member.body')}</CardTitle>
+            <Row label={t('manager.member.height')} value={`${m.profile.height_cm} cm`} />
+            <Row label={t('manager.member.weight')} value={`${m.profile.weight_kg} ${t('common.kg')}`} />
+            <Row label={t('manager.member.bodyFat')} value={m.profile.body_fat ? `${m.profile.body_fat}%` : '—'} />
+            <Row
+              label={t('manager.member.injuries')}
+              value={
+                m.profile.injuries.length
+                  ? m.profile.injuries
+                      .map((i) => text(i as Parameters<typeof text>[0], lang))
+                      .join(listSep(lang))
+                  : t('manager.member.noInjuries')
+              }
+            />
+            <div className="flex items-center justify-between gap-3 px-4 py-3">
+              <span className="text-muted text-sm">{t('manager.member.weightHistory')}</span>
+              <span className="text-ink"><Sparkline values={m.profile.weight_trend} /></span>
+            </div>
+          </Card>
 
-      <Card>
-        <CardTitle>{t('manager.member.lifestyle')}</CardTitle>
-        <Row label={t('manager.add.goal')} value={t(`goal.${m.goal}`)} />
-        <Row label={t('manager.add.level')} value={t(`level.${m.level}`)} />
-        <Row label={t('manager.member.daysPerWeek')} value={m.daysPerWeek} />
-        <Row label={t('job.desk').split(' ')[0]} value={t(`job.${m.job}`)} />
-        <Row label={t('manager.member.sleep')} value={m.sleepHours} />
-      </Card>
+          <Card>
+            <CardTitle>{t('manager.member.lifestyle')}</CardTitle>
+            <Row label={t('manager.add.goal')} value={t(`goal.${m.profile.goal}`)} />
+            <Row label={t('manager.add.level')} value={t(`level.${m.profile.level}`)} />
+            <Row label={t('manager.member.daysPerWeek')} value={m.profile.days_per_week} />
+            <Row label={t('job.desk').split(' ')[0]} value={t(`job.${m.profile.job}`)} />
+            <Row label={t('manager.member.sleep')} value={m.profile.sleep_hours} />
+          </Card>
+        </>
+      ) : null}
 
       <Card>
         <CardTitle>{t('manager.payments.title')}</CardTitle>
-        {payments.filter((p) => p.memberId === m.id).length === 0 ? (
+        {memberPayments.length === 0 ? (
           <p className="text-muted p-4 text-sm">{t('common.none')}</p>
         ) : (
-          payments
-            .filter((p) => p.memberId === m.id)
-            .map((p) => (
-              <Row
-                key={p.id}
-                label={shortDate(p.at, lang)}
-                value={`${usd(p.amountUsd)} · ${t(`manager.payments.${p.method}`)}`}
-              />
-            ))
+          memberPayments.map((p) => (
+            <Row
+              key={p.id}
+              label={shortDate(p.at, lang)}
+              value={`${usd(p.amount_usd)} · ${t(`manager.payments.${p.method}`)}`}
+            />
+          ))
         )}
       </Card>
     </Page>

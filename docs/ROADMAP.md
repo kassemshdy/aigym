@@ -32,13 +32,18 @@ toggle. Eleven screens across three surfaces:
 Verified: 17 screens × 2 languages screenshot clean, no direction errors, no overflow, no
 console errors, 120 KB gzipped against a 200 KB budget.
 
-## Phase 2 — Backend core: tenancy, auth, members, money
+## Phase 2 — Backend core: tenancy, auth, members, money ✅ done
 
-FastAPI + SQLAlchemy 2.0 + Alembic + Postgres. Tenancy tables with Row-Level Security, JWT
-auth with refresh, gym onboarding, member CRUD, plans, subscriptions, manual USD payments,
-derived dues status, **idempotency-key middleware** (required before any offline work),
-WhatsApp message composer, and a cross-tenant isolation test suite. Manager screens move
-off mocks.
+FastAPI + SQLAlchemy 2.0 + Alembic + Postgres. Tenancy tables with Row-Level Security
+(`ENABLE` + `FORCE`, enforced against a non-owning, non-superuser role — see decision 16),
+JWT auth with rotating refresh tokens, phone + PIN for staff and phone + 6-digit WhatsApp
+code for members, gym onboarding, member CRUD, plans, subscriptions, manual USD payments,
+derived dues status (decision 17, never stored), **Idempotency-Key middleware** (the
+contract `.agents/skills/offline-sync` already promised Phase 3), a WhatsApp message
+composer, and a cross-tenant isolation test suite with its own CI job (decision 7). Manager
+screens read through `apps/web/src/data/` instead of `apps/web/src/mocks/`, with a mock
+fallback when `VITE_API_URL` is unset — coach and member screens stay on mocks until
+Phase 3. See `apps/api/AGENTS.md` and decisions 16–19.
 
 ## Phase 3 — The floor: check-in, nutrition, set logging, offline
 

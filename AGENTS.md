@@ -88,15 +88,43 @@ not a screenshot tool.
 - **Never write a literal `←`.** It does not mirror and points forward in Arabic. Use
   `BackLink`.
 
+## Branching
+
+| Branch | Job |
+|---|---|
+| `develop` | All work. Commit here. |
+| `main` | What is deployed. Only ever reached by a merge from `develop`. |
+
+**A push to `develop` deploys nothing. A merge to `main` deploys.** That separation is the
+whole point: the live URL is in the investor deck and goes out to gym owners, so it should
+only move when someone decides it should.
+
+```bash
+# releasing
+git checkout main && git merge --no-ff develop && git push origin main
+git checkout develop
+```
+
+`--no-ff` keeps a visible release point instead of a flat history, so "what shipped, and
+when" stays answerable from the log.
+
+`claude/gym-management-app-3wvw97` is an old session branch, four commits behind and fully
+merged. Ignore it; it is kept only because deleting someone's branch is not ours to do.
+
 ## Deploy
 
 Live at **https://triple-a.up.railway.app** (Railway project `aigym`, service
-`web`, region `europe-west4`). Pushing to `main` redeploys anything under `apps/web/**`.
+`web`, region `europe-west4`). Railway watches **`main`** and redeploys anything under
+`apps/web/**` — so a deploy follows a merge from `develop`, not a direct push.
 
 `apps/web/Dockerfile` builds with Node and serves with Caddy; `apps/web/Caddyfile` carries the
 SPA fallback, the `/health` endpoint, and the cache headers. **There is no `railway.json` and
 there must not be** — Config as Code is deprecated, new services cannot opt into it, and
 existing files stop being read on 2026-12-01. Service settings live on the service.
+
+`apps/api` has its own Dockerfile and is meant to run as a second Railway service (plus a
+Postgres addon) in the same project, with `web` reading its URL from `VITE_API_URL`. Setup
+and current status: `docs/DEPLOY.md`.
 
 Full runbook, including how to test the serving layer without Docker: `docs/DEPLOY.md`.
 
@@ -111,13 +139,17 @@ symlink to it). Read the matching skill before the task:
 | `design-system` | adding or restyling any component |
 | `i18n-rtl` | adding user-facing text, or any layout with direction |
 | `perf-budget` | adding a dependency or anything that ships JS |
-| `offline-sync` | anything that writes data (Phase 3+) |
+| `offline-sync` | anything that writes data — the server half is built (Phase 2), the client outbox is Phase 3+ |
+| `backend-conventions` | working in `apps/api` |
+| `tenancy-rules` | touching a gym-scoped table, a Row-Level Security policy, or anything that reads/writes across gyms |
+| `generate-migration` | adding or changing an Alembic migration |
 
-Backend skills (`backend-conventions`, `tenancy-rules`, `generate-migration`,
-`ai-prompt-eval`) land with the API in Phase 2 — they are deliberately absent rather than
-written against code that does not exist yet.
+`ai-prompt-eval` lands with the AI layer in Phase 5 — still deliberately absent rather
+than written against code that does not exist yet.
 
 ## Phases
 
-See `docs/ROADMAP.md`. Phase 1 (clickable prototype, mock data, no backend) is the current
-state. Do not add API calls, auth, or a database until Phase 2 is started.
+See `docs/ROADMAP.md`. Phase 2 (backend: tenancy, auth, members, money) is done — manager
+screens run on the API when `VITE_API_URL` is set, mocks otherwise. Coach and member
+screens are still Phase 1: mock data, no backend, no auth. Do not add API calls to a coach
+or member screen until Phase 3/4 gives that surface a reason to.
