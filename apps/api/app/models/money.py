@@ -14,7 +14,7 @@ class Plan(Base, UUIDPrimaryKeyMixin, GymScopedMixin, TimestampMixin):
     __tablename__ = "plans"
 
     name: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
-    price_usd: Mapped[float] = mapped_column(Numeric(8, 2), nullable=False)
+    price_usd: Mapped[float] = mapped_column(Numeric(8, 2, asdecimal=False), nullable=False)
     days: Mapped[int] = mapped_column(Integer, nullable=False)
 
 
@@ -41,7 +41,7 @@ class Payment(Base, UUIDPrimaryKeyMixin, GymScopedMixin, TimestampMixin):
     member_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("members.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    amount_usd: Mapped[float] = mapped_column(Numeric(8, 2), nullable=False)
+    amount_usd: Mapped[float] = mapped_column(Numeric(8, 2, asdecimal=False), nullable=False)
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     method: Mapped[str] = mapped_column(String, nullable=False)
     recorded_by_staff_id: Mapped[uuid.UUID | None] = mapped_column(
