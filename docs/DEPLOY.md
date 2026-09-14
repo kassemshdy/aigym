@@ -115,29 +115,29 @@ BASE=https://triple-a.up.railway.app node apps/web/scripts/shots.mjs ./shots
 
 ## What is deployed
 
-The `web` service currently serves the Phase 1 prototype: mock data, no backend, no
-database, `VITE_API_URL` unset. Member sign-in accepts any code and the role switcher lets
-any visitor open the manager and coach screens.
+The `web` service now serves the real Phase 2 backend for the **manager** surface:
+`VITE_API_URL` is set to the `api` service's domain, so manager screens read and write
+live Postgres data through JWT-authenticated requests, and `/manager/login` gates them —
+the open role switcher no longer applies to manager screens. Coach and member screens are
+still Phase 1 mocks (member sign-in still accepts any code) until Phase 3/4 gives those
+surfaces a backend.
 
-That is correct for a demo of entirely invented data, and it is exactly why **this URL must
-not be pointed at real member data while it stays public** until the API below is deployed,
-`VITE_API_URL` is set on `web`, and real manager accounts replace the open role switcher —
-a password on the demo is about ten lines of Caddy `basic_auth` in the meantime, whenever
-it is wanted.
+**No real manager account exists on the live database yet** (see "Seeding real content"
+below) — until that's done, `/manager/login` on the live URL has nothing to sign into.
 
 ## The API service (Phase 2)
 
-**Status: provisioned and live.** Postgres and `api` are both running in the `aigym`
-project. `web` is **not yet pointed at it** — `VITE_API_URL` is deliberately unset on
-`web`, so the investor-deck URL still serves Phase 1 mocks until that's turned on on
-purpose (see "Pointing `web` at it" below).
+**Status: provisioned, live, and `web` is pointed at it.** Postgres and `api` are both
+running in the `aigym` project; `web`'s `VITE_API_URL` is
+`https://api-production-6336.up.railway.app`, confirmed set on the service and baked into
+the current live deployment (commit `05c9dfdc`, `SUCCESS`).
 
 |  |  |
 |---|---|
 | API source | `kassemshdy/aigym`, branch `main`, root directory `/apps/api` |
 | API build | `apps/api/Dockerfile` — installs with `uv`; container start runs `scripts/bootstrap_db.sh` (idempotent), then `alembic upgrade head`, then `uvicorn` |
 | API health | `/health` — confirmed 200 in the deploy's own logs |
-| API domain | Railway-generated `*.up.railway.app` service domain (not custom) |
+| API domain | `api-production-6336.up.railway.app` (Railway-generated, not custom) |
 | Postgres | `postgres:16` image + a persistent volume at `/var/lib/postgresql/data` — **no public TCP proxy**, reachable only over Railway's private network as `postgres.railway.internal` |
 
 ### How the two services connect, and why Postgres has no public endpoint
@@ -157,21 +157,42 @@ values, set directly on the `api` service — not the `.env.example` placeholder
 recorded anywhere outside Railway's own variable store. `AIGYM_CORS_ORIGINS` is
 `["https://triple-a.up.railway.app"]` — the `web` origin only.
 
-### Seeding real content (not yet done)
+### Seeding real content, and setting the manager's PIN
 
-`uv run python scripts/seed.py`, run against `AIGYM_DATABASE_URL_MIGRATIONS` from a Railway
-shell, loads Triple A Gym's actual members, plans, coaches and class schedule. Onboard the
-real first manager through `POST /gyms` rather than the seed script, since the seeded staff
-row has no PIN set.
+Two one-off scripts, both run **inside** the running `api` container over Railway's private
+network — not locally. `railway run` / `railway shell` only export variables to your own
+machine, which can't resolve `postgres.railway.internal`; `railway ssh` is the one that
+actually opens a session inside the container (registers a local SSH key on first use):
 
-### Pointing `web` at it (not yet done, on purpose)
+```bash
+railway ssh -s api -- uv run python scripts/seed.py
+```
 
-Setting `VITE_API_URL` to the `api` service's domain on `web` is what actually switches the
-live investor-deck URL from mocks to this backend — Vite bakes the value in at *build*
-time, not runtime, so this triggers (and requires) a `web` rebuild, not just an `api`
-change. Deliberately held back until the API has had some real soak time and Triple A
-Gym's content is seeded — the mock path stays the live site's safety net until then, per
-the plan's own invariant that `main` stays deployable throughout.
+Loads Triple A Gym's actual members, plans, coaches and class schedule — idempotent, safe to
+re-run. It also creates the first manager's `staff_users` row, but with no PIN set, since a
+PIN is chosen interactively, not baked into seed data. Set it with:
+
+```bash
+railway ssh -s api -- uv run python scripts/set_staff_pin.py
+```
+
+Prompts for phone and PIN (via `getpass`, so neither lands in shell history) and hashes it
+onto the matching `staff_users` row. Works for any staff phone already in the database, not
+just the first manager — use it again for Karim or Abed, or to reset a forgotten PIN.
+
+Do **not** use `POST /gyms` to create the real manager account after seeding — it creates a
+brand-new gym and a brand-new `staff_users` row, and a second row sharing the seeded
+manager's phone number breaks `staff_login`'s lookup (it expects exactly one match). `POST
+/gyms` is for onboarding a gym that has no seed data at all.
+
+### `web` is pointed at it
+
+`VITE_API_URL` was set on `web` to the `api` service's domain and the service redeployed
+— Vite bakes the value in at *build* time, not runtime, so this required (and got) a `web`
+rebuild, not just an `api` change. This was done ahead of the original plan (which held it
+back for API soak time and seeded content) on explicit instruction. The coach and member
+surfaces are unaffected — they stay on mocks regardless of this variable, per the Phase 2
+boundary in the root `AGENTS.md`.
 
 ### Why migrations run in the container's own start command, not a release step
 
