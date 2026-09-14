@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
 from app.logging import configure_logging
+from app.middleware.idempotency import IdempotencyMiddleware
 from app.settings import get_settings
 
 logger = logging.getLogger("aigym.api")
@@ -30,6 +31,7 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    app.add_middleware(IdempotencyMiddleware)
 
     @app.get("/health")
     async def health() -> dict[str, str]:
