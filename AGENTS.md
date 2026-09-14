@@ -122,9 +122,10 @@ SPA fallback, the `/health` endpoint, and the cache headers. **There is no `rail
 there must not be** — Config as Code is deprecated, new services cannot opt into it, and
 existing files stop being read on 2026-12-01. Service settings live on the service.
 
-`apps/api` has its own Dockerfile and is meant to run as a second Railway service (plus a
-Postgres addon) in the same project, with `web` reading its URL from `VITE_API_URL`. Setup
-and current status: `docs/DEPLOY.md`.
+`apps/api` runs as a second Railway service (`api`) plus a Postgres service, both in the
+same project — provisioned and live, `web` not yet pointed at it (`VITE_API_URL` stays
+unset until that's a deliberate step, not a side effect). Setup and current status:
+`docs/DEPLOY.md`.
 
 Full runbook, including how to test the serving layer without Docker: `docs/DEPLOY.md`.
 
