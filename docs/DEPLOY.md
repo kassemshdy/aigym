@@ -122,8 +122,10 @@ the open role switcher no longer applies to manager screens. Coach and member sc
 still Phase 1 mocks (member sign-in still accepts any code) until Phase 3/4 gives those
 surfaces a backend.
 
-**No real manager account exists on the live database yet** (see "Seeding real content"
-below) — until that's done, `/manager/login` on the live URL has nothing to sign into.
+Triple A Gym's real content is seeded on the live database and the first manager
+(Kassem Shehady, `+96170622211`) has a working PIN — `/manager/login` on the live URL is
+usable for real. See "Seeding real content" below for how, if it's ever needed again (a
+second gym, a forgotten PIN).
 
 ## The API service (Phase 2)
 
@@ -149,8 +151,8 @@ the current live deployment (commit `05c9dfdc`, `SUCCESS`).
 without ever exposing the database to the public internet, even temporarily, for a
 bootstrapping step — `AIGYM_DATABASE_URL` (the `aigym_app` role) and
 `AIGYM_DATABASE_URL_MIGRATIONS` (Postgres's own superuser, used only by the container's own
-`alembic upgrade head` and by `scripts/seed.py` if it's run from a Railway shell) both point
-at `postgres.railway.internal:5432`, not a public host.
+`alembic upgrade head` and by `scripts/seed.py`/`scripts/set_staff_pin.py` when run via
+`railway ssh`) both point at `postgres.railway.internal:5432`, not a public host.
 
 `AIGYM_JWT_SECRET` and `AIGYM_ONBOARDING_SECRET` are freshly generated 32-byte random
 values, set directly on the `api` service — not the `.env.example` placeholders, and not
