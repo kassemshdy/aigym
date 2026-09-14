@@ -36,3 +36,42 @@ jobs:
       - run: npm run build
       - name: Bundle budget (200 KB gzipped)
         run: npm run budget
+
+  api:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      AIGYM_DATABASE_URL: postgresql+psycopg://aigym_app:aigym_app@localhost:5432/aigym
+      AIGYM_DATABASE_URL_MIGRATIONS: postgresql+psycopg://postgres:postgres@localhost:5432/aigym
+      AIGYM_JWT_SECRET: ci-test-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: '0.8.17'
+      - run: uv python install 3.11
+      - run: uv sync --frozen
+      - name: Bootstrap database and app role
+        run: bash scripts/bootstrap_db.sh
+      - run: uv run ruff check .
+      - run: uv run mypy app
+      - run: uv run alembic upgrade head
+      - run: uv run pytest -q
