@@ -123,9 +123,10 @@ there must not be** — Config as Code is deprecated, new services cannot opt in
 existing files stop being read on 2026-12-01. Service settings live on the service.
 
 `apps/api` runs as a second Railway service (`api`) plus a Postgres service, both in the
-same project — provisioned and live, `web` not yet pointed at it (`VITE_API_URL` stays
-unset until that's a deliberate step, not a side effect). Setup and current status:
-`docs/DEPLOY.md`.
+same project — provisioned and live, and `web`'s `VITE_API_URL` now points at it, so
+manager screens on the live URL read and write real data. No real manager account exists
+on the live database yet (seeding is still manual, see `docs/DEPLOY.md`). Setup and
+current status: `docs/DEPLOY.md`.
 
 Full runbook, including how to test the serving layer without Docker: `docs/DEPLOY.md`.
 
