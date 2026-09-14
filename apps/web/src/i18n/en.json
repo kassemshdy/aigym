@@ -24,7 +24,9 @@
     "min": "min",
     "offline": "No internet",
     "pendingSync": "{{count}} waiting to sync",
-    "synced": "Everything saved"
+    "synced": "Everything saved",
+    "loading": "Loading…",
+    "error": "Something went wrong"
   },
   "status": {
     "paid": "Paid",
@@ -48,6 +50,15 @@
     "shift": "Shift work"
   },
   "manager": {
+    "login": {
+      "title": "Manager sign in",
+      "sub": "Phone and PIN",
+      "phone": "Mobile number",
+      "pin": "PIN",
+      "enter": "Sign in",
+      "error": "Wrong phone or PIN",
+      "signOut": "Sign out"
+    },
     "home": {
       "title": "Welcome",
       "cameToday": "Came today",
@@ -72,6 +83,8 @@
       "never": "Never",
       "whatsapp": "Remind on WhatsApp",
       "recordPayment": "Record payment",
+      "recordPaymentTitle": "Record a payment",
+      "amount": "Amount",
       "body": "Body data",
       "lifestyle": "Lifestyle",
       "height": "Height",

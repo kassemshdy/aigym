@@ -18,15 +18,26 @@ import { MemberPhotos } from '@/features/member/Photos'
 import { MemberCalendar } from '@/features/member/Calendar'
 import { MemberBook } from '@/features/member/Book'
 import { ManagerLapsed } from '@/features/manager/Lapsed'
+import { ManagerLogin } from '@/features/manager/Login'
 import { useStore } from '@/state/store'
+import { API_URL, isManagerSignedIn } from '@/data/client'
 import { MemberVideoDetail, MemberVideos } from '@/features/member/Videos'
 import { MemberProgress } from '@/features/member/Progress'
 import { MemberProfile } from '@/features/member/Profile'
 
-/** Member screens hold personal data; the other two surfaces get real auth in Phase 2. */
+/** Member screens hold personal data; coach gets real auth in Phase 3. */
 function RequireMember({ children }: { children: React.ReactNode }) {
   const { state } = useStore()
   if (!state.signedIn) return <Navigate to="/login" replace />
+  return <>{children}</>
+}
+
+/** With no API configured, mock mode never required a manager login (Phase
+ * 1 behavior, preserved on `main`). Once VITE_API_URL is set, the real
+ * backend enforces auth on every request regardless — this just keeps the
+ * UI from bouncing the manager through screens that will 401 anyway. */
+function RequireManager({ children }: { children: React.ReactNode }) {
+  if (API_URL && !isManagerSignedIn()) return <Navigate to="/manager/login" replace />
   return <>{children}</>
 }
 
@@ -34,10 +45,18 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<MemberLogin />} />
+      <Route path="/manager/login" element={<ManagerLogin />} />
       <Route element={<AppShell />}>
         <Route index element={<Navigate to="/manager" replace />} />
 
-        <Route path="manager">
+        <Route
+          path="manager"
+          element={
+            <RequireManager>
+              <Outlet />
+            </RequireManager>
+          }
+        >
           <Route index element={<ManagerHome />} />
           <Route path="members" element={<ManagerMembers />} />
           <Route path="members/new" element={<ManagerAddMember />} />

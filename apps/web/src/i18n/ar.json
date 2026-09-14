@@ -24,7 +24,9 @@
     "min": "دقيقة",
     "offline": "ما في إنترنت",
     "pendingSync": "{{count}} بانتظار الإرسال",
-    "synced": "كل شي محفوظ"
+    "synced": "كل شي محفوظ",
+    "loading": "عم يحمّل…",
+    "error": "صار في خطأ"
   },
   "status": {
     "paid": "مدفوع",
@@ -48,6 +50,15 @@
     "shift": "ورديات"
   },
   "manager": {
+    "login": {
+      "title": "دخول الإدارة",
+      "sub": "الرقم وكود الدخول",
+      "phone": "الرقم",
+      "pin": "كود الدخول",
+      "enter": "دخول",
+      "error": "الرقم أو الكود غلط",
+      "signOut": "خروج"
+    },
     "home": {
       "title": "أهلاً",
       "cameToday": "إجوا اليوم",
@@ -72,6 +83,8 @@
       "never": "ولا مرة",
       "whatsapp": "ذكّره على واتساب",
       "recordPayment": "سجّل دفعة",
+      "recordPaymentTitle": "تسجيل دفعة",
+      "amount": "المبلغ",
       "body": "بيانات الجسم",
       "lifestyle": "نمط الحياة",
       "height": "الطول",

@@ -6,8 +6,9 @@ import { Chip, StatusBadge } from '@/components/ui/Badge'
 import { Avatar } from '@/components/ui/Avatar'
 import { Input } from '@/components/ui/Field'
 import { Empty, Page } from '@/components/ui/Page'
-import { findPlan, memberName, members } from '@/mocks/data'
-import type { DuesStatus } from '@/mocks/types'
+import { listMembers } from '@/data/queries'
+import { useAsync } from '@/data/useAsync'
+import type { DuesStatus } from '@/data/types'
 import { usd } from '@/lib/format'
 import type { Lang } from '@/i18n'
 
@@ -19,18 +20,20 @@ export function ManagerMembers() {
   const [q, setQ] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
 
+  const { data, loading, error } = useAsync(listMembers, [])
+
   const list = useMemo(() => {
     const needle = q.trim().toLowerCase()
-    return members.filter((m) => {
-      if (filter !== 'all' && m.status !== filter) return false
+    return (data ?? []).filter((m) => {
+      if (filter !== 'all' && m.dues?.status !== filter) return false
       if (!needle) return true
       return (
         m.name.includes(needle) ||
-        m.nameEn.toLowerCase().includes(needle) ||
+        m.name_en.toLowerCase().includes(needle) ||
         m.phone.includes(needle)
       )
     })
-  }, [q, filter])
+  }, [data, q, filter])
 
   return (
     <Page title={t('manager.members.title')} sub={t('manager.members.count', { count: list.length })}>
@@ -44,29 +47,38 @@ export function ManagerMembers() {
         ))}
       </div>
 
-      {list.length === 0 ? (
+      {loading ? (
+        <Empty>{t('common.loading')}</Empty>
+      ) : error ? (
+        <Empty>{t('common.error')}</Empty>
+      ) : list.length === 0 ? (
         <Empty>{t('manager.members.empty')}</Empty>
       ) : (
         <Card>
           <ul>
-            {list.map((m) => (
-              <li key={m.id}>
-                <Link
-                  to={`/manager/members/${m.id}`}
-                  className="border-line flex items-center gap-3 border-b px-4 py-3 last:border-0"
-                >
-                  <Avatar name={memberName(m, lang)} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-semibold">{memberName(m, lang)}</span>
-                    <span className="text-muted block text-xs">
-                      {findPlan(m.planId)?.name[lang]}
-                      {m.owedUsd > 0 ? <span className="text-due tnum font-bold"> · {usd(m.owedUsd)}</span> : null}
+            {list.map((m) => {
+              const name = lang === 'ar' ? m.name : m.name_en
+              return (
+                <li key={m.id}>
+                  <Link
+                    to={`/manager/members/${m.id}`}
+                    className="border-line flex items-center gap-3 border-b px-4 py-3 last:border-0"
+                  >
+                    <Avatar name={name} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-semibold">{name}</span>
+                      <span className="text-muted block text-xs">
+                        {m.plan_name?.[lang]}
+                        {m.dues && m.dues.owed_usd > 0 ? (
+                          <span className="text-due tnum font-bold"> · {usd(m.dues.owed_usd)}</span>
+                        ) : null}
+                      </span>
                     </span>
-                  </span>
-                  <StatusBadge status={m.status} />
-                </Link>
-              </li>
-            ))}
+                    {m.dues ? <StatusBadge status={m.dues.status} /> : null}
+                  </Link>
+                </li>
+              )
+            })}
           </ul>
         </Card>
       )}
