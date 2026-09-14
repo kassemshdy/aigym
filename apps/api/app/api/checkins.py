@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
+from sqlalchemy import select
 
 from app.deps import CurrentSession, require_role
 from app.models import CheckIn, Member
@@ -52,3 +53,17 @@ async def create_check_in(
     return CheckInOut(
         id=check_in.id, member_id=check_in.member_id, at=check_in.at, status=check_in.status
     )
+
+
+@router.get("/check-ins/today", response_model=list[CheckInOut])
+async def list_todays_check_ins(session: CurrentSession) -> list[CheckInOut]:
+    """The manager Home screen's 'came today' tile — the GTM-adjacent number
+    that proves the front desk is actually using the app, not a spreadsheet."""
+    start_of_day = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+    result = await session.execute(
+        select(CheckIn).where(CheckIn.at >= start_of_day).order_by(CheckIn.at.desc())
+    )
+    return [
+        CheckInOut(id=c.id, member_id=c.member_id, at=c.at, status=c.status)
+        for c in result.scalars().all()
+    ]

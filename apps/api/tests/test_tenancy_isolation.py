@@ -145,6 +145,22 @@ async def test_check_in_404s_for_the_other_gym(client: AsyncClient, two_gyms: Tw
     assert response.status_code == 404
 
 
+async def test_check_ins_today_never_shows_the_other_gym(
+    client: AsyncClient, two_gyms: TwoGyms
+) -> None:
+    await client.post(
+        "/check-ins", headers=_idem(two_gyms.a.headers), json={"member_id": str(two_gyms.member_a)}
+    )
+    await client.post(
+        "/check-ins", headers=_idem(two_gyms.b.headers), json={"member_id": str(two_gyms.member_b)}
+    )
+
+    today_a = await client.get("/check-ins/today", headers=two_gyms.a.headers)
+    member_ids_a = {c["member_id"] for c in today_a.json()}
+    assert str(two_gyms.member_a) in member_ids_a
+    assert str(two_gyms.member_b) not in member_ids_a
+
+
 async def test_whatsapp_reminder_404s_for_the_other_gym(
     client: AsyncClient, two_gyms: TwoGyms
 ) -> None:

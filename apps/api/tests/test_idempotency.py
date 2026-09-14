@@ -111,3 +111,20 @@ async def test_different_keys_create_separate_rows(client: AsyncClient) -> None:
     assert second.status_code == 201
     assert first.json()["id"] != second.json()["id"]
     assert await _check_in_count(gym_id) == 2
+
+
+async def test_list_todays_check_ins(client: AsyncClient) -> None:
+    gym_id, headers = await _gym_and_staff_token(client)
+    member_id = await _insert_member(gym_id, phone="+96173333336")
+
+    await client.post(
+        "/check-ins",
+        headers={**headers, "Idempotency-Key": "today-key"},
+        json={"member_id": str(member_id)},
+    )
+
+    listed = await client.get("/check-ins/today", headers=headers)
+    assert listed.status_code == 200
+    rows = listed.json()
+    assert len(rows) == 1
+    assert rows[0]["member_id"] == str(member_id)
