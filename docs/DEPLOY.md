@@ -127,51 +127,51 @@ it is wanted.
 
 ## The API service (Phase 2)
 
-**Status: built and fully tested locally (`apps/api`, 36 tests including the isolation
-suite); not yet provisioned on Railway.** Everything below is the runbook for standing it
-up — provisioning itself is a deliberate step, not something to do as a side effect of
-merging code, since it means new billed Railway resources (a Postgres addon plus a second
-service) on the same project as the investor-deck URL.
+**Status: provisioned and live.** Postgres and `api` are both running in the `aigym`
+project. `web` is **not yet pointed at it** — `VITE_API_URL` is deliberately unset on
+`web`, so the investor-deck URL still serves Phase 1 mocks until that's turned on on
+purpose (see "Pointing `web` at it" below).
 
 |  |  |
 |---|---|
-| Source | `kassemshdy/aigym`, branch `main`, root directory `/apps/api` |
-| Build | `apps/api/Dockerfile` — installs with `uv`, runs `alembic upgrade head` then `uvicorn` on container start |
-| Health | `/health` |
-| Needs | a Postgres addon in the same Railway project |
+| API source | `kassemshdy/aigym`, branch `main`, root directory `/apps/api` |
+| API build | `apps/api/Dockerfile` — installs with `uv`; container start runs `scripts/bootstrap_db.sh` (idempotent), then `alembic upgrade head`, then `uvicorn` |
+| API health | `/health` — confirmed 200 in the deploy's own logs |
+| API domain | Railway-generated `*.up.railway.app` service domain (not custom) |
+| Postgres | `postgres:16` image + a persistent volume at `/var/lib/postgresql/data` — **no public TCP proxy**, reachable only over Railway's private network as `postgres.railway.internal` |
 
-### Provisioning, in order
+### How the two services connect, and why Postgres has no public endpoint
 
-1. **Add a Postgres database** to the `aigym` project (Railway's own addon, not a
-   Dockerfile). Note its connection string.
-2. **Create the `api` service** from the same GitHub repo, root directory `/apps/api`. Like
-   `web`'s first deploy, the very first build happens before the root directory can be set
-   and will fail against the repo root — set it and redeploy, same as `web`'s history.
-3. **Bootstrap the database once**, against Postgres's own superuser connection (Railway's
-   default `postgres` user is one): run `scripts/bootstrap_db.sh` with `PGHOST`/`PGPORT`/
-   `PGUSER`/`PGPASSWORD` pointed at it, or the equivalent SQL by hand — it creates the
-   `aigym_app` role (`NOBYPASSRLS`, decision 16) that the running service connects as.
-4. **Set environment variables** on the `api` service:
-   - `AIGYM_ENV=production`
-   - `AIGYM_DATABASE_URL` — `postgresql+psycopg://aigym_app:<password>@<host>:<port>/<db>`
-     (the app role from step 3, never the Postgres addon's own superuser)
-   - `AIGYM_DATABASE_URL_MIGRATIONS` — the addon's own superuser connection string;
-     used only by the container's own `alembic upgrade head` on start and by
-     `scripts/seed.py` if it is run
-   - `AIGYM_JWT_SECRET` — 32+ random bytes,
-     `python3 -c "import secrets; print(secrets.token_urlsafe(32))"`, generated fresh —
-     never the `.env.example` placeholder
-   - `AIGYM_ONBOARDING_SECRET` — same generation method, a different value; this is the
-     only gate on `POST /gyms` and is handed to Kassem out of band, not committed anywhere
-   - `AIGYM_CORS_ORIGINS` — `["https://triple-a.up.railway.app"]`, the web origin only
-5. **Seed real content** (optional, once): `uv run python scripts/seed.py` against
-   `AIGYM_DATABASE_URL_MIGRATIONS`, from a Railway shell or a tunnel — loads Triple A Gym's
-   actual members, plans, coaches and class schedule. Onboard the real first manager
-   through `POST /gyms` rather than the seed script, since the seeded staff row has no PIN
-   set.
-6. **Point `web` at it**: set `VITE_API_URL` to the `api` service's Railway domain, which
-   forces a rebuild of `web` (Vite bakes `import.meta.env.VITE_API_URL` in at build time,
-   not runtime) — so this is a `web` redeploy, not just an `api` change.
+`api`'s env vars (`PGHOST=postgres.railway.internal`, `PGUSER`/`PGPASSWORD` referencing
+`${{Postgres.POSTGRES_USER}}`/`${{Postgres.POSTGRES_PASSWORD}}`) let its own container run
+`scripts/bootstrap_db.sh` at every start, creating the `aigym_app` role
+(`NOBYPASSRLS`, decision 16) over the private network. That is what let this get set up
+without ever exposing the database to the public internet, even temporarily, for a
+bootstrapping step — `AIGYM_DATABASE_URL` (the `aigym_app` role) and
+`AIGYM_DATABASE_URL_MIGRATIONS` (Postgres's own superuser, used only by the container's own
+`alembic upgrade head` and by `scripts/seed.py` if it's run from a Railway shell) both point
+at `postgres.railway.internal:5432`, not a public host.
+
+`AIGYM_JWT_SECRET` and `AIGYM_ONBOARDING_SECRET` are freshly generated 32-byte random
+values, set directly on the `api` service — not the `.env.example` placeholders, and not
+recorded anywhere outside Railway's own variable store. `AIGYM_CORS_ORIGINS` is
+`["https://triple-a.up.railway.app"]` — the `web` origin only.
+
+### Seeding real content (not yet done)
+
+`uv run python scripts/seed.py`, run against `AIGYM_DATABASE_URL_MIGRATIONS` from a Railway
+shell, loads Triple A Gym's actual members, plans, coaches and class schedule. Onboard the
+real first manager through `POST /gyms` rather than the seed script, since the seeded staff
+row has no PIN set.
+
+### Pointing `web` at it (not yet done, on purpose)
+
+Setting `VITE_API_URL` to the `api` service's domain on `web` is what actually switches the
+live investor-deck URL from mocks to this backend — Vite bakes the value in at *build*
+time, not runtime, so this triggers (and requires) a `web` rebuild, not just an `api`
+change. Deliberately held back until the API has had some real soak time and Triple A
+Gym's content is seeded — the mock path stays the live site's safety net until then, per
+the plan's own invariant that `main` stays deployable throughout.
 
 ### Why migrations run in the container's own start command, not a release step
 
@@ -184,8 +184,10 @@ this to a real release command if this service is ever scaled beyond that.
 
 ### What cannot be verified from this environment
 
-`*.up.railway.app` is unreachable from this sandbox (403 on CONNECT) — the same
-restriction that already applies to `web`. The build, the container, and every route
-against a local Postgres are all verified (`apps/api`'s own test suite plus a manual
-browser run against `uvicorn` locally); the live deploy itself needs a phone or a browser
-with real internet, the same as `web`'s own deploys.
+`*.up.railway.app` is unreachable from this sandbox (`connect_rejected` on CONNECT) — the
+same restriction that already applies to `web`. What *is* verified: the build succeeded,
+`scripts/bootstrap_db.sh` and all four migrations ran cleanly in the deploy's own logs, and
+Railway's own healthcheck probe got `GET /health` → `200 OK` from inside Railway's network
+— all confirmed via the Railway MCP tools rather than a direct request from here. A request
+from outside Railway's network (a phone, a browser with real internet) is still the one
+check this environment cannot do itself, same as `web`'s own deploys.
