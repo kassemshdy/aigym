@@ -13,27 +13,28 @@ ONBOARDING_SECRET = "dev-onboarding-secret-change-me"
 _phone_counter = itertools.count(1)
 
 
-def _next_manager_phone() -> str:
-    return f"+96179{next(_phone_counter):06d}"
+def _next_manager_username() -> str:
+    return f"manager{next(_phone_counter)}"
 
 
 async def _gym_and_staff_token(
     client: AsyncClient, *, slug: str
 ) -> tuple[uuid.UUID, dict[str, str]]:
-    manager_phone = _next_manager_phone()
+    manager_username = _next_manager_username()
     onboard = await client.post(
         "/gyms",
         headers={"X-Onboarding-Secret": ONBOARDING_SECRET},
         json={
             "name_ar": "نادي", "name_en": "Gym", "slug": slug,
-            "manager_name": "Manager", "manager_phone": manager_phone, "manager_pin": "1234",
+            "manager_name": "Manager", "manager_username": manager_username,
+            "manager_password": "hunter22", "manager_phone": f"+96179{next(_phone_counter):06d}",
         },
     )
     assert onboard.status_code == 201, onboard.text
     gym_id = uuid.UUID(onboard.json()["gym_id"])
 
     login = await client.post(
-        "/auth/staff/login", json={"phone": manager_phone, "pin": "1234"}
+        "/auth/staff/login", json={"username": manager_username, "password": "hunter22"}
     )
     token = login.json()["access_token"]
     return gym_id, {"Authorization": f"Bearer {token}"}

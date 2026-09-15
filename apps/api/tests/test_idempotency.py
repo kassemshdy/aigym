@@ -16,15 +16,15 @@ async def _gym_and_staff_token(client: AsyncClient) -> tuple[uuid.UUID, dict[str
         headers={"X-Onboarding-Secret": ONBOARDING_SECRET},
         json={
             "name_ar": "نادي", "name_en": "Gym", "slug": "idem-gym",
-            "manager_name": "Manager", "manager_phone": "+96170000009",
-            "manager_pin": "1234",
+            "manager_name": "Manager", "manager_username": "idem-manager",
+            "manager_password": "hunter22", "manager_phone": "+96170000009",
         },
     )
     assert onboard.status_code == 201, onboard.text
     gym_id = uuid.UUID(onboard.json()["gym_id"])
 
     login = await client.post(
-        "/auth/staff/login", json={"phone": "+96170000009", "pin": "1234"}
+        "/auth/staff/login", json={"username": "idem-manager", "password": "hunter22"}
     )
     token = login.json()["access_token"]
     return gym_id, {"Authorization": f"Bearer {token}"}

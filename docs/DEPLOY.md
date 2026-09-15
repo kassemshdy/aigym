@@ -122,10 +122,10 @@ the open role switcher no longer applies to manager screens. Coach and member sc
 still Phase 1 mocks (member sign-in still accepts any code) until Phase 3/4 gives those
 surfaces a backend.
 
-Triple A Gym's real content is seeded on the live database and the first manager
-(Kassem Shehady, `+96170622211`) has a working PIN — `/manager/login` on the live URL is
-usable for real. See "Seeding real content" below for how, if it's ever needed again (a
-second gym, a forgotten PIN).
+Triple A Gym's real content is seeded on the live database. Staff sign in with **username +
+password** (decision 21 — not phone + PIN, which this section described before that changed).
+The first account is `kassem` / `super_admin` — see "Seeding real content" below for how to
+set its password, add more staff accounts, or do either again for a second gym.
 
 ## The API service (Phase 2)
 
@@ -151,7 +151,7 @@ the current live deployment (commit `05c9dfdc`, `SUCCESS`).
 without ever exposing the database to the public internet, even temporarily, for a
 bootstrapping step — `AIGYM_DATABASE_URL` (the `aigym_app` role) and
 `AIGYM_DATABASE_URL_MIGRATIONS` (Postgres's own superuser, used only by the container's own
-`alembic upgrade head` and by `scripts/seed.py`/`scripts/set_staff_pin.py` when run via
+`alembic upgrade head` and by `scripts/seed.py`/`scripts/set_staff_password.py` when run via
 `railway ssh`) both point at `postgres.railway.internal:5432`, not a public host.
 
 `AIGYM_JWT_SECRET` and `AIGYM_ONBOARDING_SECRET` are freshly generated 32-byte random
@@ -159,7 +159,7 @@ values, set directly on the `api` service — not the `.env.example` placeholder
 recorded anywhere outside Railway's own variable store. `AIGYM_CORS_ORIGINS` is
 `["https://triple-a.up.railway.app"]` — the `web` origin only.
 
-### Seeding real content, and setting the manager's PIN
+### Seeding real content, and setting the manager's password
 
 `scripts/seed.py` runs automatically on every `api` deploy, as the service's Railway
 **Pre-Deploy Command** (`uv run python scripts/seed.py`, set via the Railway MCP's
@@ -172,27 +172,41 @@ CI database, to prove the script itself works) as the merge gate; Railway's Pre-
 Command is what actually seeds the one database that matters, right before the new
 container starts serving.
 
-It also creates the first manager's `staff_users` row the first time it runs — but only if
-that phone doesn't already exist, and it never touches `pin_hash` on a row that already has
-one. A PIN is normally chosen interactively (see below), never baked into seed data, so
-re-seeding a database that already has one set never logs the manager out.
+It also creates the first account (`username: kassem`, `role: super_admin` — decision 21)
+the first time it runs — but never touches `password_hash` on a row that already has one.
+A password is normally chosen interactively (see below), never baked into seed data, so
+re-seeding a database that already has one set never logs the account out.
 
-**`AIGYM_SEED_MANAGER_PIN`** (optional, unset by default) is the one exception: if a staff
-row's `pin_hash` is still `NULL` — a fresh row, or one from before a PIN was ever set — and
-this variable is set, seeding hashes it in as a one-time bootstrap default. It still never
-touches a row that already has a real PIN. This exists to unblock a first login without an
-interactive `railway ssh` session; change it to a real PIN via `set_staff_pin.py` once
-you're in, and unset the variable afterward so a future staff row doesn't get the same
-default.
+**`AIGYM_SEED_MANAGER_PASSWORD`** (optional, unset by default; renamed from
+`AIGYM_SEED_MANAGER_PIN` when staff login moved to username + password) is the one
+exception: if `kassem`'s `password_hash` is still `NULL` and this variable is set, seeding
+hashes it in as a one-time bootstrap default. It still never touches a row that already has
+a real password. This exists to unblock a first login without an interactive `railway ssh`
+session; change it to a real password via `set_staff_password.py` once you're in, and unset
+the variable afterward so it doesn't linger as a known credential.
 
 ```bash
-railway ssh -s api -- uv run python scripts/set_staff_pin.py
+railway ssh -s api -- uv run python scripts/set_staff_password.py
 ```
 
-Prompts for phone and PIN (via `getpass`, so neither lands in shell history) and hashes it
-onto the matching `staff_users` row — this is the normal way to set or reset any staff
-member's PIN, `AIGYM_SEED_MANAGER_PIN` bootstrap aside. Works for any staff phone already in
-the database, not just the first manager — use it again for Karim or Abed.
+Prompts for username and password (via `getpass`, so neither lands in shell history) and
+hashes it onto the matching `staff_users` row — this is the normal way to set or reset any
+staff member's password, `AIGYM_SEED_MANAGER_PASSWORD` bootstrap aside. Works for any
+username already in the database, not just `kassem`.
+
+**Adding Karim, Abed, or any other staff account** goes through the API now, not a script:
+`POST /staff`, gated to `super_admin` (decision 21). Sign in as `kassem`, then:
+
+```bash
+curl -X POST https://api-production-6336.up.railway.app/staff \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Idempotency-Key: $(python3 -c 'import uuid; print(uuid.uuid4())')" \
+  -H "Content-Type: application/json" \
+  -d '{"username":"karim","password":"...","name":"Karim","phone":"+961...","role":"coach"}'
+```
+
+`role` is `"manager"`, `"coach"`, or `"super_admin"` — nothing stops a super_admin creating
+another one.
 
 Do **not** use `POST /gyms` to create the real manager account after seeding — it creates a
 brand-new gym and a brand-new `staff_users` row, and a second row sharing the seeded

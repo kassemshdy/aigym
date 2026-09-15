@@ -24,21 +24,31 @@ class Gym(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 class StaffUser(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     """A person who can log in as staff. Not gym-scoped: one staff account
     can hold a role at more than one gym via StaffGymRole, and login (by
-    phone, before we know which gym) has to find this row without an
-    ``app.gym_id`` set yet."""
+    username, before we know which gym) has to find this row without an
+    ``app.gym_id`` set yet.
+
+    ``username``/``password_hash`` are the login credential (decision 21).
+    ``phone`` is kept — it's no longer how a staff member logs in, but it's
+    still how POST /auth/staff/password/reset delivers a new one, over
+    WhatsApp.
+    """
 
     __tablename__ = "staff_users"
 
+    username: Mapped[str] = mapped_column(String, nullable=False, unique=True)
     phone: Mapped[str] = mapped_column(String, nullable=False, unique=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
-    pin_hash: Mapped[str | None] = mapped_column(String, nullable=True)
+    password_hash: Mapped[str | None] = mapped_column(String, nullable=True)
 
-    # Rate-limits POST /auth/staff/pin/reset — deliberately its own column
-    # rather than reusing updated_at, which is also set at row creation:
-    # that would wrongly block the first-ever reset on a freshly seeded or
-    # onboarded account within the cooldown window. NULL until the first
-    # reset, so a new account is never blocked by its own creation.
-    pin_reset_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Rate-limits POST /auth/staff/password/reset — deliberately its own
+    # column rather than reusing updated_at, which is also set at row
+    # creation: that would wrongly block the first-ever reset on a freshly
+    # seeded or onboarded account within the cooldown window. NULL until
+    # the first reset, so a new account is never blocked by its own
+    # creation.
+    password_reset_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
 
 class StaffGymRole(Base, UUIDPrimaryKeyMixin, GymScopedMixin, TimestampMixin):

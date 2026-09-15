@@ -33,28 +33,35 @@ def _next_phone() -> str:
     return f"+96178{next(_phone_counter):06d}"
 
 
+def _next_username() -> str:
+    return f"manager{next(_phone_counter)}"
+
+
 class NewGym(NamedTuple):
     gym_id: uuid.UUID
     headers: dict[str, str]
-    manager_phone: str
+    manager_username: str
 
 
 async def _new_gym(client: AsyncClient, *, slug: str) -> NewGym:
-    manager_phone = _next_phone()
+    manager_username = _next_username()
     onboard = await client.post(
         "/gyms",
         headers={"X-Onboarding-Secret": ONBOARDING_SECRET},
         json={
             "name_ar": "نادي", "name_en": "Gym", "slug": slug,
-            "manager_name": "Manager", "manager_phone": manager_phone, "manager_pin": "1234",
+            "manager_name": "Manager", "manager_username": manager_username,
+            "manager_password": "hunter22", "manager_phone": _next_phone(),
         },
     )
     assert onboard.status_code == 201, onboard.text
     gym_id = uuid.UUID(onboard.json()["gym_id"])
 
-    login = await client.post("/auth/staff/login", json={"phone": manager_phone, "pin": "1234"})
+    login = await client.post(
+        "/auth/staff/login", json={"username": manager_username, "password": "hunter22"}
+    )
     token = login.json()["access_token"]
-    return NewGym(gym_id, {"Authorization": f"Bearer {token}"}, manager_phone)
+    return NewGym(gym_id, {"Authorization": f"Bearer {token}"}, manager_username)
 
 
 def _idem(headers: dict[str, str]) -> dict[str, str]:
@@ -217,10 +224,10 @@ async def test_staff_login_never_crosses_gyms(client: AsyncClient) -> None:
     gym_b = await _new_gym(client, slug="isolation-login-b")
 
     login_a = await client.post(
-        "/auth/staff/login", json={"phone": gym_a.manager_phone, "pin": "1234"}
+        "/auth/staff/login", json={"username": gym_a.manager_username, "password": "hunter22"}
     )
     login_b = await client.post(
-        "/auth/staff/login", json={"phone": gym_b.manager_phone, "pin": "1234"}
+        "/auth/staff/login", json={"username": gym_b.manager_username, "password": "hunter22"}
     )
 
     me_a = await client.get(

@@ -23,8 +23,9 @@ class OnboardGymRequest(BaseModel):
     name_en: str
     slug: str
     manager_name: str
+    manager_username: str
+    manager_password: str
     manager_phone: str
-    manager_pin: str
 
 
 class OnboardGymResponse(BaseModel):
@@ -59,14 +60,17 @@ async def onboard_gym(
 
         staff = StaffUser(
             id=uuid.uuid4(),
+            username=body.manager_username,
             phone=body.manager_phone,
             name=body.manager_name,
-            pin_hash=hash_secret(body.manager_pin),
+            password_hash=hash_secret(body.manager_password),
         )
         session.add(staff)
         await session.flush()
 
-        session.add(StaffGymRole(gym_id=gym_id, staff_user_id=staff.id, role="manager"))
+        # The account created here is the gym's first — decision 21: it has
+        # to be super_admin, or nobody could ever create a second one.
+        session.add(StaffGymRole(gym_id=gym_id, staff_user_id=staff.id, role="super_admin"))
         for name, price, days in STARTER_PLANS:
             session.add(Plan(gym_id=gym_id, name=name, price_usd=price, days=days))
 

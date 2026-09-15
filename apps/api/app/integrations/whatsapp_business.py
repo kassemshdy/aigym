@@ -3,7 +3,7 @@
 This is decision 20's narrow, documented exception to decision 4 (every
 other WhatsApp message in this product is a wa.me link a human taps —
 no Business API, no per-message cost, no template approval). It exists
-only for POST /auth/staff/pin/reset, where automation is the point: a
+only for POST /auth/staff/password/reset, where automation is the point: a
 staff member locked out of their own login has no front desk to hand a
 link to.
 
