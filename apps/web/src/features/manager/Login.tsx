@@ -5,9 +5,11 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Field, Input } from '@/components/ui/Field'
 import { gym } from '@/mocks/data'
-import { staffLogin } from '@/data/queries'
+import { requestStaffPinReset, staffLogin } from '@/data/queries'
 import { ApiError } from '@/data/client'
 import type { Lang } from '@/i18n'
+
+type ResetState = 'idle' | 'sending' | 'sent' | 'notSent' | 'notFound' | 'rateLimited'
 
 /** Only reachable when VITE_API_URL is set — with no API, /manager needs no
  * login at all (see RequireManager in App.tsx), exactly like Phase 1. */
@@ -20,6 +22,7 @@ export function ManagerLogin() {
   const [pin, setPin] = useState('')
   const [error, setError] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [resetState, setResetState] = useState<ResetState>('idle')
 
   async function submit() {
     setBusy(true)
@@ -32,6 +35,25 @@ export function ManagerLogin() {
     } finally {
       setBusy(false)
     }
+  }
+
+  async function forgotPin() {
+    setResetState('sending')
+    try {
+      const result = await requestStaffPinReset(phone)
+      setResetState(result.sent ? 'sent' : 'notSent')
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) setResetState('notFound')
+      else if (err instanceof ApiError && err.status === 429) setResetState('rateLimited')
+      else setResetState('notSent')
+    }
+  }
+
+  const resetMessageKey: Partial<Record<ResetState, string>> = {
+    sent: 'manager.login.resetSent',
+    notSent: 'manager.login.resetNotSent',
+    notFound: 'manager.login.resetNotFound',
+    rateLimited: 'manager.login.resetRateLimited',
   }
 
   return (
@@ -92,6 +114,23 @@ export function ManagerLogin() {
           >
             {t('manager.login.enter')}
           </Button>
+
+          <Button
+            variant="ghost"
+            full
+            disabled={resetState === 'sending' || phone.trim().length < 6}
+            onClick={forgotPin}
+          >
+            {t('manager.login.forgotPin')}
+          </Button>
+
+          {resetState !== 'idle' && resetState !== 'sending' ? (
+            // Same neutral treatment as the sign-in error above — this is
+            // account-recovery status, not a payment state.
+            <p className="bg-ink rounded-xl px-4 py-3 text-sm font-semibold text-white">
+              {t(resetMessageKey[resetState] ?? 'manager.login.resetNotSent')}
+            </p>
+          ) : null}
         </Card>
       </div>
     </div>

@@ -101,3 +101,7 @@ export interface ApiPayment {
   at: string
   method: string
 }
+
+export interface StaffPinResetResult {
+  sent: boolean
+}

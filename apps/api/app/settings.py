@@ -36,6 +36,22 @@ class Settings(BaseSettings):
     # POST /gyms and anyone on the internet creating a tenant.
     onboarding_secret: str = Field(default="dev-onboarding-secret-change-me")
 
+    # Optional fallback PIN scripts/seed.py hashes onto a staff row that
+    # doesn't have one yet (unset here, so a fresh clone/CI database never
+    # gets a real credential). Never overwrites a pin_hash that's already
+    # set — see the seed() docstring.
+    seed_manager_pin: str | None = None
+
+    # Meta WhatsApp Cloud API credentials — decision 20's narrow, documented
+    # exception to decision 4 (wa.me links, no Business API). Used only by
+    # POST /auth/staff/pin/reset: unlike every other WhatsApp message in
+    # this product, there is no human at a front desk to tap send for a
+    # staff member locked out of their own login. Both unset by default, so
+    # that endpoint degrades to "no message sent" rather than erroring.
+    whatsapp_access_token: str | None = None
+    whatsapp_phone_number_id: str | None = None
+    staff_pin_reset_cooldown_minutes: int = 5
+
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])
 
     @property

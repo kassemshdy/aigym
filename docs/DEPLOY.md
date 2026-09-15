@@ -173,17 +173,26 @@ Command is what actually seeds the one database that matters, right before the n
 container starts serving.
 
 It also creates the first manager's `staff_users` row the first time it runs — but only if
-that phone doesn't already exist, and it never touches `pin_hash` on an existing row. A PIN
-is chosen interactively, never baked into seed data, so re-seeding a database that already
-has one set never logs the manager out. Set the PIN with:
+that phone doesn't already exist, and it never touches `pin_hash` on a row that already has
+one. A PIN is normally chosen interactively (see below), never baked into seed data, so
+re-seeding a database that already has one set never logs the manager out.
+
+**`AIGYM_SEED_MANAGER_PIN`** (optional, unset by default) is the one exception: if a staff
+row's `pin_hash` is still `NULL` — a fresh row, or one from before a PIN was ever set — and
+this variable is set, seeding hashes it in as a one-time bootstrap default. It still never
+touches a row that already has a real PIN. This exists to unblock a first login without an
+interactive `railway ssh` session; change it to a real PIN via `set_staff_pin.py` once
+you're in, and unset the variable afterward so a future staff row doesn't get the same
+default.
 
 ```bash
 railway ssh -s api -- uv run python scripts/set_staff_pin.py
 ```
 
 Prompts for phone and PIN (via `getpass`, so neither lands in shell history) and hashes it
-onto the matching `staff_users` row. Works for any staff phone already in the database, not
-just the first manager — use it again for Karim or Abed, or to reset a forgotten PIN.
+onto the matching `staff_users` row — this is the normal way to set or reset any staff
+member's PIN, `AIGYM_SEED_MANAGER_PIN` bootstrap aside. Works for any staff phone already in
+the database, not just the first manager — use it again for Karim or Abed.
 
 Do **not** use `POST /gyms` to create the real manager account after seeding — it creates a
 brand-new gym and a brand-new `staff_users` row, and a second row sharing the seeded
