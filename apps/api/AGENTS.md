@@ -121,9 +121,16 @@ whether or not the real expression is used is not tested.
 
 Dockerfile: `uv sync` (cached in its own layer, dependencies before source so a
 source-only change doesn't reinstall everything), then the same source tree the tests run
-against. `CMD` runs `alembic upgrade head` before `uvicorn` starts — correct at one
-replica; if this service is ever scaled to more than one, move that to Railway's
-release-command so concurrent replicas don't race to apply the same migration.
+against. `CMD` is just `uvicorn` — `bootstrap_db.sh`, `alembic upgrade head`, and
+`scripts/seed.py` all run as the Railway service's **Pre-Deploy Command** instead, in that
+order, on the new image, before `CMD` ever starts. They have to run there, and in that
+order, not in `CMD`: Pre-Deploy Command runs in its own container *before* the new `CMD`
+starts, so a migration and a seed.py change that depends on it must land in the same
+Pre-Deploy Command, or seed.py hits a column that doesn't exist yet (see decision 21 and
+`docs/DEPLOY.md`, which both document a real deploy that failed exactly this way). Correct
+at one replica; if this service is ever scaled to more than one, concurrent replicas would
+race to bootstrap/migrate/seed identically — same constraint as when this lived in `CMD`,
+just relocated.
 
 Two required env vars with no safe default in production: `AIGYM_JWT_SECRET` (32+ bytes —
 PyJWT warns below that for HS256) and `AIGYM_ONBOARDING_SECRET` (the only thing gating

@@ -222,21 +222,36 @@ back for API soak time and seeded content) on explicit instruction. The coach an
 surfaces are unaffected — they stay on mocks regardless of this variable, per the Phase 2
 boundary in the root `AGENTS.md`.
 
-### Why migrations run in the container's own start command, not a release step
+### Why bootstrap, migrate and seed all run as the Pre-Deploy Command, not in the start command
 
-Railway's Config as Code is what would normally carry a separate release command
-(decision 15 rules it out) and Infrastructure as Code (`.railway/railway.ts`) is the
-supported replacement but needs an interactive `railway login`, so it is not wired up yet.
-`alembic upgrade head` running before `uvicorn` in the Dockerfile's `CMD` is the simplest
-thing that is still correct **at one replica** — see `apps/api/AGENTS.md`'s note on moving
-this to a real release command if this service is ever scaled beyond that.
+They used to run at the top of the Dockerfile's `CMD`, before `uvicorn` — simplest thing that
+was still correct at one replica (decision 15 rules out Config as Code's release-command
+feature; Infrastructure as Code, `.railway/railway.ts`, is the supported replacement but needs
+an interactive `railway login`, so it isn't wired up). That broke the moment `scripts/seed.py`
+started running as the service's Railway **Pre-Deploy Command** (added later, so this and
+seed's own doc comment can drift out of sync — check both if this area gets touched again):
+Pre-Deploy Command runs in a separate one-off container **before** the new image's `CMD` ever
+starts, on whatever schema the *previous* deployment left behind. A migration landing in the
+same deploy as a seed.py change that depends on its new column — exactly what commit
+`18a880e` did — makes seed.py 500 on a column that doesn't exist yet, since the migration
+hadn't run. Failed at the `PRE_DEPLOY_COMMAND` stage in Railway's own deploy logs; the
+previous successful deployment kept serving traffic throughout (Railway doesn't cut over a
+failed deploy), so nothing user-facing broke, but every deploy after that would have failed
+the same way until fixed.
+
+Fixed by moving `bootstrap_db.sh && alembic upgrade head` into the Pre-Deploy Command too,
+ahead of `seed.py`, so all three run in the correct order on the correct (new) schema before
+anything starts serving. The Dockerfile's `CMD` is now just `uvicorn`. Still correct only at
+one replica, same as before — concurrent replicas would race to bootstrap/migrate/seed
+identically to the old design, just relocated.
 
 ### What cannot be verified from this environment
 
 `*.up.railway.app` is unreachable from this sandbox (`connect_rejected` on CONNECT) — the
-same restriction that already applies to `web`. What *is* verified: the build succeeded,
-`scripts/bootstrap_db.sh` and all four migrations ran cleanly in the deploy's own logs, and
-Railway's own healthcheck probe got `GET /health` → `200 OK` from inside Railway's network
-— all confirmed via the Railway MCP tools rather than a direct request from here. A request
-from outside Railway's network (a phone, a browser with real internet) is still the one
-check this environment cannot do itself, same as `web`'s own deploys.
+same restriction that already applies to `web`. What *is* verified: the build succeeds,
+`scripts/bootstrap_db.sh`, all migrations, and `seed.py` all run cleanly in that exact order
+when run locally end-to-end against a real (emptied) local Postgres, and Railway's own
+healthcheck probe got `GET /health` → `200 OK` from inside Railway's network on prior
+deploys — confirmed via the Railway MCP tools rather than a direct request from here. A
+request from outside Railway's network (a phone, a browser with real internet) is still the
+one check this environment cannot do itself, same as `web`'s own deploys.
