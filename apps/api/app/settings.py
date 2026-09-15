@@ -36,6 +36,12 @@ class Settings(BaseSettings):
     # POST /gyms and anyone on the internet creating a tenant.
     onboarding_secret: str = Field(default="dev-onboarding-secret-change-me")
 
+    # Optional fallback PIN scripts/seed.py hashes onto a staff row that
+    # doesn't have one yet (unset here, so a fresh clone/CI database never
+    # gets a real credential). Never overwrites a pin_hash that's already
+    # set — see the seed() docstring.
+    seed_manager_pin: str | None = None
+
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])
 
     @property

@@ -41,6 +41,7 @@ from app.models import (
     StaffUser,
     Subscription,
 )
+from app.security.hashing import hash_secret
 from app.settings import get_settings
 
 GYM_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
@@ -363,6 +364,14 @@ async def seed(session: AsyncSession) -> None:
         )
         session.add(staff)
         await session.flush()  # staff_gym_roles.staff_user_id references staff just added above
+
+    # Fills the gap left by a staff row that has never had a PIN set (fresh
+    # row, or one from before scripts/set_staff_pin.py ran) — never touches
+    # an already-chosen PIN, so this is a one-time bootstrap, not a reset.
+    settings = get_settings()
+    if staff.pin_hash is None and settings.seed_manager_pin:
+        staff.pin_hash = hash_secret(settings.seed_manager_pin)
+
     session.add(
         StaffGymRole(
             id=uid("role", "kassem-manager"), gym_id=GYM_ID, staff_user_id=staff.id, role="manager"
