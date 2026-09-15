@@ -161,18 +161,21 @@ recorded anywhere outside Railway's own variable store. `AIGYM_CORS_ORIGINS` is
 
 ### Seeding real content, and setting the manager's PIN
 
-Two one-off scripts, both run **inside** the running `api` container over Railway's private
-network — not locally. `railway run` / `railway shell` only export variables to your own
-machine, which can't resolve `postgres.railway.internal`; `railway ssh` is the one that
-actually opens a session inside the container (registers a local SSH key on first use):
+`scripts/seed.py` runs automatically on every `api` deploy, as the service's Railway
+**Pre-Deploy Command** (`uv run python scripts/seed.py`, set via the Railway MCP's
+`update-service`). It's idempotent — deletes and re-inserts by fixed id — so this costs
+nothing on a deploy where the seed data hasn't changed, and it's what makes editing the
+seed data (a new class time, a corrected plan price) ship the same way as any other code
+change, with no manual step after merging. There is no separate GitHub Actions job for
+this: GitHub Actions runs the test suite (including running `seed.py` against a throwaway
+CI database, to prove the script itself works) as the merge gate; Railway's Pre-Deploy
+Command is what actually seeds the one database that matters, right before the new
+container starts serving.
 
-```bash
-railway ssh -s api -- uv run python scripts/seed.py
-```
-
-Loads Triple A Gym's actual members, plans, coaches and class schedule — idempotent, safe to
-re-run. It also creates the first manager's `staff_users` row, but with no PIN set, since a
-PIN is chosen interactively, not baked into seed data. Set it with:
+It also creates the first manager's `staff_users` row the first time it runs — but only if
+that phone doesn't already exist, and it never touches `pin_hash` on an existing row. A PIN
+is chosen interactively, never baked into seed data, so re-seeding a database that already
+has one set never logs the manager out. Set the PIN with:
 
 ```bash
 railway ssh -s api -- uv run python scripts/set_staff_pin.py
