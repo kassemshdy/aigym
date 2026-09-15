@@ -8,6 +8,13 @@ for a gym before any request has set app.gym_id.
 
 Idempotent: safe to re-run against an already-seeded database — it deletes
 and re-inserts by fixed id, matching the mock data's own fixed ids.
+
+Runs automatically on every `api` deploy in production, as the service's
+Railway Pre-Deploy Command — that's exactly what idempotency is for here:
+it costs nothing on a deploy where nothing changed, and it's what lets a
+future edit to the seed data (a new class time, a corrected plan price)
+ship the same way as any other code change, rather than needing a manual
+`railway ssh` run after every merge. See docs/DEPLOY.md.
 """
 
 import asyncio
@@ -216,10 +223,13 @@ ATTENDANCE_PATTERN: dict[str, tuple[list[int], int]] = {
 
 
 async def seed(session: AsyncSession) -> None:
-    # staff_users isn't gym-scoped (a staff account can hold roles at more
-    # than one gym), so deleting the gym doesn't cascade to it — delete this
-    # seed's own staff row by its deterministic id explicitly.
-    await session.execute(delete(StaffUser).where(StaffUser.id == uid("staff", "kassem")))
+    # Deleting the gym cascades to everything gym-scoped, including this
+    # seed's own staff_gym_roles row — but staff_users itself is NOT
+    # gym-scoped (decision: a staff account can hold roles at more than one
+    # gym) and is never deleted here. It carries a real, human-chosen
+    # pin_hash once scripts/set_staff_pin.py has run; re-seeding must never
+    # touch that, or every future deploy (this runs as the api service's
+    # Pre-Deploy Command) would silently log the manager out.
     await session.execute(delete(Gym).where(Gym.id == GYM_ID))
     await session.flush()
 
@@ -345,11 +355,14 @@ async def seed(session: AsyncSession) -> None:
                     )
                 )
 
-    staff = StaffUser(
-        id=uid("staff", "kassem"), phone="+96170622211", name="Kassem Shehady", pin_hash=None
-    )
-    session.add(staff)
-    await session.flush()  # staff_gym_roles.staff_user_id references staff just added above
+    staff_id = uid("staff", "kassem")
+    staff = await session.get(StaffUser, staff_id)
+    if staff is None:
+        staff = StaffUser(
+            id=staff_id, phone="+96170622211", name="Kassem Shehady", pin_hash=None
+        )
+        session.add(staff)
+        await session.flush()  # staff_gym_roles.staff_user_id references staff just added above
     session.add(
         StaffGymRole(
             id=uid("role", "kassem-manager"), gym_id=GYM_ID, staff_user_id=staff.id, role="manager"
