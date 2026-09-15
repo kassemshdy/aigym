@@ -17,9 +17,11 @@ RUN uv sync --frozen --no-dev
 
 ENV PATH="/app/.venv/bin:$PATH"
 
-# Bootstrap (idempotent — safe to run on every deploy) then migrate, both
-# before uvicorn starts accepting traffic. Safe at one replica (Triple A
-# Gym's scale); if this service ever runs more than one, move this to
-# Railway's release-command instead of the start command so concurrent
-# replicas don't race to apply the same migration or bootstrap.
-CMD ["sh", "-c", "bash scripts/bootstrap_db.sh && alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Bootstrap, migrate, and seed all run as this service's Railway
+# Pre-Deploy Command instead (see docs/DEPLOY.md) — a separate one-off
+# container that runs BEFORE this CMD, on the OLD image, meaning
+# seed.py needs the new migration applied first or it 500s on a column
+# that doesn't exist yet. Putting migrate+seed here, after the new
+# image is already live, got that ordering backwards. This CMD is just
+# the app.
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

@@ -52,16 +52,16 @@
   "manager": {
     "login": {
       "title": "Manager sign in",
-      "sub": "Phone and PIN",
-      "phone": "Mobile number",
-      "pin": "PIN",
+      "sub": "Username and password",
+      "username": "Username",
+      "password": "Password",
       "enter": "Sign in",
-      "error": "Wrong phone or PIN",
+      "error": "Wrong username or password",
       "signOut": "Sign out",
-      "forgotPin": "Forgot PIN?",
-      "resetSent": "A new PIN was sent to your WhatsApp",
-      "resetNotSent": "PIN reset, but couldn't send automatically — ask your admin for it",
-      "resetNotFound": "No account with that phone number",
+      "forgotPassword": "Forgot password?",
+      "resetSent": "A new password was sent to your WhatsApp",
+      "resetNotSent": "Password reset, but couldn't send automatically — ask your admin for it",
+      "resetNotFound": "No account with that username",
       "resetRateLimited": "Already sent recently — check WhatsApp or try again shortly"
     },
     "home": {

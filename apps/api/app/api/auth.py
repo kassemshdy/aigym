@@ -71,19 +71,23 @@ async def _issue_tokens(
 
 
 class StaffLoginRequest(BaseModel):
-    phone: str
-    pin: str
+    username: str
+    password: str
 
 
 @router.post("/staff/login", response_model=TokenPair)
 async def staff_login(body: StaffLoginRequest) -> TokenPair:
     async with tenant_session(None) as session:
         staff = (
-            await session.execute(select(StaffUser).where(StaffUser.phone == body.phone))
+            await session.execute(select(StaffUser).where(StaffUser.username == body.username))
         ).scalar_one_or_none()
 
-    if staff is None or staff.pin_hash is None or not verify_secret(body.pin, staff.pin_hash):
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid phone or PIN")
+    if (
+        staff is None
+        or staff.password_hash is None
+        or not verify_secret(body.password, staff.password_hash)
+    ):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid username or password")
 
     # staff_gym_roles IS RLS-protected (it's gym-scoped), but we don't know
     # which gym to scope into yet — that's what this query determines. Read
@@ -108,52 +112,63 @@ async def staff_login(body: StaffLoginRequest) -> TokenPair:
         )
 
 
-class StaffPinResetRequest(BaseModel):
-    phone: str
+class StaffPasswordResetRequest(BaseModel):
+    username: str
 
 
-class StaffPinResetResponse(BaseModel):
+class StaffPasswordResetResponse(BaseModel):
     sent: bool
 
 
-@router.post("/staff/pin/reset", response_model=StaffPinResetResponse)
-async def reset_staff_pin(body: StaffPinResetRequest) -> StaffPinResetResponse:
-    """Self-service PIN reset, delivered over the WhatsApp Business API
-    (decision 20's narrow exception to decision 4 — see
+def _generate_password() -> str:
+    # 8 hex chars ~ 32 bits of entropy — short enough to type off a phone
+    # screen, long enough that this isn't just a renamed 4-digit PIN.
+    return secrets.token_hex(4)
+
+
+@router.post("/staff/password/reset", response_model=StaffPasswordResetResponse)
+async def reset_staff_password(body: StaffPasswordResetRequest) -> StaffPasswordResetResponse:
+    """Self-service password reset, delivered over the WhatsApp Business
+    API (decision 20's narrow exception to decision 4 — see
     app/integrations/whatsapp_business.py) rather than a wa.me link: unlike
     every other WhatsApp message in this product, there's no human at a
     front desk to tap send for a staff member locked out of their own
-    login. No auth required — that's the point of a reset endpoint — so
-    it's rate-limited per phone via staff_users.pin_reset_at (NULL until
-    the first reset, so a freshly created account's first reset is never
-    blocked by its own creation — see that column's docstring) rather than
-    a separate table. Always resets pin_hash immediately regardless of
-    whether delivery succeeds: a staff member who can prove they hold the
-    phone (the PIN literally goes nowhere else) is the auth.
+    login. Looked up by username (the login identifier, decision 21) but
+    delivered to the phone on file — no auth required, that's the point of
+    a reset endpoint — so it's rate-limited via staff_users.password_reset_at
+    (NULL until the first reset, so a freshly created account's first reset
+    is never blocked by its own creation — see that column's docstring)
+    rather than a separate table. Always resets password_hash immediately
+    regardless of whether delivery succeeds: a staff member who can prove
+    they hold the phone (the password literally goes nowhere else) is the
+    auth.
     """
     async with tenant_session(None) as session:
         staff = (
-            await session.execute(select(StaffUser).where(StaffUser.phone == body.phone))
+            await session.execute(select(StaffUser).where(StaffUser.username == body.username))
         ).scalar_one_or_none()
 
         if staff is None:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "No staff account with that phone")
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "No staff account with that username")
 
         settings = get_settings()
-        cooldown = timedelta(minutes=settings.staff_pin_reset_cooldown_minutes)
+        cooldown = timedelta(minutes=settings.staff_password_reset_cooldown_minutes)
         now = datetime.now(UTC)
-        if staff.pin_reset_at is not None and now - staff.pin_reset_at < cooldown:
+        if staff.password_reset_at is not None and now - staff.password_reset_at < cooldown:
             raise HTTPException(
-                status.HTTP_429_TOO_MANY_REQUESTS, "PIN was reset recently — try again shortly"
+                status.HTTP_429_TOO_MANY_REQUESTS,
+                "Password was reset recently — try again shortly",
             )
 
-        new_pin = f"{secrets.randbelow(10_000):04d}"
-        staff.pin_hash = hash_secret(new_pin)
-        staff.pin_reset_at = now
+        new_password = _generate_password()
+        staff.password_hash = hash_secret(new_password)
+        staff.password_reset_at = now
         phone = staff.phone
 
-    sent = await send_whatsapp_text(to=phone, body=f"Your AIGym manager PIN is {new_pin}.")
-    return StaffPinResetResponse(sent=sent)
+    sent = await send_whatsapp_text(
+        to=phone, body=f"Your AIGym password is {new_password}."
+    )
+    return StaffPasswordResetResponse(sent=sent)
 
 
 class RefreshRequest(BaseModel):
@@ -197,7 +212,7 @@ class MemberCodeResponse(BaseModel):
 async def request_member_code(
     member_id: uuid.UUID,
     session: CurrentSession,
-    claims: AccessTokenClaims = Depends(require_role("manager", "coach")),
+    claims: AccessTokenClaims = Depends(require_role("super_admin", "manager", "coach")),
 ) -> MemberCodeResponse:
     member = await session.get(Member, member_id)
     if member is None:

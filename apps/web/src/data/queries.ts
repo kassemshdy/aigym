@@ -26,7 +26,7 @@ import type {
   ApiPlan,
   CreateMemberInput,
   RecordPaymentInput,
-  StaffPinResetResult,
+  StaffPasswordResetResult,
   TokenPair,
 } from './types'
 
@@ -89,22 +89,25 @@ export async function listPayments(): Promise<ApiPayment[]> {
   return apiFetch('/payments')
 }
 
-export async function staffLogin(phone: string, pin: string): Promise<void> {
+export async function staffLogin(username: string, password: string): Promise<void> {
   if (!API_URL) return
   const tokens = await apiFetch<TokenPair>('/auth/staff/login', {
     method: 'POST',
-    body: { phone, pin },
+    body: { username, password },
   })
   setTokens(tokens)
 }
 
-/** Sends a fresh PIN to `phone` over WhatsApp (decision 20's narrow
- * exception to the wa.me-link pattern) and resets it on the account
- * immediately, whether or not delivery succeeds. No mock equivalent —
- * the manager login screen this powers only renders when API_URL is set. */
-export async function requestStaffPinReset(phone: string): Promise<StaffPinResetResult> {
+/** Sends a fresh password for `username` over WhatsApp (decision 20's
+ * narrow exception to the wa.me-link pattern) — delivered to the phone on
+ * file — and resets it on the account immediately, whether or not
+ * delivery succeeds. No mock equivalent — the manager login screen this
+ * powers only renders when API_URL is set. */
+export async function requestStaffPasswordReset(
+  username: string,
+): Promise<StaffPasswordResetResult> {
   if (!API_URL) return { sent: false }
-  return apiFetch('/auth/staff/pin/reset', { method: 'POST', body: { phone } })
+  return apiFetch('/auth/staff/password/reset', { method: 'POST', body: { username } })
 }
 
 export { clearTokens as managerSignOut, isManagerSignedIn } from './client'

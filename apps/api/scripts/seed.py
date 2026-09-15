@@ -228,7 +228,7 @@ async def seed(session: AsyncSession) -> None:
     # seed's own staff_gym_roles row — but staff_users itself is NOT
     # gym-scoped (decision: a staff account can hold roles at more than one
     # gym) and is never deleted here. It carries a real, human-chosen
-    # pin_hash once scripts/set_staff_pin.py has run; re-seeding must never
+    # password_hash once scripts/set_staff_password.py has run; re-seeding must never
     # touch that, or every future deploy (this runs as the api service's
     # Pre-Deploy Command) would silently log the manager out.
     await session.execute(delete(Gym).where(Gym.id == GYM_ID))
@@ -359,22 +359,40 @@ async def seed(session: AsyncSession) -> None:
     staff_id = uid("staff", "kassem")
     staff = await session.get(StaffUser, staff_id)
     if staff is None:
-        staff = StaffUser(
-            id=staff_id, phone="+96170622211", name="Kassem Shehady", pin_hash=None
-        )
+        staff = StaffUser(id=staff_id, password_hash=None)
         session.add(staff)
-        await session.flush()  # staff_gym_roles.staff_user_id references staff just added above
 
-    # Fills the gap left by a staff row that has never had a PIN set (fresh
-    # row, or one from before scripts/set_staff_pin.py ran) — never touches
-    # an already-chosen PIN, so this is a one-time bootstrap, not a reset.
+    # Identity fields are reasserted every run, not just on first creation —
+    # a row from before decision 21 (username + password) landed got its
+    # username auto-backfilled from its phone digits by that migration,
+    # not this friendly value, so this is what actually fixes it up.
+    # password_hash is deliberately excluded: never overwrite a real
+    # credential someone already set. Setting these BEFORE the flush below
+    # matters — flushing a freshly constructed row before its NOT NULL
+    # columns are set fails the INSERT outright.
+    staff.username = "kassem"
+    staff.phone = "+96170622211"
+    staff.name = "Kassem Shehady"
+
+    # Fills the gap left by a staff row that has never had a password set
+    # (fresh row, or one from before scripts/set_staff_password.py ran) — never
+    # touches an already-chosen password, so this is a one-time bootstrap,
+    # not a reset.
     settings = get_settings()
-    if staff.pin_hash is None and settings.seed_manager_pin:
-        staff.pin_hash = hash_secret(settings.seed_manager_pin)
+    if staff.password_hash is None and settings.seed_manager_password:
+        staff.password_hash = hash_secret(settings.seed_manager_password)
 
+    await session.flush()  # staff_gym_roles.staff_user_id references staff above
+
+    # super_admin, not manager: decision 21 restricts POST /staff (creating
+    # more staff accounts) to super_admin, and the gym owner has to be able
+    # to create Karim's and Abed's accounts.
     session.add(
         StaffGymRole(
-            id=uid("role", "kassem-manager"), gym_id=GYM_ID, staff_user_id=staff.id, role="manager"
+            id=uid("role", "kassem-manager"),
+            gym_id=GYM_ID,
+            staff_user_id=staff.id,
+            role="super_admin",
         )
     )
 

@@ -21,8 +21,9 @@ async def _onboard_gym(client: AsyncClient, *, slug: str = "test-gym") -> dict[s
             "name_en": "Test Gym",
             "slug": slug,
             "manager_name": "Manager Mona",
+            "manager_username": "mona",
+            "manager_password": "hunter22",
             "manager_phone": "+96170000001",
-            "manager_pin": "1234",
         },
     )
     assert response.status_code == 201, response.text
@@ -49,7 +50,8 @@ async def test_onboard_gym_requires_secret(client: AsyncClient) -> None:
         "/gyms",
         json={
             "name_ar": "x", "name_en": "x", "slug": "no-secret",
-            "manager_name": "x", "manager_phone": "+9610", "manager_pin": "1234",
+            "manager_name": "x", "manager_username": "x",
+            "manager_password": "hunter22", "manager_phone": "+9610",
         },
     )
     assert response.status_code == 401
@@ -59,7 +61,7 @@ async def test_onboard_and_staff_login(client: AsyncClient) -> None:
     onboarded = await _onboard_gym(client)
 
     login = await client.post(
-        "/auth/staff/login", json={"phone": "+96170000001", "pin": "1234"}
+        "/auth/staff/login", json={"username": "mona", "password": "hunter22"}
     )
     assert login.status_code == 200, login.text
     tokens = login.json()
@@ -72,13 +74,15 @@ async def test_onboard_and_staff_login(client: AsyncClient) -> None:
     principal = me.json()
     assert principal["gym_id"] == onboarded["gym_id"]
     assert principal["subject_type"] == "staff"
-    assert principal["role"] == "manager"
+    # The account POST /gyms creates has to be super_admin (decision 21) —
+    # it's the only way a gym ever gets a second staff account.
+    assert principal["role"] == "super_admin"
 
 
-async def test_staff_login_wrong_pin_rejected(client: AsyncClient) -> None:
+async def test_staff_login_wrong_password_rejected(client: AsyncClient) -> None:
     await _onboard_gym(client)
     response = await client.post(
-        "/auth/staff/login", json={"phone": "+96170000001", "pin": "0000"}
+        "/auth/staff/login", json={"username": "mona", "password": "wrong"}
     )
     assert response.status_code == 401
 
@@ -86,7 +90,7 @@ async def test_staff_login_wrong_pin_rejected(client: AsyncClient) -> None:
 async def test_refresh_rotates_and_revokes_old_token(client: AsyncClient) -> None:
     await _onboard_gym(client)
     login = await client.post(
-        "/auth/staff/login", json={"phone": "+96170000001", "pin": "1234"}
+        "/auth/staff/login", json={"username": "mona", "password": "hunter22"}
     )
     old_refresh = login.json()["refresh_token"]
 
@@ -109,7 +113,7 @@ async def test_refresh_rotates_and_revokes_old_token(client: AsyncClient) -> Non
 async def test_member_code_login_flow(client: AsyncClient) -> None:
     await _onboard_gym(client)
     staff_login = await client.post(
-        "/auth/staff/login", json={"phone": "+96170000001", "pin": "1234"}
+        "/auth/staff/login", json={"username": "mona", "password": "hunter22"}
     )
     auth_header = {"Authorization": f"Bearer {staff_login.json()['access_token']}"}
 
@@ -145,7 +149,7 @@ async def test_member_code_login_flow(client: AsyncClient) -> None:
 async def test_member_code_rate_limited(client: AsyncClient) -> None:
     await _onboard_gym(client)
     staff_login = await client.post(
-        "/auth/staff/login", json={"phone": "+96170000001", "pin": "1234"}
+        "/auth/staff/login", json={"username": "mona", "password": "hunter22"}
     )
     auth_header = {"Authorization": f"Bearer {staff_login.json()['access_token']}"}
     me = await client.get("/auth/me", headers=auth_header)
@@ -161,12 +165,12 @@ async def test_member_code_rate_limited(client: AsyncClient) -> None:
     assert over_limit.status_code == 429
 
 
-async def test_staff_pin_reset_unknown_phone(client: AsyncClient) -> None:
-    response = await client.post("/auth/staff/pin/reset", json={"phone": "+96199999999"})
+async def test_staff_password_reset_unknown_username(client: AsyncClient) -> None:
+    response = await client.post("/auth/staff/password/reset", json={"username": "nobody"})
     assert response.status_code == 404
 
 
-async def test_staff_pin_reset_flow(client: AsyncClient, monkeypatch) -> None:
+async def test_staff_password_reset_flow(client: AsyncClient, monkeypatch) -> None:
     await _onboard_gym(client)
 
     sent_to: list[str] = []
@@ -177,27 +181,91 @@ async def test_staff_pin_reset_flow(client: AsyncClient, monkeypatch) -> None:
 
     monkeypatch.setattr("app.api.auth.send_whatsapp_text", fake_send)
 
-    reset = await client.post("/auth/staff/pin/reset", json={"phone": "+96170000001"})
+    reset = await client.post("/auth/staff/password/reset", json={"username": "mona"})
     assert reset.status_code == 200
     assert reset.json() == {"sent": True}
+    # Delivered to the phone on file, even though the lookup was by username.
     assert sent_to == ["+96170000001"]
 
-    # The old PIN (set at onboarding) no longer works.
-    old_pin_login = await client.post(
-        "/auth/staff/login", json={"phone": "+96170000001", "pin": "1234"}
+    # The old password (set at onboarding) no longer works.
+    old_password_login = await client.post(
+        "/auth/staff/login", json={"username": "mona", "password": "hunter22"}
     )
-    assert old_pin_login.status_code == 401
+    assert old_password_login.status_code == 401
 
     # Immediately resetting again is rate-limited.
-    again = await client.post("/auth/staff/pin/reset", json={"phone": "+96170000001"})
+    again = await client.post("/auth/staff/password/reset", json={"username": "mona"})
     assert again.status_code == 429
 
 
-async def test_staff_pin_reset_without_whatsapp_configured(client: AsyncClient) -> None:
+async def test_staff_password_reset_without_whatsapp_configured(client: AsyncClient) -> None:
     """No monkeypatch here — exercises the real send_whatsapp_text, which
     returns False without ever making a network call when the Settings
     default (both WhatsApp variables unset) is in effect."""
     await _onboard_gym(client)
-    response = await client.post("/auth/staff/pin/reset", json={"phone": "+96170000001"})
+    response = await client.post("/auth/staff/password/reset", json={"username": "mona"})
     assert response.status_code == 200
     assert response.json() == {"sent": False}
+
+
+async def test_only_super_admin_can_create_staff(client: AsyncClient) -> None:
+    await _onboard_gym(client)
+    super_admin_login = await client.post(
+        "/auth/staff/login", json={"username": "mona", "password": "hunter22"}
+    )
+    admin_header = {"Authorization": f"Bearer {super_admin_login.json()['access_token']}"}
+
+    create = await client.post(
+        "/staff",
+        headers={**admin_header, "Idempotency-Key": str(uuid.uuid4())},
+        json={
+            "username": "karim",
+            "password": "coachpass1",
+            "name": "Karim",
+            "phone": "+96170000002",
+            "role": "coach",
+        },
+    )
+    assert create.status_code == 201, create.text
+    assert create.json()["role"] == "coach"
+
+    coach_login = await client.post(
+        "/auth/staff/login", json={"username": "karim", "password": "coachpass1"}
+    )
+    assert coach_login.status_code == 200
+    coach_header = {"Authorization": f"Bearer {coach_login.json()['access_token']}"}
+
+    # A coach cannot create another staff account.
+    forbidden = await client.post(
+        "/staff",
+        headers={**coach_header, "Idempotency-Key": str(uuid.uuid4())},
+        json={
+            "username": "abed",
+            "password": "coachpass2",
+            "name": "Abed",
+            "phone": "+96170000003",
+            "role": "coach",
+        },
+    )
+    assert forbidden.status_code == 403
+
+
+async def test_create_staff_rejects_duplicate_username(client: AsyncClient) -> None:
+    await _onboard_gym(client)
+    login = await client.post(
+        "/auth/staff/login", json={"username": "mona", "password": "hunter22"}
+    )
+    admin_header = {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+    duplicate = await client.post(
+        "/staff",
+        headers={**admin_header, "Idempotency-Key": str(uuid.uuid4())},
+        json={
+            "username": "mona",
+            "password": "whatever1",
+            "name": "Someone Else",
+            "phone": "+96170000004",
+            "role": "coach",
+        },
+    )
+    assert duplicate.status_code == 409

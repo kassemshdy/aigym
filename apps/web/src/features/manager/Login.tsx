@@ -5,21 +5,22 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Field, Input } from '@/components/ui/Field'
 import { gym } from '@/mocks/data'
-import { requestStaffPinReset, staffLogin } from '@/data/queries'
+import { requestStaffPasswordReset, staffLogin } from '@/data/queries'
 import { ApiError } from '@/data/client'
 import type { Lang } from '@/i18n'
 
 type ResetState = 'idle' | 'sending' | 'sent' | 'notSent' | 'notFound' | 'rateLimited'
 
 /** Only reachable when VITE_API_URL is set — with no API, /manager needs no
- * login at all (see RequireManager in App.tsx), exactly like Phase 1. */
+ * login at all (see RequireManager in App.tsx), exactly like Phase 1.
+ * Username + password (decision 21) — not phone + PIN. */
 export function ManagerLogin() {
   const { t, i18n } = useTranslation()
   const lang = i18n.language as Lang
   const navigate = useNavigate()
 
-  const [phone, setPhone] = useState('')
-  const [pin, setPin] = useState('')
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState(false)
   const [busy, setBusy] = useState(false)
   const [resetState, setResetState] = useState<ResetState>('idle')
@@ -28,7 +29,7 @@ export function ManagerLogin() {
     setBusy(true)
     setError(false)
     try {
-      await staffLogin(phone, pin)
+      await staffLogin(username, password)
       navigate('/manager')
     } catch (err) {
       setError(err instanceof ApiError ? err.status === 401 : true)
@@ -37,10 +38,10 @@ export function ManagerLogin() {
     }
   }
 
-  async function forgotPin() {
+  async function forgotPassword() {
     setResetState('sending')
     try {
-      const result = await requestStaffPinReset(phone)
+      const result = await requestStaffPasswordReset(username)
       setResetState(result.sent ? 'sent' : 'notSent')
     } catch (err) {
       if (err instanceof ApiError && err.status === 404) setResetState('notFound')
@@ -76,23 +77,21 @@ export function ManagerLogin() {
         </div>
 
         <Card className="space-y-4 p-4">
-          <Field label={t('manager.login.phone')}>
+          <Field label={t('manager.login.username')}>
             <Input
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              inputMode="tel"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               dir="ltr"
-              placeholder="+961 70 000 000"
+              placeholder="kassem"
               autoFocus
             />
           </Field>
-          <Field label={t('manager.login.pin')}>
+          <Field label={t('manager.login.password')}>
             <Input
-              value={pin}
-              onChange={(e) => setPin(e.target.value)}
-              inputMode="numeric"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               dir="ltr"
-              placeholder="••••"
+              placeholder="••••••••"
               type="password"
             />
           </Field>
@@ -109,7 +108,7 @@ export function ManagerLogin() {
             variant="brand"
             full
             size="lg"
-            disabled={busy || phone.trim().length < 6 || pin.trim().length < 4}
+            disabled={busy || username.trim().length < 2 || password.trim().length < 4}
             onClick={submit}
           >
             {t('manager.login.enter')}
@@ -118,10 +117,10 @@ export function ManagerLogin() {
           <Button
             variant="ghost"
             full
-            disabled={resetState === 'sending' || phone.trim().length < 6}
-            onClick={forgotPin}
+            disabled={resetState === 'sending' || username.trim().length < 2}
+            onClick={forgotPassword}
           >
-            {t('manager.login.forgotPin')}
+            {t('manager.login.forgotPassword')}
           </Button>
 
           {resetState !== 'idle' && resetState !== 'sending' ? (

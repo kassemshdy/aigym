@@ -6,6 +6,7 @@ from app.api.members import router as members_router
 from app.api.onboarding import router as onboarding_router
 from app.api.payments import router as payments_router
 from app.api.plans import router as plans_router
+from app.api.staff import router as staff_router
 
 api_router = APIRouter()
 api_router.include_router(auth_router)
@@ -14,3 +15,4 @@ api_router.include_router(checkins_router)
 api_router.include_router(plans_router)
 api_router.include_router(members_router)
 api_router.include_router(payments_router)
+api_router.include_router(staff_router)

@@ -36,14 +36,16 @@ console errors, 120 KB gzipped against a 200 KB budget.
 
 FastAPI + SQLAlchemy 2.0 + Alembic + Postgres. Tenancy tables with Row-Level Security
 (`ENABLE` + `FORCE`, enforced against a non-owning, non-superuser role — see decision 16),
-JWT auth with rotating refresh tokens, phone + PIN for staff and phone + 6-digit WhatsApp
+JWT auth with rotating refresh tokens, username + password for staff (decision 21 — a
+super_admin-gated `POST /staff` creates additional accounts) and phone + 6-digit WhatsApp
 code for members, gym onboarding, member CRUD, plans, subscriptions, manual USD payments,
 derived dues status (decision 17, never stored), **Idempotency-Key middleware** (the
 contract `.agents/skills/offline-sync` already promised Phase 3), a WhatsApp message
-composer, and a cross-tenant isolation test suite with its own CI job (decision 7). Manager
-screens read through `apps/web/src/data/` instead of `apps/web/src/mocks/`, with a mock
-fallback when `VITE_API_URL` is unset — coach and member screens stay on mocks until
-Phase 3. See `apps/api/AGENTS.md` and decisions 16–19.
+composer, self-service staff password reset over the real WhatsApp Business API (decision
+20, the one deliberate exception to decision 4), and a cross-tenant isolation test suite
+with its own CI job (decision 7). Manager screens read through `apps/web/src/data/` instead
+of `apps/web/src/mocks/`, with a mock fallback when `VITE_API_URL` is unset — coach and
+member screens stay on mocks until Phase 3. See `apps/api/AGENTS.md` and decisions 16–21.
 
 ## Phase 3 — The floor: check-in, nutrition, set logging, offline
 

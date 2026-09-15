@@ -15,7 +15,7 @@ from app.security.jwt import AccessTokenClaims
 
 router = APIRouter(tags=["members"])
 
-ManagerOrCoach = Depends(require_role("manager", "coach"))
+ManagerOrCoach = Depends(require_role("super_admin", "manager", "coach"))
 
 
 async def _current_subscription(session: AsyncSession, member_id: uuid.UUID) -> Subscription | None:

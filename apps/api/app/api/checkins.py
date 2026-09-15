@@ -34,7 +34,7 @@ class CheckInOut(BaseModel):
 async def create_check_in(
     body: CheckInRequest,
     session: CurrentSession,
-    claims: AccessTokenClaims = Depends(require_role("manager", "coach")),
+    claims: AccessTokenClaims = Depends(require_role("super_admin", "manager", "coach")),
 ) -> CheckInOut:
     member = await session.get(Member, body.member_id)
     if member is None:

@@ -42,7 +42,16 @@ RoleChecker = Callable[[CurrentClaims], Coroutine[None, None, AccessTokenClaims]
 def require_role(*roles: str) -> RoleChecker:
     """FastAPI dependency factory: require a staff caller whose role is one
     of `roles`. A member token never satisfies this — members and staff are
-    different subject_types, not different roles."""
+    different subject_types, not different roles.
+
+    Roles are flat strings, not a hierarchy: `super_admin` is NOT implicitly
+    included by `require_role("manager", "coach")` — list it explicitly
+    wherever a super_admin needs the same access a manager has. This is a
+    real trap (decision 21 shipped with it and had to fix every existing
+    call site) — a new endpoint that only checks "manager"/"coach" silently
+    locks out super_admin instead of erroring, since 403 looks the same as
+    "correctly forbidden."
+    """
 
     async def _check(claims: CurrentClaims) -> AccessTokenClaims:
         if claims.subject_type != "staff" or claims.role not in roles:

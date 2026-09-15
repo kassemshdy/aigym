@@ -102,6 +102,6 @@ export interface ApiPayment {
   method: string
 }
 
-export interface StaffPinResetResult {
+export interface StaffPasswordResetResult {
   sent: boolean
 }
