@@ -1,7 +1,8 @@
 import uuid
+from datetime import datetime
 from typing import Any
 
-from sqlalchemy import ForeignKey, String, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -31,6 +32,13 @@ class StaffUser(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     phone: Mapped[str] = mapped_column(String, nullable=False, unique=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
     pin_hash: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    # Rate-limits POST /auth/staff/pin/reset — deliberately its own column
+    # rather than reusing updated_at, which is also set at row creation:
+    # that would wrongly block the first-ever reset on a freshly seeded or
+    # onboarded account within the cooldown window. NULL until the first
+    # reset, so a new account is never blocked by its own creation.
+    pin_reset_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class StaffGymRole(Base, UUIDPrimaryKeyMixin, GymScopedMixin, TimestampMixin):

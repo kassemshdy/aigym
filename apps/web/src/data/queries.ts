@@ -26,6 +26,7 @@ import type {
   ApiPlan,
   CreateMemberInput,
   RecordPaymentInput,
+  StaffPinResetResult,
   TokenPair,
 } from './types'
 
@@ -95,6 +96,15 @@ export async function staffLogin(phone: string, pin: string): Promise<void> {
     body: { phone, pin },
   })
   setTokens(tokens)
+}
+
+/** Sends a fresh PIN to `phone` over WhatsApp (decision 20's narrow
+ * exception to the wa.me-link pattern) and resets it on the account
+ * immediately, whether or not delivery succeeds. No mock equivalent —
+ * the manager login screen this powers only renders when API_URL is set. */
+export async function requestStaffPinReset(phone: string): Promise<StaffPinResetResult> {
+  if (!API_URL) return { sent: false }
+  return apiFetch('/auth/staff/pin/reset', { method: 'POST', body: { phone } })
 }
 
 export { clearTokens as managerSignOut, isManagerSignedIn } from './client'

@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import get_owner_sessionmaker, tenant_session
 from app.deps import CurrentClaims, CurrentSession, require_role
 from app.domain.whatsapp import wa_link
+from app.integrations.whatsapp_business import send_whatsapp_text
 from app.models import Member, MemberLoginCode, RefreshToken, StaffGymRole, StaffUser
 from app.security.hashing import hash_secret, verify_secret
 from app.security.jwt import (
@@ -105,6 +106,54 @@ async def staff_login(body: StaffLoginRequest) -> TokenPair:
         return await _issue_tokens(
             session, subject_id=staff.id, gym_id=role.gym_id, subject_type="staff", role=role.role
         )
+
+
+class StaffPinResetRequest(BaseModel):
+    phone: str
+
+
+class StaffPinResetResponse(BaseModel):
+    sent: bool
+
+
+@router.post("/staff/pin/reset", response_model=StaffPinResetResponse)
+async def reset_staff_pin(body: StaffPinResetRequest) -> StaffPinResetResponse:
+    """Self-service PIN reset, delivered over the WhatsApp Business API
+    (decision 20's narrow exception to decision 4 — see
+    app/integrations/whatsapp_business.py) rather than a wa.me link: unlike
+    every other WhatsApp message in this product, there's no human at a
+    front desk to tap send for a staff member locked out of their own
+    login. No auth required — that's the point of a reset endpoint — so
+    it's rate-limited per phone via staff_users.pin_reset_at (NULL until
+    the first reset, so a freshly created account's first reset is never
+    blocked by its own creation — see that column's docstring) rather than
+    a separate table. Always resets pin_hash immediately regardless of
+    whether delivery succeeds: a staff member who can prove they hold the
+    phone (the PIN literally goes nowhere else) is the auth.
+    """
+    async with tenant_session(None) as session:
+        staff = (
+            await session.execute(select(StaffUser).where(StaffUser.phone == body.phone))
+        ).scalar_one_or_none()
+
+        if staff is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "No staff account with that phone")
+
+        settings = get_settings()
+        cooldown = timedelta(minutes=settings.staff_pin_reset_cooldown_minutes)
+        now = datetime.now(UTC)
+        if staff.pin_reset_at is not None and now - staff.pin_reset_at < cooldown:
+            raise HTTPException(
+                status.HTTP_429_TOO_MANY_REQUESTS, "PIN was reset recently — try again shortly"
+            )
+
+        new_pin = f"{secrets.randbelow(10_000):04d}"
+        staff.pin_hash = hash_secret(new_pin)
+        staff.pin_reset_at = now
+        phone = staff.phone
+
+    sent = await send_whatsapp_text(to=phone, body=f"Your AIGym manager PIN is {new_pin}.")
+    return StaffPinResetResponse(sent=sent)
 
 
 class RefreshRequest(BaseModel):

@@ -215,3 +215,25 @@ rate-limited per member (decision 13) — the code's own properties are the defe
 visibility. An elevated connection would work too, but for a table this narrow and this
 purpose-built, a second exception to the RLS-everywhere rule is more honest than laundering the
 same access through a connection meant for staff auth.
+
+## 20. Staff PIN reset is the one WhatsApp message that goes through the real Business API
+
+Decision 4 rules out the WhatsApp Business API everywhere else in this product: a human at the
+front desk taps a `wa.me` link, so there's no per-message cost, no Meta template approval, and
+no risk of the gym's number getting flagged for automated sends. That reasoning doesn't hold for
+`POST /auth/staff/pin/reset` — a staff member locked out of their own login has no front desk to
+hand a link to, so automated delivery is the actual point, not a convenience.
+
+`app/integrations/whatsapp_business.py` is kept deliberately separate from
+`app/domain/whatsapp.py` (the `wa_link` helper decision 4 governs) so the distinction stays
+visible in the codebase, not just in a comment. `AIGYM_WHATSAPP_ACCESS_TOKEN` and
+`AIGYM_WHATSAPP_PHONE_NUMBER_ID` are both unset by default, so a deployment that hasn't
+configured this degrades to "PIN reset but no message sent" (`{"sent": false}`) rather than an
+error — the reset itself never depends on WhatsApp succeeding.
+
+The endpoint takes only a phone number and no auth — that's what makes it a recovery path at
+all — so it's rate-limited via a dedicated `staff_users.pin_reset_at` column (NULL until first
+use, so a freshly created account's first reset is never blocked by its own creation — reusing
+`updated_at` for this was tried first and is exactly wrong for that reason). The security model
+is the same one member login codes already rely on (decision 19): knowing a phone number lets
+you trigger a reset, but the new PIN is only ever visible to whoever actually holds that phone.

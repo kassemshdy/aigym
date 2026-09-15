@@ -57,7 +57,12 @@
       "pin": "PIN",
       "enter": "Sign in",
       "error": "Wrong phone or PIN",
-      "signOut": "Sign out"
+      "signOut": "Sign out",
+      "forgotPin": "Forgot PIN?",
+      "resetSent": "A new PIN was sent to your WhatsApp",
+      "resetNotSent": "PIN reset, but couldn't send automatically — ask your admin for it",
+      "resetNotFound": "No account with that phone number",
+      "resetRateLimited": "Already sent recently — check WhatsApp or try again shortly"
     },
     "home": {
       "title": "Welcome",

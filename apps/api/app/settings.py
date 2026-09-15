@@ -42,6 +42,16 @@ class Settings(BaseSettings):
     # set — see the seed() docstring.
     seed_manager_pin: str | None = None
 
+    # Meta WhatsApp Cloud API credentials — decision 20's narrow, documented
+    # exception to decision 4 (wa.me links, no Business API). Used only by
+    # POST /auth/staff/pin/reset: unlike every other WhatsApp message in
+    # this product, there is no human at a front desk to tap send for a
+    # staff member locked out of their own login. Both unset by default, so
+    # that endpoint degrades to "no message sent" rather than erroring.
+    whatsapp_access_token: str | None = None
+    whatsapp_phone_number_id: str | None = None
+    staff_pin_reset_cooldown_minutes: int = 5
+
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])
 
     @property

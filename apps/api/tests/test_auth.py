@@ -159,3 +159,45 @@ async def test_member_code_rate_limited(client: AsyncClient) -> None:
 
     over_limit = await client.post(f"/auth/member/{member_id}/code", headers=auth_header)
     assert over_limit.status_code == 429
+
+
+async def test_staff_pin_reset_unknown_phone(client: AsyncClient) -> None:
+    response = await client.post("/auth/staff/pin/reset", json={"phone": "+96199999999"})
+    assert response.status_code == 404
+
+
+async def test_staff_pin_reset_flow(client: AsyncClient, monkeypatch) -> None:
+    await _onboard_gym(client)
+
+    sent_to: list[str] = []
+
+    async def fake_send(*, to: str, body: str) -> bool:
+        sent_to.append(to)
+        return True
+
+    monkeypatch.setattr("app.api.auth.send_whatsapp_text", fake_send)
+
+    reset = await client.post("/auth/staff/pin/reset", json={"phone": "+96170000001"})
+    assert reset.status_code == 200
+    assert reset.json() == {"sent": True}
+    assert sent_to == ["+96170000001"]
+
+    # The old PIN (set at onboarding) no longer works.
+    old_pin_login = await client.post(
+        "/auth/staff/login", json={"phone": "+96170000001", "pin": "1234"}
+    )
+    assert old_pin_login.status_code == 401
+
+    # Immediately resetting again is rate-limited.
+    again = await client.post("/auth/staff/pin/reset", json={"phone": "+96170000001"})
+    assert again.status_code == 429
+
+
+async def test_staff_pin_reset_without_whatsapp_configured(client: AsyncClient) -> None:
+    """No monkeypatch here — exercises the real send_whatsapp_text, which
+    returns False without ever making a network call when the Settings
+    default (both WhatsApp variables unset) is in effect."""
+    await _onboard_gym(client)
+    response = await client.post("/auth/staff/pin/reset", json={"phone": "+96170000001"})
+    assert response.status_code == 200
+    assert response.json() == {"sent": False}
