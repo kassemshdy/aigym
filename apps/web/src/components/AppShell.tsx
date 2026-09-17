@@ -41,11 +41,16 @@ export function AppShell() {
   const tabs = TABS[role](t)
   const showStaffSignOut = (role === 'manager' || role === 'coach') && !!API_URL && isStaffSignedIn()
   const { offline, pendingCount } = useOffline()
-  const syncLabel = offline
-    ? t('common.offline')
-    : pendingCount > 0
+  // Pending work always wins over the plain offline marker: "3 waiting to
+  // sync" is what tells a coach their sets are safe, which matters more
+  // than knowing the network is down — the skill's own kill-network test
+  // asserts on the count precisely while offline (.agents/skills/offline-sync).
+  const syncLabel =
+    pendingCount > 0
       ? t('common.pendingSync', { count: pendingCount })
-      : t('common.synced')
+      : offline
+        ? t('common.offline')
+        : t('common.synced')
 
   return (
     <div className="mx-auto flex h-dvh max-w-6xl flex-col">
