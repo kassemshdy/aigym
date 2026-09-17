@@ -9,6 +9,49 @@
     "member": "Member",
     "super_admin": "Owner"
   },
+  "tour": {
+    "next": "Next",
+    "back": "Back",
+    "skip": "Skip",
+    "done": "Got it",
+    "replay": "Help",
+    "sync": {
+      "title": "Sync status",
+      "body": "Shows if you're online, and if anything is still waiting to save."
+    },
+    "manager": {
+      "stats": {
+        "title": "Your dashboard",
+        "body": "Who came in today, who owes money, whose plan is ending soon, and what you've collected this month."
+      },
+      "add": {
+        "title": "Register a member",
+        "body": "Tap here anytime to add a new member — name, number, plan, and their goals."
+      },
+      "staff": {
+        "title": "Add your coaches",
+        "body": "Give each coach their own login here so they can sign in from their own phone."
+      }
+    },
+    "coach": {
+      "checkin": {
+        "title": "Check someone in",
+        "body": "Tap here when a member arrives at the gym."
+      },
+      "groups": {
+        "title": "Today's queue",
+        "body": "Everyone checked in today, grouped by where they are: waiting, training, or finished."
+      },
+      "ai": {
+        "title": "AI suggestions",
+        "body": "Drafted plans and tips wait here for your approval — nothing reaches a member until you say yes."
+      }
+    }
+  },
+  "help": {
+    "videoLink": "Tap the play icon next to any exercise to attach or change its video link.",
+    "staffCoachOnly": "You can add coaches. Only the gym owner can add another manager."
+  },
   "common": {
     "back": "Back",
     "save": "Save",
@@ -137,7 +180,9 @@
       "name": "Name",
       "phone": "Mobile number",
       "tempPassword": "Temporary password",
-      "usernameTaken": "That username is already taken"
+      "usernameTaken": "That username is already taken",
+      "created": "Account ready",
+      "sendCredentials": "Send login details on WhatsApp"
     }
   },
   "coach": {
@@ -250,7 +295,8 @@
     "dues": "Hi {{name}}, your membership at {{gym}} has ended and {{amount}}$ is due. See you soon 💪",
     "expiring": "Hi {{name}}, your membership at {{gym}} ends on {{date}}. Want to renew?",
     "welcome": "Welcome {{name}}! You're registered at {{gym}}. Check your workout and the coach's videos in the app 💪",
-    "missYou": "Hi {{name}}, we miss you at {{gym}}! Your last session was {{days}} days ago. See you soon 💪"
+    "missYou": "Hi {{name}}, we miss you at {{gym}}! Your last session was {{days}} days ago. See you soon 💪",
+    "staffCredentials": "Hi {{name}}, your AIGym login for {{gym}} is ready.\nUsername: {{username}}\nPassword: {{password}}\nSign in: {{link}}"
   },
   "nav": {
     "today": "Today",

@@ -22,6 +22,7 @@ import {
 import type { ApiExercise, ApiProgram } from '@/data/types'
 import type { Lang } from '@/i18n'
 import { text } from '@/lib/format'
+import { HelpTip } from '@/help/HelpTip'
 
 const MUSCLE_GROUPS = ['chest', 'back', 'legs', 'shoulders', 'arms', 'core'] as const
 
@@ -309,7 +310,7 @@ function ProgramEditorForm({
       </Card>
 
       <Card>
-        <CardTitle>{t('program.addExercise')}</CardTitle>
+        <CardTitle action={<HelpTip text={t('help.videoLink')} />}>{t('program.addExercise')}</CardTitle>
         <div className="space-y-3 p-4">
           <Field label={t('common.search')}>
             <Input value={query} onChange={(e) => setQuery(e.target.value)} />

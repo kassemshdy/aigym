@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Card, CardTitle } from '@/components/ui/Card'
-import { Button } from '@/components/ui/Button'
+import { Button, buttonClass } from '@/components/ui/Button'
 import { Field, Input } from '@/components/ui/Field'
 import { Avatar } from '@/components/ui/Avatar'
 import { Icon } from '@/components/ui/Icon'
@@ -9,13 +9,27 @@ import { Empty, Page } from '@/components/ui/Page'
 import { createStaff, listStaff } from '@/data/queries'
 import { useAsync } from '@/data/useAsync'
 import { ApiError } from '@/data/client'
+import { gym } from '@/mocks/data'
+import { waLink } from '@/lib/whatsapp'
+import type { Lang } from '@/i18n'
+import { HelpTip } from '@/help/HelpTip'
+
+interface JustCreated {
+  name: string
+  phone: string
+  username: string
+  password: string
+}
 
 /** Coaches the manager has added. A manager may only create role "coach"
  * here (the server enforces it — see decision 21's amendment); creating
  * another manager or a super_admin stays a super_admin-only action with
- * no UI yet. */
+ * no UI yet. After creation, a wa.me link pre-fills the new login for the
+ * manager to send by hand — same pattern as the member welcome message
+ * (decision 4): no WhatsApp Business API, a human taps send. */
 export function ManagerStaff() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const lang = i18n.language as Lang
   const staff = useAsync(listStaff, [])
 
   const [adding, setAdding] = useState(false)
@@ -25,6 +39,7 @@ export function ManagerStaff() {
   const [password, setPassword] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<'taken' | 'other' | null>(null)
+  const [justCreated, setJustCreated] = useState<JustCreated | null>(null)
 
   function resetForm() {
     setName('')
@@ -38,6 +53,7 @@ export function ManagerStaff() {
     setError(null)
     try {
       await createStaff({ username, password, name, phone, role: 'coach' })
+      setJustCreated({ name, phone, username, password })
       setAdding(false)
       resetForm()
       staff.reload()
@@ -85,8 +101,41 @@ export function ManagerStaff() {
         )}
       </Card>
 
-      {adding ? (
+      {justCreated ? (
+        <Card className="space-y-3 p-6 text-center">
+          <span className="bg-paid-bg text-paid mx-auto flex size-12 items-center justify-center rounded-full">
+            <Icon name="check" size={24} />
+          </span>
+          <p className="font-bold">{t('manager.staff.created')}</p>
+          <p className="text-muted text-sm">{justCreated.name}</p>
+          <a
+            href={waLink(
+              justCreated.phone,
+              t('whatsapp.staffCredentials', {
+                name: justCreated.name,
+                gym: gym.name[lang],
+                username: justCreated.username,
+                password: justCreated.password,
+                link: `${window.location.origin}/staff/login`,
+              }),
+            )}
+            target="_blank"
+            rel="noreferrer"
+            className={buttonClass('secondary', 'lg', true)}
+          >
+            <Icon name="whatsapp" />
+            {t('manager.staff.sendCredentials')}
+          </a>
+          <Button variant="ghost" full onClick={() => setJustCreated(null)}>
+            {t('common.done')}
+          </Button>
+        </Card>
+      ) : adding ? (
         <Card className="space-y-4 p-4">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-muted text-sm font-semibold">{t('manager.staff.addCoach')}</p>
+            <HelpTip text={t('help.staffCoachOnly')} />
+          </div>
           <Field label={t('manager.staff.name')}>
             <Input value={name} onChange={(e) => setName(e.target.value)} autoFocus />
           </Field>

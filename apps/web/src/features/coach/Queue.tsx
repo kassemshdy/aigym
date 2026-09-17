@@ -10,6 +10,7 @@ import { getActiveProgram, listMembers, listTodaysCheckIns } from '@/data/querie
 import type { ApiCheckIn, ApiMember } from '@/data/types'
 import type { Lang } from '@/i18n'
 import { hhmm, text } from '@/lib/format'
+import { useTourAutostart } from '@/help/TourProvider'
 
 const GROUPS: ApiCheckIn['status'][] = ['waiting', 'training', 'done']
 
@@ -47,6 +48,7 @@ function QueueRow({ checkIn, member, lang }: { checkIn: ApiCheckIn; member: ApiM
 export function CoachQueue() {
   const { t, i18n } = useTranslation()
   const lang = i18n.language as Lang
+  useTourAutostart('coach')
 
   const { data: checkIns, loading: checkInsLoading } = useAsync(listTodaysCheckIns, [])
   const { data: members, loading: membersLoading } = useAsync(listMembers, [])
@@ -65,38 +67,41 @@ export function CoachQueue() {
     <Page title={t('coach.queue.title')} sub={t('coach.queue.tap')}>
       <Link
         to="/coach/check-in"
+        data-tour="coach-checkin"
         className="border-line text-brand flex min-h-tap items-center justify-center gap-2 rounded-xl border px-4 text-sm font-bold"
       >
         <Icon name="check" />
         {t('coach.queue.checkIn')}
       </Link>
 
-      {GROUPS.map((group) => {
-        const rows = checkIns.filter((c) => c.status === group)
-        return (
-          <Card key={group}>
-            <CardTitle>
-              {t(`coach.queue.${group}`)}
-              <span className="text-muted tnum ms-2 text-sm">{rows.length}</span>
-            </CardTitle>
-            {rows.length === 0 ? (
-              <p className="text-muted p-4 text-sm">{t('common.none')}</p>
-            ) : (
-              <ul>
-                {rows.map((c) => {
-                  const member = memberById.get(c.member_id)
-                  if (!member) return null
-                  return (
-                    <li key={c.id}>
-                      <QueueRow checkIn={c} member={member} lang={lang} />
-                    </li>
-                  )
-                })}
-              </ul>
-            )}
-          </Card>
-        )
-      })}
+      <div data-tour="coach-groups" className="space-y-4">
+        {GROUPS.map((group) => {
+          const rows = checkIns.filter((c) => c.status === group)
+          return (
+            <Card key={group}>
+              <CardTitle>
+                {t(`coach.queue.${group}`)}
+                <span className="text-muted tnum ms-2 text-sm">{rows.length}</span>
+              </CardTitle>
+              {rows.length === 0 ? (
+                <p className="text-muted p-4 text-sm">{t('common.none')}</p>
+              ) : (
+                <ul>
+                  {rows.map((c) => {
+                    const member = memberById.get(c.member_id)
+                    if (!member) return null
+                    return (
+                      <li key={c.id}>
+                        <QueueRow checkIn={c} member={member} lang={lang} />
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </Card>
+          )
+        })}
+      </div>
       {checkIns.length === 0 ? <Empty>{t('common.none')}</Empty> : null}
     </Page>
   )

@@ -65,6 +65,10 @@ for (const lang of ['en', 'ar']) {
     await page.addInitScript((l) => {
       localStorage.setItem('aigym.lang', l)
       localStorage.setItem('aigym.signedIn', '1')
+      // These screens capture steady state, not the one-time onboarding
+      // overlay — same reason aigym.signedIn is pre-seeded above.
+      localStorage.setItem('aigym.tour.manager.seen', '1')
+      localStorage.setItem('aigym.tour.coach.seen', '1')
     }, lang)
 
     await page.goto(`${BASE}${path}`, { waitUntil: 'networkidle' })
