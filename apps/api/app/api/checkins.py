@@ -67,3 +67,27 @@ async def list_todays_check_ins(session: CurrentSession) -> list[CheckInOut]:
         CheckInOut(id=c.id, member_id=c.member_id, at=c.at, status=c.status)
         for c in result.scalars().all()
     ]
+
+
+class UpdateCheckInRequest(BaseModel):
+    status: str
+
+
+@router.patch("/check-ins/{check_in_id}", response_model=CheckInOut)
+async def update_check_in(
+    check_in_id: uuid.UUID,
+    body: UpdateCheckInRequest,
+    session: CurrentSession,
+    _claims: AccessTokenClaims = Depends(require_role("super_admin", "manager", "coach")),
+) -> CheckInOut:
+    """The coach Queue's three columns — waiting -> training -> done — move
+    a check-in's status here as the coach starts and finishes a session."""
+    check_in = await session.get(CheckIn, check_in_id)
+    if check_in is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Check-in not found")
+
+    check_in.status = body.status
+    await session.flush()
+    return CheckInOut(
+        id=check_in.id, member_id=check_in.member_id, at=check_in.at, status=check_in.status
+    )

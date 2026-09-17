@@ -265,6 +265,68 @@ async def test_replace_program_exercises_404s_for_the_other_gyms_program(
     assert cross.status_code == 404
 
 
+async def test_workout_session_404s_for_the_other_gyms_member(
+    client: AsyncClient, two_gyms: TwoGyms
+) -> None:
+    response = await client.post(
+        "/workout-sessions",
+        headers=_idem(two_gyms.a.headers),
+        json={"member_id": str(two_gyms.member_b), "started_at": datetime.now(UTC).isoformat()},
+    )
+    assert response.status_code == 404
+
+
+async def test_get_workout_session_404s_for_the_other_gym(
+    client: AsyncClient, two_gyms: TwoGyms
+) -> None:
+    created = await client.post(
+        "/workout-sessions",
+        headers=_idem(two_gyms.b.headers),
+        json={"member_id": str(two_gyms.member_b), "started_at": datetime.now(UTC).isoformat()},
+    )
+    session_id = created.json()["id"]
+
+    cross = await client.get(f"/workout-sessions/{session_id}", headers=two_gyms.a.headers)
+    assert cross.status_code == 404
+
+
+async def test_today_workout_404s_for_the_other_gyms_member(
+    client: AsyncClient, two_gyms: TwoGyms
+) -> None:
+    response = await client.get(
+        f"/members/{two_gyms.member_b}/today-workout", headers=two_gyms.a.headers
+    )
+    assert response.status_code == 404
+
+
+async def test_nutrition_log_404s_for_the_other_gyms_member(
+    client: AsyncClient, two_gyms: TwoGyms
+) -> None:
+    response = await client.post(
+        f"/members/{two_gyms.member_b}/nutrition-logs",
+        headers=_idem(two_gyms.a.headers),
+        json={
+            "at": datetime.now(UTC).isoformat(), "band": "moderate", "meals": [],
+            "source": "member",
+        },
+    )
+    assert response.status_code == 404
+
+
+async def test_update_check_in_404s_for_the_other_gym(
+    client: AsyncClient, two_gyms: TwoGyms
+) -> None:
+    created = await client.post(
+        "/check-ins", headers=_idem(two_gyms.b.headers), json={"member_id": str(two_gyms.member_b)}
+    )
+    check_in_id = created.json()["id"]
+
+    cross = await client.patch(
+        f"/check-ins/{check_in_id}", headers=_idem(two_gyms.a.headers), json={"status": "training"}
+    )
+    assert cross.status_code == 404
+
+
 async def test_exercises_never_show_the_other_gym(client: AsyncClient, two_gyms: TwoGyms) -> None:
     exercise_a = await client.post(
         "/exercises",
