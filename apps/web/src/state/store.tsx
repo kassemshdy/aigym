@@ -1,15 +1,7 @@
 import { createContext, useContext, useMemo, useReducer, type ReactNode } from 'react'
 import { replyTo } from '@/mocks/agents'
 import { bookings as seedBookings } from '@/mocks/data'
-import type {
-  AgentId,
-  Booking,
-  ChatMessage,
-  EffortBand,
-  FoodEntry,
-  ProgressPhoto,
-  SupplementId,
-} from '@/mocks/types'
+import type { AgentId, Booking, ChatMessage, FoodEntry, ProgressPhoto, SupplementId } from '@/mocks/types'
 import type { Lang } from '@/i18n'
 
 /**
@@ -29,8 +21,6 @@ interface State {
   water: number
   supplements: SupplementId[]
   bookings: Booking[]
-  /** Coach's read on how the last session went, keyed by member id. */
-  effort: Record<string, { band: EffortBand; note?: string }>
 }
 
 type Action =
@@ -45,7 +35,6 @@ type Action =
   | { type: 'water'; delta: number }
   | { type: 'supplement'; id: SupplementId }
   | { type: 'book'; booking: Booking }
-  | { type: 'effort'; memberId: string; band: EffortBand; note?: string }
 
 const now = () =>
   new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
@@ -71,7 +60,6 @@ const initial: State = {
   water: 3,
   supplements: ['protein'],
   bookings: seedBookings,
-  effort: {},
 }
 
 function persistSignedIn(value: boolean) {
@@ -123,11 +111,6 @@ function reducer(state: State, action: Action): State {
       }
     case 'book':
       return { ...state, bookings: [...state.bookings, action.booking] }
-    case 'effort':
-      return {
-        ...state,
-        effort: { ...state.effort, [action.memberId]: { band: action.band, note: action.note } },
-      }
   }
 }
 
@@ -162,10 +145,6 @@ function makeActions(dispatch: (a: Action) => void) {
 
     book: (booking: Omit<Booking, 'id' | 'status'>) =>
       dispatch({ type: 'book', booking: { ...booking, id: id(), status: 'booked' } }),
-
-    /** The coach's read on the session, tapped as they finish. */
-    recordEffort: (memberId: string, band: EffortBand, note?: string) =>
-      dispatch({ type: 'effort', memberId, band, note }),
 
     /** Sends a message and applies whatever the agent is allowed to do with it. */
     ask: (agent: AgentId, text: string, lang: Lang) => {

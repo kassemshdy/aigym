@@ -1,6 +1,6 @@
 ---
 name: offline-sync
-description: Anything that writes data. Lands in Phase 3 — this file is the contract that Phase 2 endpoints must already satisfy.
+description: Anything that writes data. Landed in Phase 3 (both server and client halves built) — this file is the contract every write, old or new, has to satisfy.
 ---
 
 # Offline is the normal case
@@ -8,13 +8,15 @@ description: Anything that writes data. Lands in Phase 3 — this file is the co
 Power cuts and dead Wi-Fi are routine in Lebanese gyms. The coach must be able to log a
 full session with no connection and lose nothing when the iPad reloads.
 
-**Status: the server half is built, the client outbox is not.** Phase 2's
-`apps/api/app/middleware/idempotency.py` already enforces this contract on every
-POST/PATCH/DELETE — required, not optional, and the manager screens send one on every
-write (`apps/web/src/data/client.ts`'s `newIdempotencyKey()`). What Phase 3 still adds is
-the client side of the contract below: the IndexedDB outbox, offline detection, and the
-pending-count UI. Until then, a write made while offline simply fails — visibly, not
-silently, but not queued either.
+**Status: both halves are built.** Phase 2's `apps/api/app/middleware/idempotency.py`
+enforces this contract on every POST/PATCH/DELETE — required, not optional. Phase 3 built
+the client side: the IndexedDB outbox (`apps/web/src/offline/{db,outbox}.ts`), offline
+detection and replay-on-reconnect (`OfflineProvider.tsx`), and `client.ts`'s
+`offlineFetch()`, which every floor write (workout sessions/sets, nutrition logs, check-in
+status — decisions 22–23 in `docs/DECISIONS.md`) goes through. Manager writes
+(members/plans/payments) still fail visibly rather than queue — that scope boundary was a
+deliberate Phase 3 decision, not a gap. `apps/web/scripts/test-offline.mjs` runs the exact
+test method below against a live stack.
 
 ## The contract
 
@@ -43,3 +45,11 @@ Not "does the code look right" — kill the network and check:
 1. Playwright `context.setOffline(true)`, log three sets, assert the pending badge reads 3.
 2. Reload the page (this is the power-cut case), assert the three sets are still queued.
 3. `setOffline(false)`, assert exactly three rows reach the server — not six.
+
+`apps/web/scripts/test-offline.mjs` runs exactly this against a real running stack (its own
+header comment has the setup steps — local Postgres, the API, a seeded gym, and the
+frontend built and served via `vite preview`, not `vite dev`: the reload step only proves
+anything because the service worker precached the shell). It is not part of `npm run
+verify` — it needs infrastructure `verify` doesn't spin up — so run it by hand after
+touching anything in `apps/web/src/offline/`, `client.ts`'s `offlineFetch`, or the service
+worker.

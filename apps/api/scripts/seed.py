@@ -30,13 +30,16 @@ from app.models import (
     Booking,
     CheckIn,
     Coach,
+    Exercise,
     Gym,
     GymClass,
     Machine,
     Member,
     MemberProfile,
+    MemberProgram,
     Payment,
     Plan,
+    ProgramExercise,
     StaffGymRole,
     StaffUser,
     Subscription,
@@ -200,6 +203,39 @@ BOOKING_ROWS = [
     ("b3", "m4", "c-karim", 2, "17:00", "intro"),
 ]
 
+EXERCISE_ROWS = [
+    ("ex-squat", {"ar": "سكوات", "en": "Squat"}, "legs"),
+    ("ex-bench", {"ar": "بنش برس", "en": "Bench Press"}, "chest"),
+    ("ex-deadlift", {"ar": "رفعة ميتة", "en": "Deadlift"}, "back"),
+    ("ex-row", {"ar": "تجديف بالبار", "en": "Barbell Row"}, "back"),
+    ("ex-ohp", {"ar": "ضغط كتف واقف", "en": "Overhead Press"}, "shoulders"),
+    ("ex-pullup", {"ar": "عقلة", "en": "Pull-Up"}, "back"),
+    ("ex-latpull", {"ar": "سحب علوي", "en": "Lat Pulldown"}, "back"),
+    ("ex-legpress", {"ar": "ضغط أرجل", "en": "Leg Press"}, "legs"),
+    ("ex-legcurl", {"ar": "ثني أرجل", "en": "Leg Curl"}, "legs"),
+    ("ex-legext", {"ar": "فرد أرجل", "en": "Leg Extension"}, "legs"),
+    ("ex-curl", {"ar": "بايسبس دمبل", "en": "Dumbbell Bicep Curl"}, "arms"),
+    ("ex-pushdown", {"ar": "ترايسبس كابل", "en": "Triceps Pushdown"}, "arms"),
+    ("ex-plank", {"ar": "بلانك", "en": "Plank"}, "core"),
+    ("ex-lunge", {"ar": "لنج", "en": "Lunge"}, "legs"),
+    ("ex-hipthrust", {"ar": "دفع حوض", "en": "Hip Thrust"}, "legs"),
+    ("ex-cablefly", {"ar": "فتح كابل", "en": "Cable Fly"}, "chest"),
+    ("ex-incline", {"ar": "بنش مائل", "en": "Incline Bench Press"}, "chest"),
+    ("ex-dbshoulder", {"ar": "ضغط كتف دمبل", "en": "Dumbbell Shoulder Press"}, "shoulders"),
+    ("ex-seatedrow", {"ar": "تجديف جالس", "en": "Seated Cable Row"}, "back"),
+    ("ex-calfraise", {"ar": "رفع كعب", "en": "Calf Raise"}, "legs"),
+]
+
+# One demo program for Kassem (m0) so the coach screens have something to
+# show on first deploy — (exercise mock_id, sets, reps{ar,en}, target_weight_kg).
+DEMO_PROGRAM_EXERCISES = [
+    ("ex-squat", 4, {"ar": "٨", "en": "8"}, 80),
+    ("ex-bench", 4, {"ar": "٨", "en": "8"}, 60),
+    ("ex-row", 3, {"ar": "١٠", "en": "10"}, 50),
+    ("ex-ohp", 3, {"ar": "١٠", "en": "10"}, 35),
+    ("ex-plank", 3, {"ar": "٤٥ ثانية", "en": "45 sec"}, None),
+]
+
 CHECKIN_ROWS = [
     ("c1", "m3", "17:05", "waiting"),
     ("c2", "m1", "17:12", "waiting"),
@@ -262,6 +298,14 @@ async def seed(session: AsyncSession) -> None:
     for mock_id, name, area in MACHINE_ROWS:
         session.add(Machine(id=uid("machine", mock_id), gym_id=GYM_ID, name=name, area=area))
 
+    exercise_ids: dict[str, uuid.UUID] = {}
+    for mock_id, name, muscle_group in EXERCISE_ROWS:
+        eid = uid("exercise", mock_id)
+        exercise_ids[mock_id] = eid
+        session.add(
+            Exercise(id=eid, gym_id=GYM_ID, name=name, muscle_group=muscle_group, active=True)
+        )
+
     await session.flush()  # classes.coach_id references the coaches just added above
 
     for mock_id, title, coach_mock_id, weekdays, time, duration in CLASS_ROWS:
@@ -297,6 +341,33 @@ async def seed(session: AsyncSession) -> None:
         )
 
     await session.flush()  # subscriptions below reference the members just added
+
+    program_id = uid("program", "m0-demo")
+    session.add(
+        MemberProgram(
+            id=program_id,
+            gym_id=GYM_ID,
+            member_id=member_ids["m0"],
+            title={"ar": "برنامج القوة الأساسي", "en": "Base Strength Program"},
+            created_by_staff_id=None,
+        )
+    )
+    await session.flush()  # program_exercises below reference the program just added
+    for order_index, (exercise_mock_id, sets, reps, target_weight_kg) in enumerate(
+        DEMO_PROGRAM_EXERCISES
+    ):
+        session.add(
+            ProgramExercise(
+                id=uid("program-exercise", f"m0-demo:{exercise_mock_id}"),
+                gym_id=GYM_ID,
+                program_id=program_id,
+                exercise_id=exercise_ids[exercise_mock_id],
+                order_index=order_index,
+                sets=sets,
+                reps=reps,
+                target_weight_kg=target_weight_kg,
+            )
+        )
 
     for m in MEMBER_ROWS:
         session.add(
