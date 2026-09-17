@@ -161,16 +161,22 @@ recorded anywhere outside Railway's own variable store. `AIGYM_CORS_ORIGINS` is
 
 ### Seeding real content, and setting the manager's password
 
-`scripts/seed.py` runs automatically on every `api` deploy, as the service's Railway
-**Pre-Deploy Command** (`uv run python scripts/seed.py`, set via the Railway MCP's
-`update-service`). It's idempotent — deletes and re-inserts by fixed id — so this costs
-nothing on a deploy where the seed data hasn't changed, and it's what makes editing the
-seed data (a new class time, a corrected plan price) ship the same way as any other code
-change, with no manual step after merging. There is no separate GitHub Actions job for
-this: GitHub Actions runs the test suite (including running `seed.py` against a throwaway
-CI database, to prove the script itself works) as the merge gate; Railway's Pre-Deploy
-Command is what actually seeds the one database that matters, right before the new
-container starts serving.
+`scripts/bootstrap_db.sh`, `alembic upgrade head`, and `scripts/seed.py` all run automatically
+on every `api` deploy, chained as the service's Railway **Pre-Deploy Command**:
+
+```
+sh -c "bash scripts/bootstrap_db.sh && alembic upgrade head && uv run python scripts/seed.py"
+```
+
+The `sh -c "..."` wrapper is load-bearing, not decoration — see "Two more real bugs this
+surfaced" below for what happens without it. `seed.py` is idempotent — deletes and
+re-inserts by fixed id — so this costs nothing on a deploy where the seed data hasn't
+changed, and it's what makes editing the seed data (a new class time, a corrected plan
+price) ship the same way as any other code change, with no manual step after merging.
+There is no separate GitHub Actions job for this: GitHub Actions runs the test suite
+(including running `seed.py` against a throwaway CI database, to prove the script itself
+works) as the merge gate; Railway's Pre-Deploy Command is what actually migrates and seeds
+the one database that matters, right before the new container starts serving.
 
 It also creates the first account (`username: kassem`, `role: super_admin` — decision 21)
 the first time it runs — but never touches `password_hash` on a row that already has one.
@@ -244,6 +250,31 @@ ahead of `seed.py`, so all three run in the correct order on the correct (new) s
 anything starts serving. The Dockerfile's `CMD` is now just `uvicorn`. Still correct only at
 one replica, same as before — concurrent replicas would race to bootstrap/migrate/seed
 identically to the old design, just relocated.
+
+### Two more real bugs this surfaced, both confirmed and fixed
+
+**A multi-command Pre-Deploy Command needs an explicit shell.** The first attempt set it to
+the bare chain — `"bash scripts/bootstrap_db.sh && alembic upgrade head && uv run python
+scripts/seed.py"` as one array entry. That deployed as `SUCCESS` and looked fine, but
+`kassem`'s account stayed broken: `alembic` and `seed.py` never actually ran. Railway execs
+each Pre-Deploy Command array entry directly, not through a shell, so the bare `&&` chain was
+passed to `bash scripts/bootstrap_db.sh` as **literal trailing arguments** — which it silently
+ignores (it takes none), so it ran fine, exited 0, and everything after the first `&&` never
+executed at all. No error, no failed deployment, just silence — the exact kind of bug that
+looks like success. Fixed by wrapping the whole chain as one shell invocation:
+`sh -c "bash scripts/bootstrap_db.sh && alembic upgrade head && uv run python scripts/seed.py"`.
+
+**`redeploy` does not pick up Pre-Deploy Command (or other service config) changes.** Proven
+directly: with the config set to just `"alembic upgrade head"` — no reference to
+`bootstrap_db.sh` at all — a `redeploy` call still produced `bootstrap_db.sh`'s own output in
+the logs. The only explanation is that `redeploy` replays whatever was captured at the
+original image's build time, regardless of subsequent `update-service` calls; a Railway
+dashboard variable change behaves the same way. The only way to make a Pre-Deploy Command
+change (or most other service config changes) actually take effect is a deployment triggered
+by a **real git push** — a genuine new build. This cost real time and several confusing
+"successful" deploys that changed nothing before it was diagnosed; if this area needs
+touching again, change the config, then push a trivial real commit to prove it, don't trust
+`redeploy` or a variable-triggered restart to test it.
 
 ### What cannot be verified from this environment
 

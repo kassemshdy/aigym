@@ -132,6 +132,15 @@ at one replica; if this service is ever scaled to more than one, concurrent repl
 race to bootstrap/migrate/seed identically — same constraint as when this lived in `CMD`,
 just relocated.
 
+The three commands must be one array entry wrapped as `sh -c "cmd1 && cmd2 && cmd3"`, not a
+bare `cmd1 && cmd2 && cmd3` string: Railway execs each entry directly, not through a shell,
+so without `sh -c` the `&&` becomes literal trailing arguments to the first command, which
+silently ignores them and exits 0 — `alembic` and `seed.py` never run, and the deploy still
+reports `SUCCESS`. Also: `update-service` changing this value has no effect until a real git
+push triggers a genuine new build — `redeploy` and a Railway variable change both replay
+whatever was captured at the image's original build time. Verify any future change to this
+command with an actual push, not a redeploy. Full writeup: `docs/DEPLOY.md`.
+
 Two required env vars with no safe default in production: `AIGYM_JWT_SECRET` (32+ bytes —
 PyJWT warns below that for HS256) and `AIGYM_ONBOARDING_SECRET` (the only thing gating
 `POST /gyms`, which has no JWT to check since nothing exists yet when it runs). Generate
