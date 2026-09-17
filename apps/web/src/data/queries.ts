@@ -5,7 +5,7 @@
  * calls the live API or the mock adapter; the shape returned is identical
  * either way (src/data/types.ts).
  */
-import { API_URL, apiFetch, newIdempotencyKey, setTokens } from './client'
+import { API_URL, apiFetch, newIdempotencyKey, offlineFetch, setTokens } from './client'
 import {
   mockCreateCheckIn,
   mockCreateExercise,
@@ -81,6 +81,13 @@ export async function listTodaysCheckIns(): Promise<ApiCheckIn[]> {
   return apiFetch('/check-ins/today')
 }
 
+/** Deliberately NOT offline-tolerant, unlike the rest of the floor writes
+ * below: check-in ids are always server-minted (no client-id field on
+ * POST /check-ins, unlike workout sessions/sets/nutrition logs), so there
+ * is no safe local echo to hand back — a queued check-in would show the
+ * coach an id that the real row will never actually have. Front-desk
+ * check-in also happens where connectivity is least likely to be the
+ * problem; fails visibly like before, same as every other manager write. */
 export async function createCheckIn(memberId: string): Promise<ApiCheckIn> {
   if (!API_URL) return mockCreateCheckIn(memberId)
   return apiFetch('/check-ins', {
@@ -90,12 +97,19 @@ export async function createCheckIn(memberId: string): Promise<ApiCheckIn> {
   })
 }
 
-export async function updateCheckInStatus(checkInId: string, status: string): Promise<ApiCheckIn> {
-  if (!API_URL) return mockUpdateCheckInStatus(checkInId, status)
-  return apiFetch(`/check-ins/${checkInId}`, {
+/** Takes the check-in as the caller already has it (not just its id) so the
+ * local echo used when offline is a real, complete ApiCheckIn rather than a
+ * guess — this is floor data (part of the coach's session flow), so it goes
+ * through the outbox like sessions/sets/nutrition. */
+export async function updateCheckInStatus(
+  checkIn: ApiCheckIn,
+  status: string,
+): Promise<ApiCheckIn> {
+  if (!API_URL) return mockUpdateCheckInStatus(checkIn.id, status)
+  return offlineFetch(`/check-ins/${checkIn.id}`, {
     method: 'PATCH',
     body: { status },
-    idempotencyKey: newIdempotencyKey(),
+    localEcho: { ...checkIn, status },
   })
 }
 
@@ -228,15 +242,26 @@ export async function getTodayWorkout(memberId: string): Promise<ApiTodayWorkout
   return apiFetch(`/members/${memberId}/today-workout`)
 }
 
+/** Client-mints the session id up front (docs/DECISIONS.md) so the local
+ * echo used when offline carries the same id the very next queued "log a
+ * set" call will reference — the id is real either way, never a
+ * placeholder swapped out later. */
 export async function createWorkoutSession(
   input: CreateWorkoutSessionInput,
 ): Promise<ApiWorkoutSession> {
   if (!API_URL) return mockCreateWorkoutSession(input)
-  return apiFetch('/workout-sessions', {
-    method: 'POST',
-    body: input,
-    idempotencyKey: newIdempotencyKey(),
-  })
+  const id = input.id ?? crypto.randomUUID()
+  const body = { ...input, id }
+  const localEcho: ApiWorkoutSession = {
+    id,
+    member_id: input.member_id,
+    check_in_id: input.check_in_id ?? null,
+    started_at: input.started_at,
+    finished_at: null,
+    effort_band: null,
+    sets: [],
+  }
+  return offlineFetch('/workout-sessions', { method: 'POST', body, localEcho })
 }
 
 export async function getWorkoutSession(sessionId: string): Promise<ApiWorkoutSession> {
@@ -244,25 +269,36 @@ export async function getWorkoutSession(sessionId: string): Promise<ApiWorkoutSe
   return apiFetch(`/workout-sessions/${sessionId}`)
 }
 
+/** `session` is the caller's current copy — the echo is built by applying
+ * this finish onto it, since a PATCH response has no other way to know
+ * what the session's sets looked like before finishing. */
 export async function finishWorkoutSession(
-  sessionId: string,
+  session: ApiWorkoutSession,
   input: FinishWorkoutSessionInput,
 ): Promise<ApiWorkoutSession> {
-  if (!API_URL) return mockFinishWorkoutSession(sessionId, input)
-  return apiFetch(`/workout-sessions/${sessionId}`, {
-    method: 'PATCH',
-    body: input,
-    idempotencyKey: newIdempotencyKey(),
-  })
+  if (!API_URL) return mockFinishWorkoutSession(session.id, input)
+  const localEcho: ApiWorkoutSession = {
+    ...session,
+    finished_at: input.finished_at,
+    effort_band: input.effort_band ?? session.effort_band,
+  }
+  return offlineFetch(`/workout-sessions/${session.id}`, { method: 'PATCH', body: input, localEcho })
 }
 
 export async function logSet(sessionId: string, input: LogSetInput): Promise<ApiWorkoutSet> {
   if (!API_URL) return mockLogSet(sessionId, input)
-  return apiFetch(`/workout-sessions/${sessionId}/sets`, {
-    method: 'POST',
-    body: input,
-    idempotencyKey: newIdempotencyKey(),
-  })
+  const id = input.id ?? crypto.randomUUID()
+  const body = { ...input, id }
+  const localEcho: ApiWorkoutSet = {
+    id,
+    exercise_id: input.exercise_id,
+    set_number: input.set_number,
+    reps: input.reps,
+    weight_kg: input.weight_kg,
+    machine_id: input.machine_id ?? null,
+    at: input.at,
+  }
+  return offlineFetch(`/workout-sessions/${sessionId}/sets`, { method: 'POST', body, localEcho })
 }
 
 export async function createNutritionLog(
@@ -270,11 +306,17 @@ export async function createNutritionLog(
   input: CreateNutritionLogInput,
 ): Promise<ApiNutritionLog> {
   if (!API_URL) return mockCreateNutritionLog(memberId, input)
-  return apiFetch(`/members/${memberId}/nutrition-logs`, {
-    method: 'POST',
-    body: input,
-    idempotencyKey: newIdempotencyKey(),
-  })
+  const id = input.id ?? crypto.randomUUID()
+  const body = { ...input, id }
+  const localEcho: ApiNutritionLog = {
+    id,
+    member_id: memberId,
+    at: input.at,
+    band: input.band,
+    meals: input.meals ?? [],
+    source: input.source,
+  }
+  return offlineFetch(`/members/${memberId}/nutrition-logs`, { method: 'POST', body, localEcho })
 }
 
 export async function listNutritionLogs(memberId: string): Promise<ApiNutritionLog[]> {

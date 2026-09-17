@@ -1,3 +1,4 @@
+import { enqueue, replay } from '@/offline/outbox'
 import type { TokenPair } from './types'
 
 /** Unset ⇒ the whole data layer falls back to mocks (see queries.ts). This
@@ -141,4 +142,42 @@ export async function apiFetch<T>(path: string, options: FetchOptions = {}): Pro
 
 export function newIdempotencyKey() {
   return crypto.randomUUID()
+}
+
+/**
+ * The floor-write path (workout sessions/sets, nutrition logs, check-in
+ * status — see docs/DECISIONS.md): tries the network first and returns the
+ * real server response on success. On a genuine connectivity failure (not
+ * a reachable-server error, which is an ApiError and always rethrown) it
+ * queues the write in the IndexedDB outbox and returns the caller's own
+ * `localEcho` instead — "client wins" for session data means the device
+ * that logged it is the source of truth until the write actually lands.
+ * Manager writes (members/plans/payments) deliberately do NOT go through
+ * this — they still fail visibly, not queued, per the Phase 3 scope
+ * decision in docs/DECISIONS.md.
+ */
+export async function offlineFetch<T>(
+  path: string,
+  options: { method: 'POST' | 'PATCH'; body: unknown; localEcho: T },
+): Promise<T> {
+  const idempotencyKey = newIdempotencyKey()
+  try {
+    return await apiFetch<T>(path, { method: options.method, body: options.body, idempotencyKey })
+  } catch (err) {
+    if (err instanceof ApiError) throw err
+    await enqueue({ idempotencyKey, path, method: options.method, body: options.body })
+    return options.localEcho
+  }
+}
+
+/** Replays the outbox oldest-first against the real API. Called on reconnect
+ * and on app start (OfflineProvider) — a no-op when the queue is empty. */
+export async function replayOutbox(): Promise<void> {
+  await replay(async (entry) => {
+    await apiFetch(entry.path, {
+      method: entry.method,
+      body: entry.body,
+      idempotencyKey: entry.idempotencyKey,
+    })
+  })
 }

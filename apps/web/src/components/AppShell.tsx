@@ -6,6 +6,7 @@ import type { Lang } from '@/i18n'
 import { cn } from '@/lib/cn'
 import { API_URL, isStaffSignedIn } from '@/data/client'
 import { staffSignOut } from '@/data/queries'
+import { useOffline } from '@/offline/OfflineProvider'
 
 type Tab = { to: string; icon: IconName; label: string }
 
@@ -39,6 +40,12 @@ export function AppShell() {
   const lang = i18n.language as Lang
   const tabs = TABS[role](t)
   const showStaffSignOut = (role === 'manager' || role === 'coach') && !!API_URL && isStaffSignedIn()
+  const { offline, pendingCount } = useOffline()
+  const syncLabel = offline
+    ? t('common.offline')
+    : pendingCount > 0
+      ? t('common.pendingSync', { count: pendingCount })
+      : t('common.synced')
 
   return (
     <div className="mx-auto flex h-dvh max-w-6xl flex-col">
@@ -59,8 +66,9 @@ export function AppShell() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-paid bg-paid-bg hidden rounded-full px-3 py-1.5 text-xs font-semibold sm:inline">
-              {t('common.synced')}
+            {/* Never green/amber/red here — those are reserved for payment state. */}
+            <span className="hidden rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold text-white sm:inline">
+              {syncLabel}
             </span>
             <button
               type="button"
