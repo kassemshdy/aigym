@@ -137,7 +137,9 @@
       "name": "Name",
       "phone": "Mobile number",
       "tempPassword": "Temporary password",
-      "usernameTaken": "That username is already taken"
+      "usernameTaken": "That username is already taken",
+      "created": "Account ready",
+      "sendCredentials": "Send login details on WhatsApp"
     }
   },
   "coach": {
@@ -250,7 +252,8 @@
     "dues": "Hi {{name}}, your membership at {{gym}} has ended and {{amount}}$ is due. See you soon 💪",
     "expiring": "Hi {{name}}, your membership at {{gym}} ends on {{date}}. Want to renew?",
     "welcome": "Welcome {{name}}! You're registered at {{gym}}. Check your workout and the coach's videos in the app 💪",
-    "missYou": "Hi {{name}}, we miss you at {{gym}}! Your last session was {{days}} days ago. See you soon 💪"
+    "missYou": "Hi {{name}}, we miss you at {{gym}}! Your last session was {{days}} days ago. See you soon 💪",
+    "staffCredentials": "Hi {{name}}, your AIGym login for {{gym}} is ready.\nUsername: {{username}}\nPassword: {{password}}\nSign in: {{link}}"
   },
   "nav": {
     "today": "Today",
