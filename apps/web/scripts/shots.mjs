@@ -11,6 +11,7 @@ const SCREENS = [
   ['manager-member', '/manager/members/m1', 'phone'],
   ['manager-add', '/manager/members/new', 'phone'],
   ['manager-lapsed', '/manager/lapsed', 'phone'],
+  ['manager-staff', '/manager/staff', 'phone'],
   ['coach-queue', '/coach', 'ipad'],
   ['coach-checkin', '/coach/check-in', 'ipad'],
   ['coach-card', '/coach/member/m1', 'ipad'],

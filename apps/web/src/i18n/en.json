@@ -6,7 +6,8 @@
   "role": {
     "manager": "Manager",
     "coach": "Coach",
-    "member": "Member"
+    "member": "Member",
+    "super_admin": "Owner"
   },
   "common": {
     "back": "Back",
@@ -127,6 +128,16 @@
       "cash": "Cash",
       "transfer": "Transfer",
       "by": "Recorded by"
+    },
+    "staff": {
+      "title": "Staff",
+      "sub": "Coaches who can sign in",
+      "list": "Who has access",
+      "addCoach": "Add a coach",
+      "name": "Name",
+      "phone": "Mobile number",
+      "tempPassword": "Temporary password",
+      "usernameTaken": "That username is already taken"
     }
   },
   "coach": {
@@ -256,7 +267,8 @@
     "chat": "Ask",
     "photos": "Photos",
     "calendar": "Calendar",
-    "lapsed": "Missing"
+    "lapsed": "Missing",
+    "staff": "Staff"
   },
   "aiKind": {
     "plan": "Training plan",

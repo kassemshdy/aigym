@@ -8,6 +8,7 @@
  */
 import {
   checkIns as seedCheckIns,
+  coaches as seedCoaches,
   dayPlans as seedDayPlans,
   daysSinceVisit,
   findPlan,
@@ -35,6 +36,7 @@ import type {
   ApiPayment,
   ApiPlan,
   ApiProgram,
+  ApiStaff,
   ApiTodayWorkout,
   ApiWorkoutSession,
   ApiWorkoutSet,
@@ -42,6 +44,7 @@ import type {
   CreateMemberInput,
   CreateNutritionLogInput,
   CreateProgramInput,
+  CreateStaffInput,
   CreateWorkoutSessionInput,
   FinishWorkoutSessionInput,
   LogSetInput,
@@ -502,4 +505,33 @@ export function mockListNutritionLogs(memberId: string): ApiNutritionLog[] {
   return mockNutritionLogs
     .filter((n) => n.member_id === memberId)
     .sort((a, b) => b.at.localeCompare(a.at))
+}
+
+// ---------------------------------------------------------------------
+// Staff accounts. Seeded from the existing coach roster plus one manager
+// so the screen has something to show; mock mode has no real login, so
+// there's no "current user" to exclude from the list.
+// ---------------------------------------------------------------------
+
+let mockStaff: ApiStaff[] = [
+  { id: 'staff-kassem', username: 'kassem', name: 'Kassem Shehady', role: 'manager' },
+  ...seedCoaches.map((c) => ({
+    id: `staff-${c.id}`,
+    username: c.id.replace('c-', ''),
+    name: toBilingual(c.name).en,
+    role: 'coach',
+  })),
+]
+
+export function mockListStaff(): ApiStaff[] {
+  return mockStaff
+}
+
+export function mockCreateStaff(input: CreateStaffInput): ApiStaff {
+  if (mockStaff.some((s) => s.username === input.username)) {
+    throw new Error('Username already taken')
+  }
+  const staff: ApiStaff = { id: newId(), username: input.username, name: input.name, role: input.role }
+  mockStaff = [...mockStaff, staff]
+  return staff
 }

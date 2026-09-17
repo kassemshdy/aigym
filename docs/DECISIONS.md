@@ -270,6 +270,8 @@ digits before adding the constraint; `scripts/seed.py` separately reasserts the 
 doesn't end up stuck with a digits-only backfilled username. `password_hash` is excluded from
 that reassertion — seeding must never touch a credential someone already set.
 
+*Amended by decision 25*: a manager can now create coach accounts too, not just super_admin.
+
 ## 22. Workout sessions and sets get client-mintable ids — the one exception to server-minted ids
 
 Every other table in this codebase lets the server generate `id = uuid.uuid4()` on insert.
@@ -331,3 +333,33 @@ measurement — decision 8's "raising the budget requires an entry saying what u
 exchange" cuts the other way here too: a dependency that turns out to cost far more than planned
 gets re-evaluated against the same budget, not grandfathered in because it was already approved
 under a wrong number.
+
+## 25. A manager can create coach accounts; escalation stays super_admin-only
+
+Amends decision 21. The gym owner asked directly: a manager needs to be able to staff up the
+floor — add a coach the day they're hired — without waiting on the one `super_admin` account.
+Requiring super_admin for every new hire was the more conservative choice Phase 2 shipped with
+by default, not something the owner had actually asked for; once coach screens went live in
+Phase 3 and staffing coaches became a real, recurring task, the gap became worth closing.
+
+`POST /staff`'s role gate is now `require_role("super_admin", "manager")`, with the actual
+restriction enforced in the handler, not the dependency: a caller whose own role is `manager`
+gets a 403 unless `body.role == "coach"`. A manager can never create another manager or a
+super_admin through this endpoint — that stays exactly as restrictive as decision 21 originally
+made it. `CreateStaffRequest.role` also gained a `Literal["manager", "coach", "super_admin"]`
+type, catching a garbage role value at the request-validation layer instead of it reaching the
+permission check at all.
+
+`GET /staff` is new alongside it — listing who already has access is what makes the manager's
+own new `/manager/staff` screen (the first UI this product has ever had for staff creation; every
+account before this, including the ones seeded for Triple A Gym's real coaches, was created by
+hand over the API) useful rather than a one-way form. Both endpoints are gated identically
+(`super_admin` or `manager`); a coach can reach neither.
+
+**What stays out of scope on purpose:** self-service password reset for a newly created coach
+still goes through decision 20's WhatsApp flow, not a new mechanism — the manager sets a
+temporary password at creation time, same as before, and the coach can request a real one to
+their own phone whenever they first try to sign in. No screen exists yet for a manager to change
+an existing coach's role, deactivate one, or reset a coach's password directly — those are real
+gaps if a coach ever needs to be let go, not just added, and are worth their own decision if
+asked for.
