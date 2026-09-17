@@ -442,6 +442,13 @@ export function mockGetTodayWorkout(memberId: string): ApiTodayWorkout {
   }
 }
 
+export function mockListWorkoutSessions(memberId: string, limit: number): ApiWorkoutSession[] {
+  return mockWorkoutSessions
+    .filter((s) => s.member_id === memberId && s.finished_at !== null)
+    .sort((a, b) => b.started_at.localeCompare(a.started_at))
+    .slice(0, limit)
+}
+
 export function mockCreateWorkoutSession(input: CreateWorkoutSessionInput): ApiWorkoutSession {
   const session: ApiWorkoutSession = {
     id: input.id ?? newId(),

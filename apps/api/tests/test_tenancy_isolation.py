@@ -299,6 +299,15 @@ async def test_today_workout_404s_for_the_other_gyms_member(
     assert response.status_code == 404
 
 
+async def test_list_workout_sessions_404s_for_the_other_gyms_member(
+    client: AsyncClient, two_gyms: TwoGyms
+) -> None:
+    response = await client.get(
+        f"/members/{two_gyms.member_b}/workout-sessions", headers=two_gyms.a.headers
+    )
+    assert response.status_code == 404
+
+
 async def test_nutrition_log_404s_for_the_other_gyms_member(
     client: AsyncClient, two_gyms: TwoGyms
 ) -> None:
