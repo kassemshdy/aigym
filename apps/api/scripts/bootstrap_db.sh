@@ -3,6 +3,15 @@ set -euo pipefail
 
 # Creates the local/CI database and the app's runtime role.
 #
+# When this is chained with other commands in Railway's Pre-Deploy Command
+# (e.g. "bash scripts/bootstrap_db.sh && alembic upgrade head && ..."), the
+# WHOLE chain must be wrapped as a single sh -c "..." string. Railway execs
+# each array entry directly rather than through a shell, so a bare
+# "cmd1 && cmd2" is passed to cmd1 as literal trailing arguments instead of
+# being interpreted as shell chaining — bootstrap_db.sh silently ignores
+# them (it takes none), runs fine on its own, and cmd2 never runs at all.
+# See docs/DEPLOY.md's Pre-Deploy Command section.
+#
 # The app role is deliberately NOT the table owner and does not get
 # BYPASSRLS: Postgres lets a table's owner (and any BYPASSRLS role) skip
 # Row-Level Security entirely, silently. Migrations run as $PGUSER (the
