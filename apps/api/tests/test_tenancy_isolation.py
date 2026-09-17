@@ -217,6 +217,74 @@ async def test_payments_list_never_shows_the_other_gym(
     assert str(two_gyms.member_b) not in member_ids_a
 
 
+async def test_create_program_404s_for_the_other_gyms_member(
+    client: AsyncClient, two_gyms: TwoGyms
+) -> None:
+    response = await client.post(
+        f"/members/{two_gyms.member_b}/programs",
+        headers=_idem(two_gyms.a.headers),
+        json={"title": {"ar": "أ", "en": "Program"}, "exercises": []},
+    )
+    assert response.status_code == 404
+
+
+async def test_get_active_program_404s_for_the_other_gyms_member(
+    client: AsyncClient, two_gyms: TwoGyms
+) -> None:
+    response = await client.get(
+        f"/members/{two_gyms.member_b}/programs/active", headers=two_gyms.a.headers
+    )
+    assert response.status_code == 404
+
+
+async def test_replace_program_exercises_404s_for_the_other_gyms_program(
+    client: AsyncClient, two_gyms: TwoGyms
+) -> None:
+    exercise = await client.post(
+        "/exercises",
+        headers=_idem(two_gyms.b.headers),
+        json={"name": {"ar": "سكوات", "en": "Squat"}, "muscle_group": "legs"},
+    )
+    program = await client.post(
+        f"/members/{two_gyms.member_b}/programs",
+        headers=_idem(two_gyms.b.headers),
+        json={
+            "title": {"ar": "أ", "en": "Program"},
+            "exercises": [
+                {"exercise_id": exercise.json()["id"], "sets": 3, "reps": {"ar": "١٠", "en": "10"}}
+            ],
+        },
+    )
+    program_id = program.json()["id"]
+
+    cross = await client.patch(
+        f"/programs/{program_id}/exercises",
+        headers=_idem(two_gyms.a.headers),
+        json={"exercises": []},
+    )
+    assert cross.status_code == 404
+
+
+async def test_exercises_never_show_the_other_gym(client: AsyncClient, two_gyms: TwoGyms) -> None:
+    exercise_a = await client.post(
+        "/exercises",
+        headers=_idem(two_gyms.a.headers),
+        json={"name": {"ar": "سكوات", "en": "Squat A"}, "muscle_group": "legs"},
+    )
+    exercise_b = await client.post(
+        "/exercises",
+        headers=_idem(two_gyms.b.headers),
+        json={"name": {"ar": "سكوات", "en": "Squat B"}, "muscle_group": "legs"},
+    )
+    assert exercise_a.status_code == 201
+    assert exercise_b.status_code == 201
+
+    exercises_a = await client.get("/exercises", headers=two_gyms.a.headers)
+    listed_a = {e["id"] for e in exercises_a.json()}
+    assert exercise_a.json()["id"] in listed_a
+    assert exercise_b.json()["id"] not in listed_a
+
+
 async def test_plans_never_shows_the_other_gym(client: AsyncClient, two_gyms: TwoGyms) -> None:
     plans_a = {p["id"] for p in (await client.get("/plans", headers=two_gyms.a.headers)).json()}
     plans_b = {p["id"] for p in (await client.get("/plans", headers=two_gyms.b.headers)).json()}
