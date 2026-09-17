@@ -327,6 +327,13 @@ async def test_update_check_in_404s_for_the_other_gym(
     assert cross.status_code == 404
 
 
+async def test_staff_list_never_shows_the_other_gym(client: AsyncClient, two_gyms: TwoGyms) -> None:
+    listed_a = await client.get("/staff", headers=two_gyms.a.headers)
+    usernames_a = {row["username"] for row in listed_a.json()}
+    assert two_gyms.a.manager_username in usernames_a
+    assert two_gyms.b.manager_username not in usernames_a
+
+
 async def test_exercises_never_show_the_other_gym(client: AsyncClient, two_gyms: TwoGyms) -> None:
     exercise_a = await client.post(
         "/exercises",

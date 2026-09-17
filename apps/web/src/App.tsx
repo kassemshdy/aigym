@@ -20,6 +20,7 @@ import { MemberPhotos } from '@/features/member/Photos'
 import { MemberCalendar } from '@/features/member/Calendar'
 import { MemberBook } from '@/features/member/Book'
 import { ManagerLapsed } from '@/features/manager/Lapsed'
+import { ManagerStaff } from '@/features/manager/Staff'
 import { StaffLogin } from '@/features/manager/Login'
 import { useStore } from '@/state/store'
 import { API_URL, isStaffSignedIn } from '@/data/client'
@@ -70,6 +71,7 @@ export default function App() {
           <Route path="lapsed" element={<ManagerLapsed />} />
           <Route path="plans" element={<ManagerPlans />} />
           <Route path="payments" element={<ManagerPayments />} />
+          <Route path="staff" element={<ManagerStaff />} />
           <Route path="programs/:memberId" element={<ProgramEditor />} />
         </Route>
 

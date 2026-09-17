@@ -246,3 +246,23 @@ export interface CreateNutritionLogInput {
   meals?: unknown[]
   source: string
 }
+
+// ---------------------------------------------------------------------
+// Staff accounts (decision 21). A manager may only create role "coach";
+// the server enforces this too — this is UX, not the real gate.
+// ---------------------------------------------------------------------
+
+export interface ApiStaff {
+  id: string
+  username: string
+  name: string
+  role: string
+}
+
+export interface CreateStaffInput {
+  username: string
+  password: string
+  name: string
+  phone: string
+  role: 'manager' | 'coach' | 'super_admin'
+}

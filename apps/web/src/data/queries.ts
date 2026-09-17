@@ -12,6 +12,7 @@ import {
   mockCreateMember,
   mockCreateNutritionLog,
   mockCreateProgram,
+  mockCreateStaff,
   mockCreateWorkoutSession,
   mockFinishWorkoutSession,
   mockGetActiveProgram,
@@ -25,6 +26,7 @@ import {
   mockListNutritionLogs,
   mockListPayments,
   mockListPlans,
+  mockListStaff,
   mockListTodaysCheckIns,
   mockLogSet,
   mockRecordPayment,
@@ -44,6 +46,7 @@ import type {
   ApiPayment,
   ApiPlan,
   ApiProgram,
+  ApiStaff,
   ApiTodayWorkout,
   ApiWorkoutSession,
   ApiWorkoutSet,
@@ -51,6 +54,7 @@ import type {
   CreateMemberInput,
   CreateNutritionLogInput,
   CreateProgramInput,
+  CreateStaffInput,
   CreateWorkoutSessionInput,
   FinishWorkoutSessionInput,
   LogSetInput,
@@ -322,4 +326,14 @@ export async function createNutritionLog(
 export async function listNutritionLogs(memberId: string): Promise<ApiNutritionLog[]> {
   if (!API_URL) return mockListNutritionLogs(memberId)
   return apiFetch(`/members/${memberId}/nutrition-logs`)
+}
+
+export async function listStaff(): Promise<ApiStaff[]> {
+  if (!API_URL) return mockListStaff()
+  return apiFetch('/staff')
+}
+
+export async function createStaff(input: CreateStaffInput): Promise<ApiStaff> {
+  if (!API_URL) return mockCreateStaff(input)
+  return apiFetch('/staff', { method: 'POST', body: input, idempotencyKey: newIdempotencyKey() })
 }

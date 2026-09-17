@@ -250,6 +250,103 @@ async def test_only_super_admin_can_create_staff(client: AsyncClient) -> None:
     assert forbidden.status_code == 403
 
 
+async def test_manager_can_create_coach_but_not_manager_or_super_admin(
+    client: AsyncClient,
+) -> None:
+    await _onboard_gym(client)
+    admin_login = await client.post(
+        "/auth/staff/login", json={"username": "mona", "password": "hunter22"}
+    )
+    admin_header = {"Authorization": f"Bearer {admin_login.json()['access_token']}"}
+
+    # super_admin creates a manager, so there's a manager account to test with.
+    create_manager = await client.post(
+        "/staff",
+        headers={**admin_header, "Idempotency-Key": str(uuid.uuid4())},
+        json={
+            "username": "nour",
+            "password": "managerpass1",
+            "name": "Nour",
+            "phone": "+96170000010",
+            "role": "manager",
+        },
+    )
+    assert create_manager.status_code == 201, create_manager.text
+
+    manager_login = await client.post(
+        "/auth/staff/login", json={"username": "nour", "password": "managerpass1"}
+    )
+    manager_header = {"Authorization": f"Bearer {manager_login.json()['access_token']}"}
+
+    # A manager can create a coach.
+    create_coach = await client.post(
+        "/staff",
+        headers={**manager_header, "Idempotency-Key": str(uuid.uuid4())},
+        json={
+            "username": "karim2",
+            "password": "coachpass1",
+            "name": "Karim",
+            "phone": "+96170000011",
+            "role": "coach",
+        },
+    )
+    assert create_coach.status_code == 201, create_coach.text
+    assert create_coach.json()["role"] == "coach"
+
+    # A manager cannot create another manager...
+    forbidden_manager = await client.post(
+        "/staff",
+        headers={**manager_header, "Idempotency-Key": str(uuid.uuid4())},
+        json={
+            "username": "rita",
+            "password": "managerpass2",
+            "name": "Rita",
+            "phone": "+96170000012",
+            "role": "manager",
+        },
+    )
+    assert forbidden_manager.status_code == 403
+
+    # ...or a super_admin.
+    forbidden_admin = await client.post(
+        "/staff",
+        headers={**manager_header, "Idempotency-Key": str(uuid.uuid4())},
+        json={
+            "username": "sami",
+            "password": "adminpass1",
+            "name": "Sami",
+            "phone": "+96170000013",
+            "role": "super_admin",
+        },
+    )
+    assert forbidden_admin.status_code == 403
+
+
+async def test_list_staff_shows_everyone_at_the_gym(client: AsyncClient) -> None:
+    await _onboard_gym(client)
+    admin_login = await client.post(
+        "/auth/staff/login", json={"username": "mona", "password": "hunter22"}
+    )
+    admin_header = {"Authorization": f"Bearer {admin_login.json()['access_token']}"}
+
+    await client.post(
+        "/staff",
+        headers={**admin_header, "Idempotency-Key": str(uuid.uuid4())},
+        json={
+            "username": "abed2",
+            "password": "coachpass3",
+            "name": "Abed",
+            "phone": "+96170000020",
+            "role": "coach",
+        },
+    )
+
+    listing = await client.get("/staff", headers=admin_header)
+    assert listing.status_code == 200
+    usernames = {row["username"] for row in listing.json()}
+    assert {"mona", "abed2"} <= usernames
+
+
 async def test_create_staff_rejects_duplicate_username(client: AsyncClient) -> None:
     await _onboard_gym(client)
     login = await client.post(
