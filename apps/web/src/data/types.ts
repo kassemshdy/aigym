@@ -125,6 +125,10 @@ export interface CreateExerciseInput {
   video_url?: string | null
 }
 
+export interface UpdateExerciseInput {
+  video_url?: string | null
+}
+
 export interface ApiMachine {
   id: string
   name: { ar: string; en: string }
