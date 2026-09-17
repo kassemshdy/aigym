@@ -105,3 +105,144 @@ export interface ApiPayment {
 export interface StaffPasswordResetResult {
   sent: boolean
 }
+
+// ---------------------------------------------------------------------
+// Phase 3 — the floor: exercises, programs, sessions/sets, nutrition.
+// Mirrors app/api/{exercises,programs,sessions,nutrition}.py exactly.
+// ---------------------------------------------------------------------
+
+export interface ApiExercise {
+  id: string
+  name: { ar: string; en: string }
+  muscle_group: string
+  video_url: string | null
+  active: boolean
+}
+
+export interface CreateExerciseInput {
+  name: { ar: string; en: string }
+  muscle_group: string
+  video_url?: string | null
+}
+
+export interface ApiMachine {
+  id: string
+  name: { ar: string; en: string }
+  area: string
+}
+
+export interface ApiProgramExercise {
+  id: string
+  exercise_id: string
+  exercise_name: { ar: string; en: string }
+  order_index: number
+  sets: number
+  reps: { ar: string; en: string }
+  target_weight_kg: number | null
+}
+
+export interface ApiProgram {
+  id: string
+  member_id: string
+  title: { ar: string; en: string }
+  archived_at: string | null
+  exercises: ApiProgramExercise[]
+}
+
+export interface ProgramExerciseInput {
+  exercise_id: string
+  sets: number
+  reps: { ar: string; en: string }
+  target_weight_kg?: number | null
+}
+
+export interface CreateProgramInput {
+  title: { ar: string; en: string }
+  exercises: ProgramExerciseInput[]
+}
+
+export interface ReplaceProgramExercisesInput {
+  exercises: ProgramExerciseInput[]
+}
+
+export interface UpdateProgramInput {
+  title?: { ar: string; en: string }
+  archived?: boolean
+}
+
+export interface ApiWorkoutSet {
+  id: string
+  exercise_id: string
+  set_number: number
+  reps: number
+  weight_kg: number
+  machine_id: string | null
+  at: string
+}
+
+export interface ApiWorkoutSession {
+  id: string
+  member_id: string
+  check_in_id: string | null
+  started_at: string
+  finished_at: string | null
+  effort_band: string | null
+  sets: ApiWorkoutSet[]
+}
+
+export interface CreateWorkoutSessionInput {
+  id?: string
+  member_id: string
+  check_in_id?: string | null
+  started_at: string
+}
+
+export interface FinishWorkoutSessionInput {
+  finished_at: string
+  effort_band?: string | null
+}
+
+export interface LogSetInput {
+  id?: string
+  exercise_id: string
+  set_number: number
+  reps: number
+  weight_kg: number
+  machine_id?: string | null
+  at: string
+}
+
+export interface ApiTodayExercise {
+  program_exercise_id: string
+  exercise_id: string
+  exercise_name: { ar: string; en: string }
+  order_index: number
+  sets: number
+  reps: { ar: string; en: string }
+  target_weight_kg: number | null
+  last_weight_kg: number | null
+}
+
+export interface ApiTodayWorkout {
+  program_id: string | null
+  program_title: { ar: string; en: string } | null
+  exercises: ApiTodayExercise[]
+  open_session_id: string | null
+}
+
+export interface ApiNutritionLog {
+  id: string
+  member_id: string
+  at: string
+  band: string
+  meals: unknown[]
+  source: string
+}
+
+export interface CreateNutritionLogInput {
+  id?: string
+  at: string
+  band: string
+  meals?: unknown[]
+  source: string
+}

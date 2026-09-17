@@ -4,8 +4,8 @@ import { Icon, type IconName } from './ui/Icon'
 import { gym } from '@/mocks/data'
 import type { Lang } from '@/i18n'
 import { cn } from '@/lib/cn'
-import { API_URL, isManagerSignedIn } from '@/data/client'
-import { managerSignOut } from '@/data/queries'
+import { API_URL, isStaffSignedIn } from '@/data/client'
+import { staffSignOut } from '@/data/queries'
 
 type Tab = { to: string; icon: IconName; label: string }
 
@@ -38,7 +38,7 @@ export function AppShell() {
   const role = (ROLES.find((r) => pathname.startsWith(`/${r}`)) ?? 'manager') as string
   const lang = i18n.language as Lang
   const tabs = TABS[role](t)
-  const showManagerSignOut = role === 'manager' && !!API_URL && isManagerSignedIn()
+  const showStaffSignOut = (role === 'manager' || role === 'coach') && !!API_URL && isStaffSignedIn()
 
   return (
     <div className="mx-auto flex h-dvh max-w-6xl flex-col">
@@ -69,12 +69,12 @@ export function AppShell() {
             >
               {lang === 'ar' ? 'EN' : 'ع'}
             </button>
-            {showManagerSignOut ? (
+            {showStaffSignOut ? (
               <button
                 type="button"
                 onClick={() => {
-                  managerSignOut()
-                  navigate('/manager/login')
+                  staffSignOut()
+                  navigate('/staff/login')
                 }}
                 className="min-h-11 rounded-xl border border-white/25 px-3 text-sm font-bold text-white"
               >

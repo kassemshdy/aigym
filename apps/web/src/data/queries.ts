@@ -7,27 +7,57 @@
  */
 import { API_URL, apiFetch, newIdempotencyKey, setTokens } from './client'
 import {
+  mockCreateExercise,
   mockCreateMember,
+  mockCreateNutritionLog,
+  mockCreateProgram,
+  mockCreateWorkoutSession,
+  mockFinishWorkoutSession,
+  mockGetActiveProgram,
   mockGetMember,
+  mockGetTodayWorkout,
+  mockGetWorkoutSession,
   mockLapsedMembers,
+  mockListExercises,
+  mockListMachines,
   mockListMembers,
+  mockListNutritionLogs,
   mockListPayments,
   mockListPlans,
   mockListTodaysCheckIns,
+  mockLogSet,
   mockRecordPayment,
+  mockReplaceProgramExercises,
+  mockUpdateCheckInStatus,
+  mockUpdateProgram,
   mockWhatsappReminder,
 } from './mockAdapter'
 import type {
   ApiCheckIn,
+  ApiExercise,
   ApiLapsedMember,
+  ApiMachine,
   ApiMember,
   ApiMemberDetail,
+  ApiNutritionLog,
   ApiPayment,
   ApiPlan,
+  ApiProgram,
+  ApiTodayWorkout,
+  ApiWorkoutSession,
+  ApiWorkoutSet,
+  CreateExerciseInput,
   CreateMemberInput,
+  CreateNutritionLogInput,
+  CreateProgramInput,
+  CreateWorkoutSessionInput,
+  FinishWorkoutSessionInput,
+  LogSetInput,
   RecordPaymentInput,
+  ReplaceProgramExercisesInput,
   StaffPasswordResetResult,
   TokenPair,
+  UpdateProgramInput,
 } from './types'
 
 export async function listMembers(): Promise<ApiMember[]> {
@@ -48,6 +78,15 @@ export async function listPlans(): Promise<ApiPlan[]> {
 export async function listTodaysCheckIns(): Promise<ApiCheckIn[]> {
   if (!API_URL) return mockListTodaysCheckIns()
   return apiFetch('/check-ins/today')
+}
+
+export async function updateCheckInStatus(checkInId: string, status: string): Promise<ApiCheckIn> {
+  if (!API_URL) return mockUpdateCheckInStatus(checkInId, status)
+  return apiFetch(`/check-ins/${checkInId}`, {
+    method: 'PATCH',
+    body: { status },
+    idempotencyKey: newIdempotencyKey(),
+  })
 }
 
 export async function listLapsedMembers(minDays = 14): Promise<ApiLapsedMember[]> {
@@ -110,4 +149,125 @@ export async function requestStaffPasswordReset(
   return apiFetch('/auth/staff/password/reset', { method: 'POST', body: { username } })
 }
 
-export { clearTokens as managerSignOut, isManagerSignedIn } from './client'
+export { clearTokens as staffSignOut, getStaffRole, isStaffSignedIn } from './client'
+
+// ---------------------------------------------------------------------
+// Phase 3 — the floor. Coach and manager share one staff data layer
+// (decision 21); nothing here is manager- or coach-only at the query
+// layer, callers decide what to render.
+// ---------------------------------------------------------------------
+
+export async function listExercises(): Promise<ApiExercise[]> {
+  if (!API_URL) return mockListExercises()
+  return apiFetch('/exercises')
+}
+
+export async function createExercise(input: CreateExerciseInput): Promise<ApiExercise> {
+  if (!API_URL) return mockCreateExercise(input)
+  return apiFetch('/exercises', { method: 'POST', body: input, idempotencyKey: newIdempotencyKey() })
+}
+
+export async function listMachines(): Promise<ApiMachine[]> {
+  if (!API_URL) return mockListMachines()
+  return apiFetch('/machines')
+}
+
+export async function getActiveProgram(memberId: string): Promise<ApiProgram | null> {
+  if (!API_URL) return mockGetActiveProgram(memberId)
+  return apiFetch(`/members/${memberId}/programs/active`)
+}
+
+export async function createProgram(
+  memberId: string,
+  input: CreateProgramInput,
+): Promise<ApiProgram> {
+  if (!API_URL) return mockCreateProgram(memberId, input)
+  return apiFetch(`/members/${memberId}/programs`, {
+    method: 'POST',
+    body: input,
+    idempotencyKey: newIdempotencyKey(),
+  })
+}
+
+export async function replaceProgramExercises(
+  programId: string,
+  input: ReplaceProgramExercisesInput,
+): Promise<ApiProgram> {
+  if (!API_URL) return mockReplaceProgramExercises(programId, input)
+  return apiFetch(`/programs/${programId}/exercises`, {
+    method: 'PATCH',
+    body: input,
+    idempotencyKey: newIdempotencyKey(),
+  })
+}
+
+export async function updateProgram(
+  programId: string,
+  input: UpdateProgramInput,
+): Promise<ApiProgram> {
+  if (!API_URL) return mockUpdateProgram(programId, input)
+  return apiFetch(`/programs/${programId}`, {
+    method: 'PATCH',
+    body: input,
+    idempotencyKey: newIdempotencyKey(),
+  })
+}
+
+export async function getTodayWorkout(memberId: string): Promise<ApiTodayWorkout> {
+  if (!API_URL) return mockGetTodayWorkout(memberId)
+  return apiFetch(`/members/${memberId}/today-workout`)
+}
+
+export async function createWorkoutSession(
+  input: CreateWorkoutSessionInput,
+): Promise<ApiWorkoutSession> {
+  if (!API_URL) return mockCreateWorkoutSession(input)
+  return apiFetch('/workout-sessions', {
+    method: 'POST',
+    body: input,
+    idempotencyKey: newIdempotencyKey(),
+  })
+}
+
+export async function getWorkoutSession(sessionId: string): Promise<ApiWorkoutSession> {
+  if (!API_URL) return mockGetWorkoutSession(sessionId)
+  return apiFetch(`/workout-sessions/${sessionId}`)
+}
+
+export async function finishWorkoutSession(
+  sessionId: string,
+  input: FinishWorkoutSessionInput,
+): Promise<ApiWorkoutSession> {
+  if (!API_URL) return mockFinishWorkoutSession(sessionId, input)
+  return apiFetch(`/workout-sessions/${sessionId}`, {
+    method: 'PATCH',
+    body: input,
+    idempotencyKey: newIdempotencyKey(),
+  })
+}
+
+export async function logSet(sessionId: string, input: LogSetInput): Promise<ApiWorkoutSet> {
+  if (!API_URL) return mockLogSet(sessionId, input)
+  return apiFetch(`/workout-sessions/${sessionId}/sets`, {
+    method: 'POST',
+    body: input,
+    idempotencyKey: newIdempotencyKey(),
+  })
+}
+
+export async function createNutritionLog(
+  memberId: string,
+  input: CreateNutritionLogInput,
+): Promise<ApiNutritionLog> {
+  if (!API_URL) return mockCreateNutritionLog(memberId, input)
+  return apiFetch(`/members/${memberId}/nutrition-logs`, {
+    method: 'POST',
+    body: input,
+    idempotencyKey: newIdempotencyKey(),
+  })
+}
+
+export async function listNutritionLogs(memberId: string): Promise<ApiNutritionLog[]> {
+  if (!API_URL) return mockListNutritionLogs(memberId)
+  return apiFetch(`/members/${memberId}/nutrition-logs`)
+}

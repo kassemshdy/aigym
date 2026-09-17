@@ -5,16 +5,18 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Field, Input } from '@/components/ui/Field'
 import { gym } from '@/mocks/data'
-import { requestStaffPasswordReset, staffLogin } from '@/data/queries'
+import { getStaffRole, requestStaffPasswordReset, staffLogin } from '@/data/queries'
 import { ApiError } from '@/data/client'
 import type { Lang } from '@/i18n'
 
 type ResetState = 'idle' | 'sending' | 'sent' | 'notSent' | 'notFound' | 'rateLimited'
 
-/** Only reachable when VITE_API_URL is set — with no API, /manager needs no
- * login at all (see RequireManager in App.tsx), exactly like Phase 1.
- * Username + password (decision 21) — not phone + PIN. */
-export function ManagerLogin() {
+/** Only reachable when VITE_API_URL is set — with no API, staff routes need
+ * no login at all (see RequireStaff in App.tsx), exactly like Phase 1.
+ * Username + password (decision 21) — not phone + PIN. One login for both
+ * manager and coach (both are staff_users); after signing in this reads
+ * the token's own role and lands on whichever surface it belongs to. */
+export function StaffLogin() {
   const { t, i18n } = useTranslation()
   const lang = i18n.language as Lang
   const navigate = useNavigate()
@@ -30,7 +32,7 @@ export function ManagerLogin() {
     setError(false)
     try {
       await staffLogin(username, password)
-      navigate('/manager')
+      navigate(getStaffRole() === 'coach' ? '/coach' : '/manager')
     } catch (err) {
       setError(err instanceof ApiError ? err.status === 401 : true)
     } finally {

@@ -8,27 +8,51 @@
  */
 import {
   checkIns as seedCheckIns,
+  dayPlans as seedDayPlans,
   daysSinceVisit,
   findPlan,
+  machines as seedMachines,
   members as seedMembers,
+  nutrition as seedNutrition,
   payments as seedPayments,
   plans,
 } from '@/mocks/data'
-import type { Member as MockMember, Payment as MockPayment } from '@/mocks/types'
+import type {
+  CheckIn as MockCheckIn,
+  Member as MockMember,
+  Payment as MockPayment,
+} from '@/mocks/types'
 import { waLink } from '@/lib/whatsapp'
+import type { Text } from '@/lib/format'
 import type {
   ApiCheckIn,
+  ApiExercise,
   ApiLapsedMember,
+  ApiMachine,
   ApiMember,
   ApiMemberDetail,
+  ApiNutritionLog,
   ApiPayment,
   ApiPlan,
+  ApiProgram,
+  ApiTodayWorkout,
+  ApiWorkoutSession,
+  ApiWorkoutSet,
+  CreateExerciseInput,
   CreateMemberInput,
+  CreateNutritionLogInput,
+  CreateProgramInput,
+  CreateWorkoutSessionInput,
+  FinishWorkoutSessionInput,
+  LogSetInput,
+  ReplaceProgramExercisesInput,
   RecordPaymentInput,
+  UpdateProgramInput,
 } from './types'
 
 let mockMembers: MockMember[] = seedMembers.map((m) => ({ ...m }))
 let mockPayments: MockPayment[] = seedPayments.map((p) => ({ ...p }))
+let mockCheckIns: MockCheckIn[] = seedCheckIns.map((c) => ({ ...c }))
 
 const newId = () => Math.random().toString(36).slice(2, 10)
 const todayIso = () => new Date().toISOString().slice(0, 10)
@@ -80,12 +104,20 @@ export function mockGetMember(memberId: string): ApiMemberDetail {
 export function mockListTodaysCheckIns(): ApiCheckIn[] {
   // The mock checkIns array already represents "today's" front-desk queue
   // (its `at` is a bare time, not a date), so no date filtering to do here.
-  return seedCheckIns.map((c) => ({
+  return mockCheckIns.map((c) => ({
     id: c.id,
     member_id: c.memberId,
     at: c.at,
     status: c.status,
   }))
+}
+
+export function mockUpdateCheckInStatus(checkInId: string, status: string): ApiCheckIn {
+  const idx = mockCheckIns.findIndex((c) => c.id === checkInId)
+  if (idx === -1) throw new Error('Check-in not found')
+  const updated: MockCheckIn = { ...mockCheckIns[idx], status: status as MockCheckIn['status'] }
+  mockCheckIns = mockCheckIns.map((c, i) => (i === idx ? updated : c))
+  return { id: updated.id, member_id: updated.memberId, at: updated.at, status: updated.status }
 }
 
 export function mockListPlans(): ApiPlan[] {
@@ -196,4 +228,264 @@ export function mockListPayments(): ApiPayment[] {
     })
   }
   return rows.sort((a, b) => b.at.localeCompare(a.at))
+}
+
+// ---------------------------------------------------------------------
+// Phase 3 — the floor. dayPlans/nutrition have no separate exercise
+// catalog in mocks/data.ts (each PrescribedExercise carries its own
+// name inline), so the mock catalog is derived from them by deduping on
+// PrescribedExercise.id; a program's exercises then reference that same id,
+// matching the real API's catalog-id relationship.
+// ---------------------------------------------------------------------
+
+const toBilingual = (t: Text): { ar: string; en: string } =>
+  typeof t === 'string' ? { ar: t, en: t } : t
+
+function seedExerciseCatalog(): ApiExercise[] {
+  const seen = new Map<string, ApiExercise>()
+  for (const plan of seedDayPlans) {
+    for (const e of plan.exercises) {
+      if (!seen.has(e.id)) {
+        seen.set(e.id, { id: e.id, name: e.name, muscle_group: 'general', video_url: null, active: true })
+      }
+    }
+  }
+  return [...seen.values()]
+}
+
+function seedPrograms(): ApiProgram[] {
+  return seedDayPlans.map((plan) => ({
+    id: `program-${plan.memberId}`,
+    member_id: plan.memberId,
+    title: plan.title,
+    archived_at: null,
+    exercises: plan.exercises.map((e, i) => ({
+      id: `${plan.memberId}-pe-${e.id}`,
+      exercise_id: e.id,
+      exercise_name: e.name,
+      order_index: i,
+      sets: e.sets,
+      reps: toBilingual(e.reps),
+      target_weight_kg: e.lastWeightKg,
+    })),
+  }))
+}
+
+let mockExercises: ApiExercise[] = seedExerciseCatalog()
+let mockPrograms: ApiProgram[] = seedPrograms()
+let mockWorkoutSessions: ApiWorkoutSession[] = []
+let mockNutritionLogs: ApiNutritionLog[] = seedNutrition.map((n, i) => ({
+  id: `nutrition-seed-${i}`,
+  member_id: n.memberId,
+  at: n.date,
+  band: n.band,
+  meals: n.meals,
+  source: n.source === 'coach_asked' ? 'coach' : 'member',
+}))
+
+function exerciseName(exerciseId: string): { ar: string; en: string } {
+  return mockExercises.find((e) => e.id === exerciseId)?.name ?? { ar: '', en: '' }
+}
+
+export function mockListExercises(): ApiExercise[] {
+  return mockExercises.filter((e) => e.active)
+}
+
+export function mockCreateExercise(input: CreateExerciseInput): ApiExercise {
+  const exercise: ApiExercise = {
+    id: newId(),
+    name: input.name,
+    muscle_group: input.muscle_group,
+    video_url: input.video_url ?? null,
+    active: true,
+  }
+  mockExercises = [...mockExercises, exercise]
+  return exercise
+}
+
+export function mockListMachines(): ApiMachine[] {
+  return seedMachines.map((m) => ({ id: m.id, name: toBilingual(m.name), area: m.area }))
+}
+
+export function mockGetActiveProgram(memberId: string): ApiProgram | null {
+  return mockPrograms.find((p) => p.member_id === memberId && p.archived_at === null) ?? null
+}
+
+export function mockCreateProgram(memberId: string, input: CreateProgramInput): ApiProgram {
+  const now = new Date().toISOString()
+  mockPrograms = mockPrograms.map((p) =>
+    p.member_id === memberId && p.archived_at === null ? { ...p, archived_at: now } : p,
+  )
+  const program: ApiProgram = {
+    id: newId(),
+    member_id: memberId,
+    title: input.title,
+    archived_at: null,
+    exercises: input.exercises.map((ex, i) => ({
+      id: newId(),
+      exercise_id: ex.exercise_id,
+      exercise_name: exerciseName(ex.exercise_id),
+      order_index: i,
+      sets: ex.sets,
+      reps: ex.reps,
+      target_weight_kg: ex.target_weight_kg ?? null,
+    })),
+  }
+  mockPrograms = [...mockPrograms, program]
+  return program
+}
+
+export function mockReplaceProgramExercises(
+  programId: string,
+  input: ReplaceProgramExercisesInput,
+): ApiProgram {
+  const idx = mockPrograms.findIndex((p) => p.id === programId)
+  if (idx === -1) throw new Error('Program not found')
+  const updated: ApiProgram = {
+    ...mockPrograms[idx],
+    exercises: input.exercises.map((ex, i) => ({
+      id: newId(),
+      exercise_id: ex.exercise_id,
+      exercise_name: exerciseName(ex.exercise_id),
+      order_index: i,
+      sets: ex.sets,
+      reps: ex.reps,
+      target_weight_kg: ex.target_weight_kg ?? null,
+    })),
+  }
+  mockPrograms = mockPrograms.map((p, i) => (i === idx ? updated : p))
+  return updated
+}
+
+export function mockUpdateProgram(programId: string, input: UpdateProgramInput): ApiProgram {
+  const idx = mockPrograms.findIndex((p) => p.id === programId)
+  if (idx === -1) throw new Error('Program not found')
+  const current = mockPrograms[idx]
+  const updated: ApiProgram = {
+    ...current,
+    title: input.title ?? current.title,
+    archived_at:
+      input.archived === true
+        ? new Date().toISOString()
+        : input.archived === false
+          ? null
+          : current.archived_at,
+  }
+  mockPrograms = mockPrograms.map((p, i) => (i === idx ? updated : p))
+  return updated
+}
+
+export function mockGetTodayWorkout(memberId: string): ApiTodayWorkout {
+  const program = mockGetActiveProgram(memberId)
+  const openSession =
+    mockWorkoutSessions.find((s) => s.member_id === memberId && s.finished_at === null) ?? null
+
+  if (!program) {
+    return {
+      program_id: null,
+      program_title: null,
+      exercises: [],
+      open_session_id: openSession?.id ?? null,
+    }
+  }
+
+  const lastWeights = new Map<string, number>()
+  const allSets = mockWorkoutSessions
+    .filter((s) => s.member_id === memberId)
+    .flatMap((s) => s.sets)
+    .sort((a, b) => a.at.localeCompare(b.at))
+  for (const s of allSets) lastWeights.set(s.exercise_id, s.weight_kg)
+
+  return {
+    program_id: program.id,
+    program_title: program.title,
+    exercises: program.exercises.map((pe) => ({
+      program_exercise_id: pe.id,
+      exercise_id: pe.exercise_id,
+      exercise_name: pe.exercise_name,
+      order_index: pe.order_index,
+      sets: pe.sets,
+      reps: pe.reps,
+      target_weight_kg: pe.target_weight_kg,
+      last_weight_kg: lastWeights.get(pe.exercise_id) ?? null,
+    })),
+    open_session_id: openSession?.id ?? null,
+  }
+}
+
+export function mockCreateWorkoutSession(input: CreateWorkoutSessionInput): ApiWorkoutSession {
+  const session: ApiWorkoutSession = {
+    id: input.id ?? newId(),
+    member_id: input.member_id,
+    check_in_id: input.check_in_id ?? null,
+    started_at: input.started_at,
+    finished_at: null,
+    effort_band: null,
+    sets: [],
+  }
+  mockWorkoutSessions = [...mockWorkoutSessions, session]
+  return session
+}
+
+export function mockGetWorkoutSession(sessionId: string): ApiWorkoutSession {
+  const session = mockWorkoutSessions.find((s) => s.id === sessionId)
+  if (!session) throw new Error('Workout session not found')
+  return session
+}
+
+export function mockFinishWorkoutSession(
+  sessionId: string,
+  input: FinishWorkoutSessionInput,
+): ApiWorkoutSession {
+  const idx = mockWorkoutSessions.findIndex((s) => s.id === sessionId)
+  if (idx === -1) throw new Error('Workout session not found')
+  const updated: ApiWorkoutSession = {
+    ...mockWorkoutSessions[idx],
+    finished_at: input.finished_at,
+    effort_band: input.effort_band ?? mockWorkoutSessions[idx].effort_band,
+  }
+  mockWorkoutSessions = mockWorkoutSessions.map((s, i) => (i === idx ? updated : s))
+  return updated
+}
+
+export function mockLogSet(sessionId: string, input: LogSetInput): ApiWorkoutSet {
+  const idx = mockWorkoutSessions.findIndex((s) => s.id === sessionId)
+  if (idx === -1) throw new Error('Workout session not found')
+  const set: ApiWorkoutSet = {
+    id: input.id ?? newId(),
+    exercise_id: input.exercise_id,
+    set_number: input.set_number,
+    reps: input.reps,
+    weight_kg: input.weight_kg,
+    machine_id: input.machine_id ?? null,
+    at: input.at,
+  }
+  const updated: ApiWorkoutSession = {
+    ...mockWorkoutSessions[idx],
+    sets: [...mockWorkoutSessions[idx].sets, set],
+  }
+  mockWorkoutSessions = mockWorkoutSessions.map((s, i) => (i === idx ? updated : s))
+  return set
+}
+
+export function mockCreateNutritionLog(
+  memberId: string,
+  input: CreateNutritionLogInput,
+): ApiNutritionLog {
+  const log: ApiNutritionLog = {
+    id: input.id ?? newId(),
+    member_id: memberId,
+    at: input.at,
+    band: input.band,
+    meals: input.meals ?? [],
+    source: input.source,
+  }
+  mockNutritionLogs = [...mockNutritionLogs, log]
+  return log
+}
+
+export function mockListNutritionLogs(memberId: string): ApiNutritionLog[] {
+  return mockNutritionLogs
+    .filter((n) => n.member_id === memberId)
+    .sort((a, b) => b.at.localeCompare(a.at))
 }

@@ -5,8 +5,8 @@ import type { TokenPair } from './types'
  * boundary — feature components import from queries.ts, never from here. */
 export const API_URL = import.meta.env.VITE_API_URL
 
-const ACCESS_TOKEN_KEY = 'aigym.manager.accessToken'
-const REFRESH_TOKEN_KEY = 'aigym.manager.refreshToken'
+const ACCESS_TOKEN_KEY = 'aigym.staff.accessToken'
+const REFRESH_TOKEN_KEY = 'aigym.staff.refreshToken'
 
 function readStorage(key: string): string | null {
   try {
@@ -43,8 +43,27 @@ export function clearTokens() {
   writeStorage(REFRESH_TOKEN_KEY, null)
 }
 
-export function isManagerSignedIn() {
+export function isStaffSignedIn() {
   return getAccessToken() !== null
+}
+
+/** Decodes the access token's `role` claim client-side, without verifying
+ * the signature — used only to pick which surface to land on after login
+ * (coach vs. manager/super_admin). The server re-checks the real,
+ * signature-verified role on every request via require_role(); this is UX
+ * routing, not a security boundary. */
+export function getStaffRole(): string | null {
+  const token = getAccessToken()
+  if (!token) return null
+  try {
+    const payload = token.split('.')[1]
+    const decoded: unknown = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')))
+    return decoded && typeof decoded === 'object' && 'role' in decoded
+      ? String((decoded as { role: unknown }).role)
+      : null
+  } catch {
+    return null
+  }
 }
 
 export class ApiError extends Error {
