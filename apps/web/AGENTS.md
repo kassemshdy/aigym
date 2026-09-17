@@ -1,41 +1,54 @@
 # apps/web — React app
 
-Vite + React 19 + TypeScript + Tailwind v4. No Next.js. Manager screens run on the Phase 2
-API when `VITE_API_URL` is set, mocks when it isn't; coach and member screens stay on
-mocks until Phase 3.
+Vite + React 19 + TypeScript + Tailwind v4. No Next.js. Manager and coach screens run on
+the API when `VITE_API_URL` is set, mocks when it isn't (Phase 2 shipped manager, Phase 3
+shipped coach); member screens stay on mocks until Phase 4.
 
 ## Layout
 
 ```
 src/
-├── main.tsx          entry — router, i18n, styles
+├── main.tsx          entry — router, i18n, styles, service worker registration
 ├── App.tsx           the whole route tree
 ├── index.css         @theme tokens; the only place colours are defined
 ├── vite-env.d.ts     types import.meta.env.VITE_API_URL
 ├── i18n/             en.json (default), ar.json, index.ts (sets <html lang/dir>)
-├── lib/              format.ts (usd, dates, mmss), whatsapp.ts, cn.ts
-├── mocks/            types.ts + data.ts — coach/member screens' only data source;
-│                     manager screens read this only through data/mockAdapter.ts
-├── data/             manager screens' data layer (Phase 2 boundary, see below)
+├── lib/              format.ts (usd, dates, mmss, hhmm), whatsapp.ts, cn.ts
+├── mocks/            types.ts + data.ts — member screens' only data source, and what
+│                     data/mockAdapter.ts's mock fallback is built from
+├── data/             manager + coach data layer (Phase 2/3 boundary, see below)
 │   ├── client.ts       the only place `fetch` appears — bearer auth, Idempotency-Key,
-│   │                   one silent refresh-and-retry on 401
+│   │                   one silent refresh-and-retry on 401, offlineFetch() for floor
+│   │                   writes (see offline/ below)
 │   ├── types.ts        shapes the live API and the mock adapter both return
 │   ├── mockAdapter.ts  adapts mocks/data.ts into those same shapes
 │   ├── queries.ts      the functions feature components actually call
 │   └── useAsync.ts     thin read-side hook — no TanStack Query, see decisions
+├── offline/          the Phase 3 outbox — see .agents/skills/offline-sync
+│   ├── db.ts            hand-rolled IndexedDB wrapper, one object store
+│   ├── outbox.ts        enqueue/listPending/replay — one ordered queue, oldest-first
+│   └── OfflineProvider.tsx  tracks connectivity + pending count, replays on reconnect
 ├── components/
 │   ├── ui/           the design system — check here before writing a component
-│   └── AppShell.tsx  header, language toggle, role switcher, bottom tabs
+│   └── AppShell.tsx  header (sync badge reads OfflineProvider), language toggle, role
+│                      switcher, bottom tabs
 └── features/
     ├── manager/      Home, Members, MemberDetail, AddMember, Plans, Payments, Login
-    ├── coach/        Queue, MemberCard, Session, AiDrafts
+    ├── coach/        Queue, CheckIn, MemberCard, Session, AiDrafts (still mocked —
+    │                 Phase 5, see decision 10)
+    ├── programs/     ProgramEditor — plan assign/edit, shared by manager and coach,
+    │                 mounted at both /manager/programs/:id and /coach/programs/:id so
+    │                 AppShell's tab bar shows the right surface
     └── member/       Login, Today, Food, Chat, Photos, Videos, Progress, Profile
 ```
 
 `src/state/store.tsx` holds member-app prototype state (sign-in, food log, progress
-photos, chat transcripts) — coach and member screens read it through `useStore()`. Manager
-screens do not use it; their state is `src/data/queries.ts` reads plus local component
-state, since there is nothing member-app-specific to share a reducer with.
+photos, chat transcripts) — member screens read it through `useStore()`. Manager and coach
+screens do not use it; their state is `src/data/queries.ts` reads/writes plus local
+component state, since there is nothing member-app-specific to share a reducer with.
+(Coach's session/effort feedback used to write here too — removed once `CoachSession`
+started persisting `effort_band` through the real API in Phase 3; nothing ever read the
+mock copy.)
 
 `src/mocks/agents.ts` is the stand-in for the two assistants. The authority boundary lives
 there and in the store: a reply may carry `food` (log it) or `draft` (escalate to the
@@ -55,10 +68,15 @@ coach), never a program change.
   second place that mutates food entries, photos, or chat.
 - New progress-photo code starts from `sharedWithCoach: false`. If you find yourself
   writing a default that shares, stop and read decision 11.
-- Manager reads go through `src/data/useAsync.ts` (`const { data, loading, error } =
-  useAsync(fn, deps)`); manager writes go through `src/data/queries.ts` functions, which
-  attach an `Idempotency-Key` automatically (`client.ts`'s `newIdempotencyKey()`) — never
-  call `apiFetch` for a POST/PATCH/DELETE without going through one of those functions.
+- Manager and coach reads go through `src/data/useAsync.ts` (`const { data, loading, error
+  } = useAsync(fn, deps)`); writes go through `src/data/queries.ts` functions, which attach
+  an `Idempotency-Key` automatically (`client.ts`'s `newIdempotencyKey()`) — never call
+  `apiFetch` for a POST/PATCH/DELETE without going through one of those functions.
+- A **floor write** — workout sessions/sets, nutrition logs, check-in status — goes through
+  `offlineFetch()` in `client.ts`, not `apiFetch()` directly, and its `queries.ts` function
+  takes a `localEcho` built from the input so the UI has something to show immediately even
+  when the write is queued, not sent. Manager writes (members/plans/payments) stay on
+  `apiFetch()` — that scope line is decision 23 in `docs/DECISIONS.md`, not an oversight.
 
 ## Before committing
 
@@ -77,7 +95,9 @@ Railway's service root directory points here. Two rules when touching either:
 - **Never remove `try_files {path} /index.html`.** Every route except `/` is client-side;
   without it a refresh or a pasted link 404s.
 - **Never cache the HTML.** `/assets/*` is content-hashed and immutable; everything else is
-  `no-cache`. A stale shell after a redeploy points at assets that no longer exist.
+  `no-cache` — `dist/sw.js` included, since it isn't under `/assets/` either, which is
+  exactly what a service worker needs: the browser must always revalidate it to notice a
+  new version. A stale shell after a redeploy points at assets that no longer exist.
 
 Test both without Docker: `npm run build`, then
 `PORT=8080 caddy run --config Caddyfile --adapter caddyfile`, then curl a deep link. See
@@ -98,17 +118,22 @@ ffmpeg -i out/*.webm -vf "scale=1080:-2,fps=30" -c:v libx264 -crf 23 \
 **The transcode is not optional.** Playwright's bundled ffmpeg is VP8-only, and a `.webm`
 will not play on an iPhone or forward through WhatsApp on iOS.
 
-## Phase 2 boundary
+## Phase 2/3 boundary
 
-`src/data/` is the only place `fetch` appears — never add one to a feature component, that
-is what makes the offline outbox impossible to add in Phase 3. Manager components import
-functions from `src/data/queries.ts`, never from `src/mocks/data` and never `@/data/client`
-directly. `VITE_API_URL` unset ⇒ `queries.ts` calls the mock adapter instead of the API;
-every function returns the identical shape either way, so a screen does not know or care
-which path it is on.
+`src/data/` (plus `src/offline/` for floor writes) is the only place `fetch` appears —
+never add one to a feature component; that boundary is exactly what made adding the
+offline outbox in Phase 3 possible without touching every screen. Manager and coach
+components import functions from `src/data/queries.ts`, never from `src/mocks/data` and
+never `@/data/client` directly. `VITE_API_URL` unset ⇒ `queries.ts` calls the mock adapter
+instead of the API; every function returns the identical shape either way, so a screen
+does not know or care which path it is on.
 
-Adding a new manager read or write: add the live call to `queries.ts` (through
-`apiFetch` in `client.ts`), add the matching mock implementation to `mockAdapter.ts`
-returning the exact same shape, and only then wire the component. A `queries.ts` function
-with no mock branch breaks `main`'s mock-only build — see the "must stay deployable"
-invariant in `docs/DECISIONS.md`.
+Adding a new manager or coach read or write: add the live call to `queries.ts` (through
+`apiFetch` — or `offlineFetch` if it's a floor write, see Conventions above — in
+`client.ts`), add the matching mock implementation to `mockAdapter.ts` returning the exact
+same shape, and only then wire the component. A `queries.ts` function with no mock branch
+breaks `main`'s mock-only build — see the "must stay deployable" invariant in
+`docs/DECISIONS.md`.
+
+Member screens are the next surface to cross this boundary (Phase 4) — same pattern,
+`src/mocks/data` stays their source until then.

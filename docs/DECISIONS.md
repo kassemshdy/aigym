@@ -269,3 +269,65 @@ digits before adding the constraint; `scripts/seed.py` separately reasserts the 
 `"kassem"` username on every run regardless of whether the row pre-existed, so the real account
 doesn't end up stuck with a digits-only backfilled username. `password_hash` is excluded from
 that reassertion — seeding must never touch a credential someone already set.
+
+## 22. Workout sessions and sets get client-mintable ids — the one exception to server-minted ids
+
+Every other table in this codebase lets the server generate `id = uuid.uuid4()` on insert.
+`workout_sessions` and `workout_sets` (and, for the same reason, `nutrition_logs`) accept an
+*optional* client-supplied `id` instead, defaulting to a server-generated one only when the
+caller omits it.
+
+The reason is specific to Phase 3's offline outbox: a coach who starts a session while offline
+must be able to reference that session's id in the very next queued request — "log a set in
+session X" — before either request has ever reached the server. Waiting for a server response to
+learn the id would mean the outbox can't be a single ordered queue of independent requests; it
+would need a dependency graph instead. A client-generated UUID v4 makes collision astronomically
+unlikely and means the id in `src/offline/outbox.ts`'s queued body *is* the real id, not a
+placeholder swapped out later — the local echo (`src/data/client.ts`'s `offlineFetch`) and the
+eventual server row always agree.
+
+This is deliberately narrow: only the three tables an offline coach actually writes to got this.
+Everything else — members, plans, payments, programs — keeps server-minted ids and stays
+online-only (decision 23), because nothing about *their* write pattern needs a client-known id
+before the round trip completes.
+
+## 23. The offline outbox covers floor writes only, and check-in creation stays online-only
+
+`.agents/skills/offline-sync`'s conflict-rule table names "session data (sets, reps, nutrition
+entries)" as client-wins; Phase 3 implements exactly that scope — `workout_sessions`,
+`workout_sets`, `nutrition_logs`, and check-in *status* updates (`PATCH /check-ins/{id}`) — and
+nothing wider. Member, plan, and payment writes still fail visibly rather than queue, unchanged
+from Phase 2. Extending the same mechanism to them later is cheap, since the outbox lives in the
+shared `apiFetch`/`offlineFetch` layer in `client.ts`, not duplicated per feature — but it wasn't
+needed for what the roadmap's own test method describes ("killing the network mid-session").
+
+**Check-in *creation* (`POST /check-ins`) is the one floor write that stays online-only**, unlike
+its sibling status-update endpoint. The reason is decision 22's own logic run in reverse: check-in
+ids are always server-minted — `CheckInRequest` has no client-id field — so there is no safe local
+echo to hand back if the write is queued. A queued check-in would show the coach an id the real
+row will never actually have, and anything built on top of it (a QR receipt, a downstream link)
+would silently point at nothing once the real one lands. Front-desk check-in also happens where
+connectivity is least likely to be the actual problem — the floor is where it drops, not the
+counter — so the cost of staying online-only here is low. `updateCheckInStatus`, by contrast,
+targets a check-in id that's already real, so its echo is exact.
+
+## 24. A dependency's real bundle cost has to be measured, not estimated, before it ships
+
+QR-code check-in was planned and approved (a ~5–10 KB pure-JS decoder, since Safari on the coach's
+iPad has no `BarcodeDetector`). The actual dependency (`jsqr`) cost **~51 KB gzipped** — enough to
+push the total bundle to 179.7 KB against the 200 KB budget (decision 8), with the rest of Phase 3
+(the offline outbox, the service worker) still unbuilt and needing headroom. The estimate was
+wrong by roughly 5–10x.
+
+Dropped rather than kept: `npm uninstall jsqr`, camera code deleted, manual name-search kept as
+the only check-in path. The bundle returned to ~131 KB. QR check-in is not implemented anywhere in
+Phase 3 — reconsider only alongside a lighter decoder, or once Phase 4's member-facing QR display
+exists to make the trade-off worth relitigating (today, nothing renders a code for the camera to
+even scan).
+
+The process lesson, not just the outcome: `npm run build && npm run budget` after adding a
+dependency is not optional, and a KB estimate given before installing it is a guess, not a
+measurement — decision 8's "raising the budget requires an entry saying what users get in
+exchange" cuts the other way here too: a dependency that turns out to cost far more than planned
+gets re-evaluated against the same budget, not grandfathered in because it was already approved
+under a wrong number.

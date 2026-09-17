@@ -47,12 +47,22 @@ with its own CI job (decision 7). Manager screens read through `apps/web/src/dat
 of `apps/web/src/mocks/`, with a mock fallback when `VITE_API_URL` is unset — coach and
 member screens stay on mocks until Phase 3. See `apps/api/AGENTS.md` and decisions 16–21.
 
-## Phase 3 — The floor: check-in, nutrition, set logging, offline
+## Phase 3 — The floor: check-in, nutrition, set logging, offline ✅ done
 
-Check-in (manual + QR), today's-workout resolution, tap-first nutrition logging, workout
-sessions and sets. **Offline lands properly here**: service worker, precached shell,
-IndexedDB outbox with ordered replay, visible pending count, conflict rules. Tested by
-killing the network mid-session. Coach screens go live.
+Exercise catalog, member programs (with a real coach/manager assign-and-edit UI, not just
+seeded data — decision from the build), workout sessions and sets, tap-first nutrition
+logging, manual check-in (QR check-in was planned and dropped — decision 24). Today's-workout
+resolution (`app/domain/workout.py`) merges a program's exercises with each one's most
+recently logged weight, derived on read like dues (decision 17), never stored.
+
+**Offline lands here**: a hand-rolled IndexedDB outbox (`apps/web/src/offline/`), one ordered
+queue covering workout sessions/sets, nutrition logs, and check-in status (decisions 22–23),
+replayed oldest-first on reconnect; a hand-rolled service worker precaches the app shell so a
+reload mid-power-cut still boots. `scripts/test-offline.mjs` runs the skill's own test method
+against a live stack — kill the network, log 3 sets, reload, reconnect, confirm exactly 3 rows
+land — and passes. Coach screens (Queue, member card, session logging) read and write the real
+API; the mock fallback still works with `VITE_API_URL` unset. Member and AI-draft-inbox screens
+stay on mocks (Phases 4–5).
 
 ## Phase 4 — Members, content, and self-service
 

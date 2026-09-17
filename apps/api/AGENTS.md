@@ -1,7 +1,7 @@
 # apps/api — FastAPI service
 
 FastAPI + SQLAlchemy 2.0 (async, `psycopg`) + Alembic + Postgres 16, managed with `uv`.
-Backs the manager surface only — coach and member endpoints land in Phase 3/4.
+Backs the manager and coach surfaces; member endpoints land in Phase 4/5.
 
 ## Layout
 
@@ -14,17 +14,20 @@ app/
 ├── deps.py           FastAPI dependencies: current claims, current session, require_role()
 ├── logging.py        structured JSON logging
 ├── models/           SQLAlchemy models, one module per table group (tenancy/people/
-│                     money/floor/plumbing/auth) — import every model in models/__init__.py
-│                     or Alembic autogenerate will not see it
+│                     money/floor/training/plumbing/auth) — import every model in
+│                     models/__init__.py or Alembic autogenerate will not see it
 ├── domain/           business logic with no HTTP or SQLAlchemy-session awareness:
-│                     dues.py (derived status), whatsapp.py (wa.me links)
+│                     dues.py (derived status), workout.py (today's-workout resolution,
+│                     also derived), whatsapp.py (wa.me links)
 ├── security/         jwt.py (encode/decode), hashing.py (bcrypt for PINs and codes)
-├── api/              route modules — auth.py, onboarding.py, members.py, payments.py,
-│                     plans.py, checkins.py — aggregated in router.py
+├── api/              route modules — auth.py, onboarding.py, staff.py, members.py,
+│                     payments.py, plans.py, checkins.py, exercises.py, machines.py,
+│                     programs.py, sessions.py, nutrition.py — aggregated in router.py
 └── middleware/        idempotency.py — the Idempotency-Key contract
 
 alembic/versions/      migrations, in order: schema → RLS policies → auth tables →
-                        RLS for refresh_tokens. Read .agents/skills/generate-migration
+                        RLS for refresh_tokens → username/password → the Phase 3 floor
+                        tables → their RLS policy. Read .agents/skills/generate-migration
                         before adding one.
 scripts/
 ├── bootstrap_db.sh     creates the local/CI database and the aigym_app role
@@ -154,7 +157,8 @@ Full runbook: `docs/DEPLOY.md`.
 
 ## Phase boundary
 
-Coach and member endpoints (check-in queue beyond the minimal `POST /check-ins`, workout
-sessions, nutrition, AI drafts, video library) are Phase 3/4 — `apps/web`'s coach and
-member screens stay on mocks until then. Do not add auth or data-layer plumbing here for
-screens that are not switching over yet.
+Coach endpoints (exercises, programs, workout sessions/sets, nutrition logs, check-in
+status) shipped in Phase 3 — `apps/web`'s coach screens read and write the real API now,
+same as manager. Member endpoints (AI drafts, video library, progress, the member's own
+auth) are still Phase 4/5 — `apps/web`'s member screens stay on mocks until then. Do not
+add auth or data-layer plumbing here for screens that are not switching over yet.
