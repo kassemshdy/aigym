@@ -363,3 +363,59 @@ their own phone whenever they first try to sign in. No screen exists yet for a m
 an existing coach's role, deactivate one, or reset a coach's password directly — those are real
 gaps if a coach ever needs to be let go, not just added, and are worth their own decision if
 asked for.
+
+## 26. New coach credentials go out as a wa.me link, not the WhatsApp Business API
+
+A new coach account needs its username and temporary password delivered somewhere. The
+obvious automated path — the Meta WhatsApp Business API integration built for decision 20's
+password-reset flow — was deliberately not reused here: the owner asked for it not to be,
+same reasoning decision 4 already settled for every other WhatsApp message in this product.
+No Business API means no per-message cost, no template approval, and no risk of the gym's
+number getting flagged for automated sends. A human taps send.
+
+`/manager/staff`'s post-creation screen now shows a `wa.me` link, pre-filled via the same
+`waLink()` helper `AddMember.tsx` already uses for the member welcome message — username,
+password, and a sign-in link (`window.location.origin + '/staff/login'`, computed at click
+time so it's correct on whichever domain the manager is actually using, dev or production).
+The manager opens WhatsApp Web or the app and sends it themselves.
+
+This also settles a question decision 20 left open: the Business API credentials
+(`whatsapp_access_token`, `whatsapp_phone_number_id`) are not configured on the live `api`
+service, and per this decision, configuring them is not planned — decision 20's automated
+flow stays scoped to the one thing that actually needs automation (a locked-out coach can't
+tap a link a human hands them), and everything else, credentials included, stays a wa.me
+link.
+
+## 27. A hand-rolled walkthrough and help tooltips, not a tour library
+
+The gym owner asked for onboarding help for every role — "a manager who has never used
+software should need no training" (the product's own third constraint) is a promise, not
+just an aspiration, and a first login with no guidance breaks it as much as a confusing
+screen would.
+
+Scoped to the two staff surfaces that run on real data today, manager and coach — member
+screens are still Phase 4's to build, and polishing an onboarding pass into a screen about to
+be rebuilt would be wasted work. Two pieces, both hand-rolled (`src/help/`), no new
+dependency — the decision 24 lesson (measure, don't estimate a library's cost) made checking
+first the obvious move, and a spotlight-and-tooltip overlay plus a "?" popover are both a
+few dozen lines of plain React; a tour library would have cost more of the 200 KB budget than
+the feature itself:
+
+- **`TourProvider`** — a short (four-step) guided overlay, auto-started once per role via a
+  `localStorage` seen-flag the first time that role's home screen mounts, and replayable
+  anytime from a "?" button in the header. Steps target real DOM elements via a
+  `data-tour="…"` attribute, measured with `getBoundingClientRect()` — the spotlight ring
+  and tooltip bubble both use plain physical `left`/`top` inline styles, which is the correct
+  choice here despite the project's own "never a physical-direction utility" rule: that rule
+  governs static Tailwind classes that don't respond to `dir`, not JS math against real
+  viewport-coordinate measurements, which are dir-agnostic by construction.
+- **`HelpTip`** — a small "?" affordance opening a short popover, positioned with the
+  logical `end-0` utility (this one *is* static CSS, so the ms-/me- rule applies normally).
+  Used sparingly — two placements so far (why a manager can't add another manager on
+  `/manager/staff`, what the video-link icon on `ProgramEditor` does) — because most of this
+  product already explains itself through plain labels, which is the whole point of "no
+  jargon" in the first place; a tooltip on every control would fight that, not support it.
+
+`scripts/shots.mjs` seeds both roles' seen-flags in its init script, the same way it already
+seeds `aigym.signedIn` — the screenshot suite captures steady-state screens, not the one-time
+onboarding overlay.

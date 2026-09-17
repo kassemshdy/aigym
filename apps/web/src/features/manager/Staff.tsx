@@ -12,6 +12,7 @@ import { ApiError } from '@/data/client'
 import { gym } from '@/mocks/data'
 import { waLink } from '@/lib/whatsapp'
 import type { Lang } from '@/i18n'
+import { HelpTip } from '@/help/HelpTip'
 
 interface JustCreated {
   name: string
@@ -131,6 +132,10 @@ export function ManagerStaff() {
         </Card>
       ) : adding ? (
         <Card className="space-y-4 p-4">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-muted text-sm font-semibold">{t('manager.staff.addCoach')}</p>
+            <HelpTip text={t('help.staffCoachOnly')} />
+          </div>
           <Field label={t('manager.staff.name')}>
             <Input value={name} onChange={(e) => setName(e.target.value)} autoFocus />
           </Field>

@@ -12,6 +12,7 @@ import { useAsync } from '@/data/useAsync'
 import { usd } from '@/lib/format'
 import { waLink } from '@/lib/whatsapp'
 import type { Lang } from '@/i18n'
+import { useTourAutostart } from '@/help/TourProvider'
 import { LAPSED_AFTER_DAYS } from './Lapsed'
 
 function Tile({ n, label, tone }: { n: string; label: string; tone?: 'due' | 'soon' }) {
@@ -32,6 +33,7 @@ function Tile({ n, label, tone }: { n: string; label: string; tone?: 'due' | 'so
 export function ManagerHome() {
   const { t, i18n } = useTranslation()
   const lang = i18n.language as Lang
+  useTourAutostart('manager')
 
   const members = useAsync(listMembers, [])
   const checkIns = useAsync(listTodaysCheckIns, [])
@@ -51,14 +53,18 @@ export function ManagerHome() {
 
   return (
     <Page title={t('manager.home.title')} sub={gym.name[lang]}>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div data-tour="manager-stats" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Tile n={String(checkIns.data.length)} label={t('manager.home.cameToday')} />
         <Tile n={String(owing.length)} label={t('manager.home.owes')} tone="due" />
         <Tile n={String(ending.length)} label={t('manager.home.endingSoon')} tone="soon" />
         <Tile n={usd(collected)} label={t('manager.home.collected')} />
       </div>
 
-      <Link to="/manager/members/new" className={buttonClass('brand', 'lg', true)}>
+      <Link
+        to="/manager/members/new"
+        data-tour="manager-add"
+        className={buttonClass('brand', 'lg', true)}
+      >
         <Icon name="users" />
         {t('manager.home.addMember')}
       </Link>
