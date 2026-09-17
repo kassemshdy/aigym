@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/Button'
@@ -65,10 +65,21 @@ export function TourProvider({ children }: { children: ReactNode }) {
   const step = steps[stepIndex] ?? null
   const rect = useTargetRect(step?.target ?? null)
 
-  function start(r: TourRole) {
+  // Memoized deliberately, unlike stop/next/back below: this is a context
+  // Provider value's only ingredient, and an unmemoized start() gave the
+  // Provider a fresh { start } object on every render (every step change,
+  // every rect measurement) — useTourAutostart's effect depends on start,
+  // so it kept tearing down and rescheduling its 500ms timer. That timer
+  // firing mid-tour (whenever the user paused on a step for half a second)
+  // called start(role) again and reset stepIndex to 0, which looked like
+  // clicking Next sent the tour backward. start() itself has no external
+  // dependencies beyond the two stable useState setters, so useCallback
+  // with an empty array is safe here (unlike next(), which the React
+  // Compiler already rejected memoizing because it reads steps.length).
+  const start = useCallback((r: TourRole) => {
     setRole(r)
     setStepIndex(0)
-  }
+  }, [])
 
   function stop() {
     if (role) localStorage.setItem(seenKey(role), '1')
@@ -105,8 +116,10 @@ export function TourProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [role])
 
+  const contextValue = useMemo(() => ({ start }), [start])
+
   return (
-    <TourContext.Provider value={{ start }}>
+    <TourContext.Provider value={contextValue}>
       {children}
       {role && step
         ? createPortal(
@@ -166,6 +179,12 @@ function TourOverlay({
   const isLast = stepIndex === total - 1
   const pad = 8
   const bubbleWidth = 288
+  // A generous estimate, not a measurement: the real height depends on how
+  // long the translated title/body run. Only used to clamp the bubble
+  // inside the viewport, so slight over/under-estimating just means the
+  // bubble sits a little higher or lower than ideal — never off-screen,
+  // which is what actually broke (see below).
+  const bubbleHeightEstimate = 240
   const margin = 16
 
   const spotStyle: React.CSSProperties = rect
@@ -177,18 +196,22 @@ function TourOverlay({
       }
     : { display: 'none' }
 
-  const showBelow = rect ? window.innerHeight - rect.bottom > 200 || rect.top < 200 : true
-  const left = rect
-    ? Math.min(Math.max(rect.left, margin), window.innerWidth - bubbleWidth - margin)
-    : undefined
-
+  // Always clamped to the viewport, regardless of the target's own size —
+  // a target taller than the viewport (e.g. the coach queue with many
+  // check-ins) used to push the bubble's "below" position past the bottom
+  // edge, making Next unclickable (Playwright caught this: "element is
+  // outside of the viewport").
   const bubbleStyle: React.CSSProperties = rect
-    ? {
-        left,
-        top: showBelow ? rect.bottom + pad + 8 : undefined,
-        bottom: showBelow ? undefined : window.innerHeight - rect.top + pad + 8,
-        width: bubbleWidth,
-      }
+    ? (() => {
+        const left = Math.min(Math.max(rect.left, margin), window.innerWidth - bubbleWidth - margin)
+        const belowTop = rect.bottom + pad + 8
+        const aboveTop = rect.top - pad - 8 - bubbleHeightEstimate
+        const fitsBelow = belowTop + bubbleHeightEstimate <= window.innerHeight - margin
+        const top = fitsBelow
+          ? Math.max(belowTop, margin)
+          : Math.min(Math.max(aboveTop, margin), window.innerHeight - bubbleHeightEstimate - margin)
+        return { left, top, width: bubbleWidth }
+      })()
     : { top: '50%', left: '50%', width: bubbleWidth, transform: 'translate(-50%, -50%)' }
 
   return (
