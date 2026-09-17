@@ -226,6 +226,61 @@ async def test_today_workout_with_no_active_program(client: AsyncClient) -> None
     assert response.json()["exercises"] == []
 
 
+async def test_list_workout_sessions_returns_finished_only_most_recent_first(
+    client: AsyncClient,
+) -> None:
+    _gym_id, headers = await _gym_and_staff_token(client, slug="sessions-g")
+    member_id = await _create_member(client, headers, phone="+96174200009")
+    exercise_id = await _create_exercise(client, headers, name_en="Deadlift")
+
+    now = datetime.now(UTC)
+
+    async def _finished_session(started_at: datetime, reps: int, weight_kg: float) -> str:
+        created = await client.post(
+            "/workout-sessions",
+            headers=_idem(headers),
+            json={"member_id": member_id, "started_at": _iso(started_at)},
+        )
+        session_id = created.json()["id"]
+        await client.post(
+            f"/workout-sessions/{session_id}/sets",
+            headers=_idem(headers),
+            json={
+                "exercise_id": exercise_id, "set_number": 1, "reps": reps, "weight_kg": weight_kg,
+                "at": _iso(started_at),
+            },
+        )
+        await client.patch(
+            f"/workout-sessions/{session_id}",
+            headers=_idem(headers),
+            json={"finished_at": _iso(started_at + timedelta(minutes=40))},
+        )
+        return str(session_id)
+
+    older_id = await _finished_session(now - timedelta(days=3), reps=8, weight_kg=60.0)
+    newer_id = await _finished_session(now - timedelta(days=1), reps=5, weight_kg=100.0)
+
+    # An open (unfinished) session must not appear in the history list.
+    await client.post(
+        "/workout-sessions",
+        headers=_idem(headers),
+        json={"member_id": member_id, "started_at": _iso(now)},
+    )
+
+    listed = await client.get(f"/members/{member_id}/workout-sessions", headers=headers)
+    assert listed.status_code == 200
+    body = listed.json()
+    assert [s["id"] for s in body] == [newer_id, older_id]
+    assert all(s["finished_at"] is not None for s in body)
+    assert body[0]["sets"][0]["weight_kg"] == 100.0
+
+
+async def test_list_workout_sessions_404s_for_missing_member(client: AsyncClient) -> None:
+    _gym_id, headers = await _gym_and_staff_token(client, slug="sessions-h")
+    response = await client.get(f"/members/{uuid.uuid4()}/workout-sessions", headers=headers)
+    assert response.status_code == 404
+
+
 async def test_create_and_list_nutrition_logs(client: AsyncClient) -> None:
     _gym_id, headers = await _gym_and_staff_token(client, slug="nutrition-a")
     member_id = await _create_member(client, headers, phone="+96174200007")

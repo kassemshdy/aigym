@@ -6,12 +6,24 @@ import { BackLink } from '@/components/ui/BackLink'
 import { buttonClass } from '@/components/ui/Button'
 import { Avatar } from '@/components/ui/Avatar'
 import { Icon } from '@/components/ui/Icon'
+import { Sparkline } from '@/components/ui/Sparkline'
 import { Empty, Page } from '@/components/ui/Page'
 import { useAsync } from '@/data/useAsync'
-import { createNutritionLog, getMember, getTodayWorkout, listNutritionLogs } from '@/data/queries'
-import type { ApiMemberDetail, ApiNutritionLog, ApiTodayWorkout } from '@/data/types'
+import {
+  createNutritionLog,
+  getMember,
+  getTodayWorkout,
+  listNutritionLogs,
+  listWorkoutSessions,
+} from '@/data/queries'
+import type {
+  ApiMemberDetail,
+  ApiNutritionLog,
+  ApiTodayWorkout,
+  ApiWorkoutSession,
+} from '@/data/types'
 import type { Lang } from '@/i18n'
-import { listSep, text } from '@/lib/format'
+import { listSep, shortDate, text } from '@/lib/format'
 import { cn } from '@/lib/cn'
 
 const BANDS = ['low', 'ok', 'high', 'unknown'] as const
@@ -39,8 +51,12 @@ export function CoachMemberCard() {
   const { data: member, loading: memberLoading } = useAsync(() => getMember(id), [id])
   const { data: today, loading: todayLoading } = useAsync(() => getTodayWorkout(id), [id])
   const { data: logs, loading: logsLoading } = useAsync(() => listNutritionLogs(id), [id])
+  const { data: recentSessions, loading: sessionsLoading } = useAsync(
+    () => listWorkoutSessions(id, 5),
+    [id],
+  )
 
-  if (memberLoading || todayLoading || logsLoading) {
+  if (memberLoading || todayLoading || logsLoading || sessionsLoading) {
     return (
       <Page>
         <p className="text-muted p-4 text-sm">{t('common.loading')}</p>
@@ -50,7 +66,14 @@ export function CoachMemberCard() {
   if (!member || !today) return <Page><Empty>{t('common.none')}</Empty></Page>
 
   return (
-    <MemberCardBody key={id} memberId={id} member={member} today={today} logs={logs ?? []} />
+    <MemberCardBody
+      key={id}
+      memberId={id}
+      member={member}
+      today={today}
+      logs={logs ?? []}
+      recentSessions={recentSessions ?? []}
+    />
   )
 }
 
@@ -59,11 +82,13 @@ function MemberCardBody({
   member,
   today,
   logs,
+  recentSessions,
 }: {
   memberId: string
   member: ApiMemberDetail
   today: ApiTodayWorkout
   logs: ApiNutritionLog[]
+  recentSessions: ApiWorkoutSession[]
 }) {
   const { t, i18n } = useTranslation()
   const lang = i18n.language as Lang
@@ -78,6 +103,11 @@ function MemberCardBody({
   const name = lang === 'ar' ? member.name : member.name_en
   const due = member.dues?.status === 'due'
   const injuries = member.profile?.injuries ?? []
+  const weightTrend = member.profile?.weight_trend ?? []
+  const lastSession = recentSessions[0] ?? null
+  const lastSessionVolume = lastSession
+    ? lastSession.sets.reduce((sum, s) => sum + s.reps * s.weight_kg, 0)
+    : 0
 
   async function save(nextBand: (typeof BANDS)[number], nextMeals: string[]) {
     setBand(nextBand)
@@ -100,6 +130,11 @@ function MemberCardBody({
           <Avatar name={name} size="lg" />
           <div className="min-w-0">
             <h1 className="truncate text-xl font-extrabold">{name}</h1>
+            {member.profile ? (
+              <p className="text-muted truncate text-sm">
+                {t(`goal.${member.profile.goal}`)} · {t(`level.${member.profile.level}`)}
+              </p>
+            ) : null}
           </div>
         </div>
 
@@ -175,6 +210,50 @@ function MemberCardBody({
           ) : null}
         </div>
       </Card>
+
+      {member.profile ? (
+        <Card>
+          <CardTitle>{t('coach.card.progress')}</CardTitle>
+          <div className="space-y-3 p-4">
+            {weightTrend.length >= 2 ? (
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted text-sm">{t('manager.member.weightHistory')}</span>
+                <span className="text-ink">
+                  <Sparkline values={weightTrend} />
+                </span>
+              </div>
+            ) : null}
+
+            {lastSession ? (
+              <div>
+                <p className="text-muted text-sm">
+                  {t('coach.card.lastWorkout')} ·{' '}
+                  <bdi className="tnum">{shortDate(lastSession.started_at, lang)}</bdi>
+                </p>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <div className="bg-canvas rounded-xl p-3">
+                    <p className="tnum text-2xl font-extrabold">{lastSession.sets.length}</p>
+                    <p className="text-muted text-xs font-semibold">
+                      {t('coach.session.totalSets')}
+                    </p>
+                  </div>
+                  <div className="bg-canvas rounded-xl p-3">
+                    <p className="tnum text-2xl font-extrabold">
+                      {lastSessionVolume.toLocaleString('en-US')}
+                      <span className="text-muted text-sm"> {t('common.kg')}</span>
+                    </p>
+                    <p className="text-muted text-xs font-semibold">
+                      {t('coach.session.totalVolume')}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <p className="text-muted text-sm">{t('coach.card.noWorkoutsYet')}</p>
+            )}
+          </div>
+        </Card>
+      ) : null}
 
       <Card>
         <CardTitle>{t('coach.card.todayWorkout')}</CardTitle>

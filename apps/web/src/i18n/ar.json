@@ -206,7 +206,10 @@
       "foodQuestion": "شو أكلت اليوم؟",
       "start": "بلّش الحصة",
       "noPlan": "ما في تمرين محضّر لليوم",
-      "editPlan": "عدّل الخطة"
+      "editPlan": "عدّل الخطة",
+      "progress": "التقدّم",
+      "lastWorkout": "آخر تمرين",
+      "noWorkoutsYet": "ما في تمارين مسجّلة بعد"
     },
     "food": {
       "low": "أكل قليل",

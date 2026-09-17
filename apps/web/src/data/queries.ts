@@ -18,6 +18,7 @@ import {
   mockGetActiveProgram,
   mockGetMember,
   mockGetTodayWorkout,
+  mockListWorkoutSessions,
   mockGetWorkoutSession,
   mockLapsedMembers,
   mockListExercises,
@@ -258,6 +259,16 @@ export async function updateProgram(
 export async function getTodayWorkout(memberId: string): Promise<ApiTodayWorkout> {
   if (!API_URL) return mockGetTodayWorkout(memberId)
   return apiFetch(`/members/${memberId}/today-workout`)
+}
+
+/** Finished sessions only, most recent first — the coach's "last workout"
+ * summary. Never offline-tolerant: it's a read, not a floor write. */
+export async function listWorkoutSessions(
+  memberId: string,
+  limit = 5,
+): Promise<ApiWorkoutSession[]> {
+  if (!API_URL) return mockListWorkoutSessions(memberId, limit)
+  return apiFetch(`/members/${memberId}/workout-sessions?limit=${limit}`)
 }
 
 /** Client-mints the session id up front (docs/DECISIONS.md) so the local

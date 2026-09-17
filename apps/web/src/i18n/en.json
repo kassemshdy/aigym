@@ -206,7 +206,10 @@
       "foodQuestion": "What did you eat today?",
       "start": "Start session",
       "noPlan": "No workout set for today",
-      "editPlan": "Edit plan"
+      "editPlan": "Edit plan",
+      "progress": "Progress",
+      "lastWorkout": "Last workout",
+      "noWorkoutsYet": "No workouts logged yet"
     },
     "food": {
       "low": "Ate little",

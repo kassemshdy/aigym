@@ -186,6 +186,30 @@ async def log_set(
     return workout_set
 
 
+@router.get("/members/{member_id}/workout-sessions", response_model=list[WorkoutSessionOut])
+async def list_workout_sessions(
+    member_id: uuid.UUID,
+    session: CurrentSession,
+    limit: int = 10,
+) -> list[WorkoutSessionOut]:
+    """Finished sessions only, most recent first — powers the coach's "last
+    workout" summary (CoachMemberCard). RLS already scopes this to the
+    caller's gym; the 404 below is for a member id that doesn't exist at
+    all, not a cross-gym one (those look identical from here, by design).
+    """
+    member = await session.get(Member, member_id)
+    if member is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Member not found")
+
+    result = await session.execute(
+        select(WorkoutSession)
+        .where(WorkoutSession.member_id == member_id, WorkoutSession.finished_at.is_not(None))
+        .order_by(WorkoutSession.started_at.desc())
+        .limit(limit)
+    )
+    return [await _to_session_out(session, s) for s in result.scalars().all()]
+
+
 class TodayExerciseOut(BaseModel):
     program_exercise_id: uuid.UUID
     exercise_id: uuid.UUID
