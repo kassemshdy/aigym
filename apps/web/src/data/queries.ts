@@ -32,6 +32,7 @@ import {
   mockRecordPayment,
   mockReplaceProgramExercises,
   mockUpdateCheckInStatus,
+  mockUpdateExercise,
   mockUpdateProgram,
   mockWhatsappReminder,
 } from './mockAdapter'
@@ -62,6 +63,7 @@ import type {
   ReplaceProgramExercisesInput,
   StaffPasswordResetResult,
   TokenPair,
+  UpdateExerciseInput,
   UpdateProgramInput,
 } from './types'
 
@@ -193,6 +195,18 @@ export async function listExercises(): Promise<ApiExercise[]> {
 export async function createExercise(input: CreateExerciseInput): Promise<ApiExercise> {
   if (!API_URL) return mockCreateExercise(input)
   return apiFetch('/exercises', { method: 'POST', body: input, idempotencyKey: newIdempotencyKey() })
+}
+
+export async function updateExercise(
+  exerciseId: string,
+  input: UpdateExerciseInput,
+): Promise<ApiExercise> {
+  if (!API_URL) return mockUpdateExercise(exerciseId, input)
+  return apiFetch(`/exercises/${exerciseId}`, {
+    method: 'PATCH',
+    body: input,
+    idempotencyKey: newIdempotencyKey(),
+  })
 }
 
 export async function listMachines(): Promise<ApiMachine[]> {

@@ -50,6 +50,7 @@ import type {
   LogSetInput,
   ReplaceProgramExercisesInput,
   RecordPaymentInput,
+  UpdateExerciseInput,
   UpdateProgramInput,
 } from './types'
 
@@ -318,6 +319,17 @@ export function mockCreateExercise(input: CreateExerciseInput): ApiExercise {
   }
   mockExercises = [...mockExercises, exercise]
   return exercise
+}
+
+export function mockUpdateExercise(exerciseId: string, input: UpdateExerciseInput): ApiExercise {
+  const existing = mockExercises.find((e) => e.id === exerciseId)
+  if (!existing) throw new Error('Exercise not found')
+  const updated: ApiExercise = {
+    ...existing,
+    video_url: input.video_url !== undefined ? input.video_url : existing.video_url,
+  }
+  mockExercises = mockExercises.map((e) => (e.id === exerciseId ? updated : e))
+  return updated
 }
 
 export function mockListMachines(): ApiMachine[] {

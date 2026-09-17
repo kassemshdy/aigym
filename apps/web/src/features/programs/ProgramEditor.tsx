@@ -16,6 +16,7 @@ import {
   getMember,
   listExercises,
   replaceProgramExercises,
+  updateExercise,
   updateProgram,
 } from '@/data/queries'
 import type { ApiExercise, ApiProgram } from '@/data/types'
@@ -107,6 +108,11 @@ function ProgramEditorForm({
   const [addingNew, setAddingNew] = useState(false)
   const [newName, setNewName] = useState('')
   const [newMuscle, setNewMuscle] = useState<(typeof MUSCLE_GROUPS)[number]>('legs')
+  const [newVideoUrl, setNewVideoUrl] = useState('')
+
+  const [editingVideoFor, setEditingVideoFor] = useState<string | null>(null)
+  const [videoUrlDraft, setVideoUrlDraft] = useState('')
+  const [savingVideo, setSavingVideo] = useState(false)
 
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -146,11 +152,29 @@ function ProgramEditorForm({
     const exercise = await createExercise({
       name: { ar: newName.trim(), en: newName.trim() },
       muscle_group: newMuscle,
+      video_url: newVideoUrl.trim() || null,
     })
     addRow(exercise)
     setNewName('')
+    setNewVideoUrl('')
     setAddingNew(false)
     reloadExercises()
+  }
+
+  function startEditingVideo(exercise: ApiExercise) {
+    setEditingVideoFor(exercise.id)
+    setVideoUrlDraft(exercise.video_url ?? '')
+  }
+
+  async function saveVideo(exerciseId: string) {
+    setSavingVideo(true)
+    try {
+      await updateExercise(exerciseId, { video_url: videoUrlDraft.trim() || null })
+      reloadExercises()
+      setEditingVideoFor(null)
+    } finally {
+      setSavingVideo(false)
+    }
   }
 
   async function save() {
@@ -294,14 +318,57 @@ function ProgramEditorForm({
             <ul className="border-line divide-line divide-y rounded-xl border">
               {filteredCatalog.map((e) => (
                 <li key={e.id}>
-                  <button
-                    type="button"
-                    onClick={() => addRow(e)}
-                    className="flex min-h-tap w-full items-center justify-between px-4 text-start font-semibold"
-                  >
-                    {text(e.name, lang)}
-                    <Icon name="add" size={18} />
-                  </button>
+                  <div className="flex items-center gap-1 px-2">
+                    <button
+                      type="button"
+                      onClick={() => addRow(e)}
+                      className="flex min-h-tap flex-1 items-center justify-between px-2 text-start font-semibold"
+                    >
+                      {text(e.name, lang)}
+                      <Icon name="add" size={18} />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={t('program.videoUrl')}
+                      onClick={() => startEditingVideo(e)}
+                      className={
+                        e.video_url
+                          ? 'text-brand flex size-11 shrink-0 items-center justify-center'
+                          : 'text-muted flex size-11 shrink-0 items-center justify-center'
+                      }
+                    >
+                      <Icon name="play" size={18} />
+                    </button>
+                  </div>
+                  {editingVideoFor === e.id ? (
+                    <div className="border-line space-y-2 border-t p-3">
+                      <Field label={t('program.videoUrl')}>
+                        <Input
+                          value={videoUrlDraft}
+                          onChange={(ev) => setVideoUrlDraft(ev.target.value)}
+                          placeholder="https://youtube.com/..."
+                          autoFocus
+                        />
+                      </Field>
+                      <div className="flex gap-2">
+                        <Button
+                          full
+                          disabled={savingVideo}
+                          onClick={() => void saveVideo(e.id)}
+                        >
+                          {t('common.save')}
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          full
+                          disabled={savingVideo}
+                          onClick={() => setEditingVideoFor(null)}
+                        >
+                          {t('common.cancel')}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : null}
                 </li>
               ))}
             </ul>
@@ -318,6 +385,13 @@ function ProgramEditorForm({
                   columns={3}
                   onChange={setNewMuscle}
                   options={MUSCLE_GROUPS.map((g) => ({ value: g, label: t(`muscle.${g}`) }))}
+                />
+              </Field>
+              <Field label={t('program.videoUrl')}>
+                <Input
+                  value={newVideoUrl}
+                  onChange={(e) => setNewVideoUrl(e.target.value)}
+                  placeholder="https://youtube.com/..."
                 />
               </Field>
               <Button full disabled={!newName.trim()} onClick={() => void createNewExercise()}>
