@@ -161,6 +161,11 @@ export function CoachMemberCard() {
           {t('coach.card.start')}
         </Link>
       ) : null}
+
+      <Link to={`/coach/programs/${m.id}`} className={buttonClass('secondary', 'lg', true)}>
+        <Icon name="list" />
+        {t('coach.card.editPlan')}
+      </Link>
     </Page>
   )
 }

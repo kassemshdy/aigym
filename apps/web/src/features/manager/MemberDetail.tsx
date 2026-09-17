@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Card, CardTitle } from '@/components/ui/Card'
 import { BackLink } from '@/components/ui/BackLink'
@@ -13,6 +13,7 @@ import { Empty, Page } from '@/components/ui/Page'
 import { getMember, listPayments, recordPayment, whatsappReminderLink } from '@/data/queries'
 import { useAsync } from '@/data/useAsync'
 import { listSep, shortDate, text, usd } from '@/lib/format'
+import { cn } from '@/lib/cn'
 import type { Lang } from '@/i18n'
 
 export function ManagerMemberDetail() {
@@ -87,6 +88,13 @@ export function ManagerMemberDetail() {
             <Icon name="money" />
             {t('manager.member.recordPayment')}
           </button>
+          <Link
+            to={`/manager/programs/${id}`}
+            className={cn(buttonClass('secondary', 'lg', true), 'col-span-2')}
+          >
+            <Icon name="dumbbell" />
+            {t('manager.member.editPlan')}
+          </Link>
         </div>
 
         {recording ? (

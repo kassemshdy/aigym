@@ -112,6 +112,20 @@ export function mockListTodaysCheckIns(): ApiCheckIn[] {
   }))
 }
 
+export function mockCreateCheckIn(memberId: string): ApiCheckIn {
+  const member = mockMembers.find((m) => m.id === memberId)
+  if (!member) throw new Error('Member not found')
+  const now = new Date()
+  const checkIn: MockCheckIn = {
+    id: newId(),
+    memberId,
+    at: `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
+    status: 'waiting',
+  }
+  mockCheckIns = [...mockCheckIns, checkIn]
+  return { id: checkIn.id, member_id: checkIn.memberId, at: checkIn.at, status: checkIn.status }
+}
+
 export function mockUpdateCheckInStatus(checkInId: string, status: string): ApiCheckIn {
   const idx = mockCheckIns.findIndex((c) => c.id === checkInId)
   if (idx === -1) throw new Error('Check-in not found')

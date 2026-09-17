@@ -10,6 +10,8 @@ import { CoachQueue } from '@/features/coach/Queue'
 import { CoachMemberCard } from '@/features/coach/MemberCard'
 import { CoachSession } from '@/features/coach/Session'
 import { CoachAiDrafts } from '@/features/coach/AiDrafts'
+import { CoachCheckIn } from '@/features/coach/CheckIn'
+import { ProgramEditor } from '@/features/programs/ProgramEditor'
 import { MemberToday } from '@/features/member/Today'
 import { MemberLogin } from '@/features/member/Login'
 import { MemberFood } from '@/features/member/Food'
@@ -68,6 +70,7 @@ export default function App() {
           <Route path="lapsed" element={<ManagerLapsed />} />
           <Route path="plans" element={<ManagerPlans />} />
           <Route path="payments" element={<ManagerPayments />} />
+          <Route path="programs/:memberId" element={<ProgramEditor />} />
         </Route>
 
         <Route
@@ -79,12 +82,12 @@ export default function App() {
           }
         >
           <Route index element={<CoachQueue />} />
+          <Route path="check-in" element={<CoachCheckIn />} />
           <Route path="member/:id" element={<CoachMemberCard />} />
           <Route path="session/:id" element={<CoachSession />} />
           <Route path="ai" element={<CoachAiDrafts />} />
+          <Route path="programs/:memberId" element={<ProgramEditor />} />
         </Route>
-
-        {/* /programs/:memberId (plan-authoring UI) lands with ProgramEditor. */}
 
         <Route
           path="member"

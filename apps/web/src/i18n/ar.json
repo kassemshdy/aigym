@@ -99,7 +99,8 @@
       "noInjuries": "ما في",
       "daysPerWeek": "أيام بالأسبوع",
       "sleep": "ساعات النوم",
-      "weightHistory": "تغيّر الوزن"
+      "weightHistory": "تغيّر الوزن",
+      "editPlan": "عدّل خطة التمرين"
     },
     "add": {
       "title": "مشترك جديد",
@@ -134,7 +135,12 @@
       "waiting": "بانتظار",
       "training": "عم يتمرّن",
       "done": "خلّص",
-      "tap": "دوس عالاسم لتبلّش"
+      "tap": "دوس عالاسم لتبلّش",
+      "checkIn": "سجّل دخول مشترك"
+    },
+    "checkIn": {
+      "title": "تسجيل دخول",
+      "searchInstead": "دور بالاسم"
     },
     "card": {
       "paidOk": "اشتراكه ماشي",
@@ -143,7 +149,8 @@
       "askFood": "شو أكل اليوم",
       "foodQuestion": "شو أكلت اليوم؟",
       "start": "بلّش الحصة",
-      "noPlan": "ما في تمرين محضّر لليوم"
+      "noPlan": "ما في تمرين محضّر لليوم",
+      "editPlan": "عدّل الخطة"
     },
     "food": {
       "low": "أكل قليل",
@@ -347,5 +354,22 @@
     "never": "ولا مرة إجا",
     "remind": "ذكّره",
     "empty": "الكل عم يداوم 👌"
+  },
+  "program": {
+    "title": "عنوان الخطة",
+    "titlePlaceholder": "مثلاً: يوم دفع",
+    "exercises": "التمارين",
+    "none": "ما في تمارين مضافة بعد",
+    "moveUp": "حرّك لفوق",
+    "moveDown": "حرّك لتحت",
+    "remove": "احذف",
+    "sets": "المجموعات",
+    "reps": "التكرارات",
+    "targetWeight": "الوزن المستهدف",
+    "addExercise": "ضيف تمرين",
+    "newExercise": "تمرين جديد",
+    "newExerciseName": "اسم التمرين",
+    "muscleGroup": "المجموعة العضلية",
+    "saved": "تم الحفظ"
   }
 }

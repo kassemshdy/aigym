@@ -7,6 +7,7 @@
  */
 import { API_URL, apiFetch, newIdempotencyKey, setTokens } from './client'
 import {
+  mockCreateCheckIn,
   mockCreateExercise,
   mockCreateMember,
   mockCreateNutritionLog,
@@ -78,6 +79,15 @@ export async function listPlans(): Promise<ApiPlan[]> {
 export async function listTodaysCheckIns(): Promise<ApiCheckIn[]> {
   if (!API_URL) return mockListTodaysCheckIns()
   return apiFetch('/check-ins/today')
+}
+
+export async function createCheckIn(memberId: string): Promise<ApiCheckIn> {
+  if (!API_URL) return mockCreateCheckIn(memberId)
+  return apiFetch('/check-ins', {
+    method: 'POST',
+    body: { member_id: memberId },
+    idempotencyKey: newIdempotencyKey(),
+  })
 }
 
 export async function updateCheckInStatus(checkInId: string, status: string): Promise<ApiCheckIn> {

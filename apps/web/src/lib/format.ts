@@ -34,3 +34,11 @@ export const initials = (name: string) =>
 
 export const mmss = (total: number) =>
   `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`
+
+/** Live check-ins carry a full ISO timestamp; mock check-ins are seeded as
+ * a bare "HH:MM" display string already. Pass either through unchanged. */
+export const hhmm = (value: string) => {
+  if (!value.includes('T')) return value
+  const d = new Date(value)
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}

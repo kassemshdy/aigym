@@ -99,7 +99,8 @@
       "noInjuries": "None",
       "daysPerWeek": "Days per week",
       "sleep": "Sleep hours",
-      "weightHistory": "Weight over time"
+      "weightHistory": "Weight over time",
+      "editPlan": "Edit workout plan"
     },
     "add": {
       "title": "New member",
@@ -134,7 +135,12 @@
       "waiting": "Waiting",
       "training": "Training",
       "done": "Finished",
-      "tap": "Tap a name to start"
+      "tap": "Tap a name to start",
+      "checkIn": "Check in a member"
+    },
+    "checkIn": {
+      "title": "Check in",
+      "searchInstead": "Search by name"
     },
     "card": {
       "paidOk": "Membership is fine",
@@ -143,7 +149,8 @@
       "askFood": "What they ate today",
       "foodQuestion": "What did you eat today?",
       "start": "Start session",
-      "noPlan": "No workout set for today"
+      "noPlan": "No workout set for today",
+      "editPlan": "Edit plan"
     },
     "food": {
       "low": "Ate little",
@@ -347,5 +354,22 @@
     "never": "Never came",
     "remind": "Remind",
     "empty": "Everyone is showing up 👌"
+  },
+  "program": {
+    "title": "Plan title",
+    "titlePlaceholder": "e.g. Push day",
+    "exercises": "Exercises",
+    "none": "No exercises added yet",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "remove": "Remove",
+    "sets": "Sets",
+    "reps": "Reps",
+    "targetWeight": "Target weight",
+    "addExercise": "Add an exercise",
+    "newExercise": "New exercise",
+    "newExerciseName": "Exercise name",
+    "muscleGroup": "Muscle group",
+    "saved": "Saved"
   }
 }
