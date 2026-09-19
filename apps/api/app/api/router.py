@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.auth import router as auth_router
+from app.api.booking import router as booking_router
 from app.api.checkins import router as checkins_router
 from app.api.exercises import router as exercises_router
 from app.api.food_entries import router as food_entries_router
@@ -19,6 +20,7 @@ from app.api.videos import router as videos_router
 
 api_router = APIRouter()
 api_router.include_router(auth_router)
+api_router.include_router(booking_router)
 api_router.include_router(onboarding_router)
 api_router.include_router(checkins_router)
 api_router.include_router(plans_router)

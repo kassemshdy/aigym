@@ -5,13 +5,40 @@ import { buttonClass } from '@/components/ui/Button'
 import { Icon } from '@/components/ui/Icon'
 import { Sparkline } from '@/components/ui/Sparkline'
 import { Empty, Page } from '@/components/ui/Page'
-import { currentMemberId, findMember, planForMember } from '@/mocks/data'
+import { currentMemberId as mockCurrentMemberId, findMember, planForMember } from '@/mocks/data'
+import { getCurrentMemberId, listMyAttendance, listWorkoutSessions } from '@/data/queries'
+import { useAsync } from '@/data/useAsync'
 import type { Lang } from '@/i18n'
+
+/** Current consecutive-day streak, counting back from today. A day not
+ * yet visited doesn't break yesterday's streak — the day only "counts
+ * against" it once it's over. */
+function computeStreak(days: string[]): number {
+  const dates = new Set(days)
+  const iso = (d: Date) => d.toISOString().slice(0, 10)
+  const cursor = new Date()
+  if (!dates.has(iso(cursor))) cursor.setDate(cursor.getDate() - 1)
+  let streak = 0
+  while (dates.has(iso(cursor))) {
+    streak++
+    cursor.setDate(cursor.getDate() - 1)
+  }
+  return streak
+}
+
+const thisMonthPrefix = () => new Date().toISOString().slice(0, 7)
 
 export function MemberProgress() {
   const { t, i18n } = useTranslation()
   const lang = i18n.language as Lang
-  const me = findMember(currentMemberId)
+  const me = findMember(mockCurrentMemberId)
+
+  // Real for both API and mock mode: mock mode has no member JWT, so this
+  // falls back to the same mock constant the rest of this screen still
+  // reads (weight/plan go real in stage 7, alongside Today and Profile).
+  const memberId = getCurrentMemberId() ?? mockCurrentMemberId
+  const sessions = useAsync(() => listWorkoutSessions(memberId, 100, 'member'), [memberId])
+  const attendance = useAsync(listMyAttendance, [])
 
   if (!me) return <Page><Empty>{t('common.none')}</Empty></Page>
 
@@ -20,15 +47,20 @@ export function MemberProgress() {
   const delta = +(last - first).toFixed(1)
   const plan = planForMember(me.id)
 
+  const sessionsThisMonth = (sessions.data ?? []).filter((s) =>
+    s.started_at.startsWith(thisMonthPrefix()),
+  ).length
+  const streak = computeStreak((attendance.data ?? []).map((a) => a.date))
+
   return (
     <Page title={t('member.progress.title')}>
       <div className="grid grid-cols-2 gap-3">
         <Card className="p-4">
-          <p className="tnum text-3xl font-extrabold">12</p>
+          <p className="tnum text-3xl font-extrabold">{sessions.loading ? '—' : sessionsThisMonth}</p>
           <p className="text-muted mt-1 text-xs font-semibold">{t('member.progress.sessions')}</p>
         </Card>
         <Card className="p-4">
-          <p className="tnum text-3xl font-extrabold">4</p>
+          <p className="tnum text-3xl font-extrabold">{attendance.loading ? '—' : streak}</p>
           <p className="text-muted mt-1 text-xs font-semibold">{t('member.progress.streak')}</p>
         </Card>
       </div>

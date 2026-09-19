@@ -414,7 +414,8 @@
     "with": "مع",
     "trained": "تمرّنت",
     "book": "احجز تمرين خاص",
-    "minutes": "{{count}} دقيقة"
+    "minutes": "{{count}} دقيقة",
+    "cancel": "إلغاء الحجز"
   },
   "book": {
     "title": "احجز تمرين",

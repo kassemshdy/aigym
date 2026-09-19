@@ -414,7 +414,8 @@
     "with": "with",
     "trained": "Trained",
     "book": "Book a private session",
-    "minutes": "{{count}} min"
+    "minutes": "{{count}} min",
+    "cancel": "Cancel booking"
   },
   "book": {
     "title": "Book a session",

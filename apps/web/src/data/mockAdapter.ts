@@ -7,8 +7,12 @@
  * for.
  */
 import {
+  attendance as seedAttendance,
+  bookings as seedBookings,
   checkIns as seedCheckIns,
+  classes as seedClasses,
   coaches as seedCoaches,
+  currentMemberId,
   dayPlans as seedDayPlans,
   daysSinceVisit,
   findPlan,
@@ -27,9 +31,13 @@ import type {
 import { waLink } from '@/lib/whatsapp'
 import type { Text } from '@/lib/format'
 import type {
+  ApiAttendanceDay,
+  ApiBooking,
   ApiCheckIn,
+  ApiCoach,
   ApiExercise,
   ApiFoodEntry,
+  ApiGymClass,
   ApiLapsedMember,
   ApiMachine,
   ApiMember,
@@ -44,6 +52,7 @@ import type {
   ApiVideo,
   ApiWorkoutSession,
   ApiWorkoutSet,
+  CreateBookingInput,
   CreateExerciseInput,
   CreateFoodEntryInput,
   CreateMemberInput,
@@ -702,4 +711,61 @@ export function mockDeleteProgressPhoto(photoId: string): void {
 
 export function mockListSharedPhotos(): ApiProgressPhoto[] {
   return mockProgressPhotos.filter((p) => p.shared_with_coach)
+}
+
+// ---------------------------------------------------------------------
+// Phase 4 stage 6 — coaches, the class schedule, and a member's own
+// bookings/attendance. Coaches and classes are read straight from the
+// seed data (no mutation ever touches them in mock mode, staff or
+// member); bookings are seeded from mocks/data's `bookings`, filtered to
+// currentMemberId — mock mode only ever represents the one signed-in
+// member, same reasoning as mockFoodEntries/mockProgressPhotos.
+// ---------------------------------------------------------------------
+
+export function mockListCoaches(): ApiCoach[] {
+  return seedCoaches.map((c) => ({ id: c.id, name: toBilingual(c.name), speciality: toBilingual(c.speciality) }))
+}
+
+export function mockListClasses(): ApiGymClass[] {
+  return seedClasses.map((c) => ({
+    id: c.id,
+    title: toBilingual(c.title),
+    coach_id: c.coachId,
+    weekdays: c.weekdays,
+    time: c.time,
+    duration_min: c.durationMin,
+  }))
+}
+
+let mockBookings: ApiBooking[] = seedBookings
+  .filter((b) => b.memberId === currentMemberId)
+  .map((b) => ({ id: b.id, coach_id: b.coachId, date: b.date, time: b.time, kind: b.kind, status: b.status }))
+
+export function mockListMyBookings(): ApiBooking[] {
+  return mockBookings
+}
+
+export function mockCreateBooking(input: CreateBookingInput): ApiBooking {
+  const booking: ApiBooking = {
+    id: newId(),
+    coach_id: input.coach_id,
+    date: input.date,
+    time: input.time,
+    kind: input.kind,
+    status: 'booked',
+  }
+  mockBookings = [...mockBookings, booking]
+  return booking
+}
+
+export function mockCancelBooking(bookingId: string): ApiBooking {
+  const existing = mockBookings.find((b) => b.id === bookingId)
+  if (!existing) throw new Error('Booking not found')
+  const updated: ApiBooking = { ...existing, status: 'cancelled' }
+  mockBookings = mockBookings.map((b) => (b.id === bookingId ? updated : b))
+  return updated
+}
+
+export function mockListMyAttendance(): ApiAttendanceDay[] {
+  return seedAttendance.filter((a) => a.memberId === currentMemberId).map((a) => ({ date: a.date }))
 }

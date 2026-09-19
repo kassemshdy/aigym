@@ -1,7 +1,6 @@
 import { createContext, useContext, useMemo, useReducer, type ReactNode } from 'react'
 import { replyTo } from '@/mocks/agents'
-import { bookings as seedBookings } from '@/mocks/data'
-import type { AgentId, Booking, ChatMessage, FoodEntry, SupplementId } from '@/mocks/types'
+import type { AgentId, ChatMessage, FoodEntry, SupplementId } from '@/mocks/types'
 import type { Lang } from '@/i18n'
 
 /**
@@ -18,7 +17,6 @@ interface State {
   /** Glasses of water today — tapped, never typed. */
   water: number
   supplements: SupplementId[]
-  bookings: Booking[]
 }
 
 type Action =
@@ -27,7 +25,6 @@ type Action =
   | { type: 'chat'; agent: AgentId; messages: ChatMessage[]; draft?: boolean }
   | { type: 'water'; delta: number }
   | { type: 'supplement'; id: SupplementId }
-  | { type: 'book'; booking: Booking }
 
 const now = () =>
   new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
@@ -42,7 +39,6 @@ const initial: State = {
   draftsSent: 0,
   water: 3,
   supplements: ['protein'],
-  bookings: seedBookings,
 }
 
 function reducer(state: State, action: Action): State {
@@ -66,8 +62,6 @@ function reducer(state: State, action: Action): State {
           ? state.supplements.filter((x) => x !== action.id)
           : [...state.supplements, action.id],
       }
-    case 'book':
-      return { ...state, bookings: [...state.bookings, action.booking] }
   }
 }
 
@@ -84,9 +78,6 @@ function makeActions(dispatch: (a: Action) => void) {
 
     toggleSupplement: (supplementId: SupplementId) =>
       dispatch({ type: 'supplement', id: supplementId }),
-
-    book: (booking: Omit<Booking, 'id' | 'status'>) =>
-      dispatch({ type: 'book', booking: { ...booking, id: id(), status: 'booked' } }),
 
     /** Sends a message and applies whatever the agent is allowed to do with it. */
     ask: (agent: AgentId, text: string, lang: Lang) => {

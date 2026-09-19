@@ -16,6 +16,8 @@ import {
   type AuthAs,
 } from './client'
 import {
+  mockCancelBooking,
+  mockCreateBooking,
   mockCreateCheckIn,
   mockCreateExercise,
   mockCreateFoodEntry,
@@ -36,10 +38,14 @@ import {
   mockListWorkoutSessions,
   mockGetWorkoutSession,
   mockLapsedMembers,
+  mockListClasses,
+  mockListCoaches,
   mockListExercises,
   mockListFoodEntries,
   mockListMachines,
   mockListMembers,
+  mockListMyAttendance,
+  mockListMyBookings,
   mockListNutritionLogs,
   mockListPayments,
   mockListPlans,
@@ -59,9 +65,13 @@ import {
   mockWhatsappReminder,
 } from './mockAdapter'
 import type {
+  ApiAttendanceDay,
+  ApiBooking,
   ApiCheckIn,
+  ApiCoach,
   ApiExercise,
   ApiFoodEntry,
+  ApiGymClass,
   ApiLapsedMember,
   ApiMachine,
   ApiMember,
@@ -76,6 +86,7 @@ import type {
   ApiVideo,
   ApiWorkoutSession,
   ApiWorkoutSet,
+  CreateBookingInput,
   CreateExerciseInput,
   CreateFoodEntryInput,
   CreateMemberInput,
@@ -400,6 +411,51 @@ export async function listSharedPhotos(memberId: string): Promise<ApiProgressPho
   return apiFetch(`/members/${memberId}/shared-photos`)
 }
 
+// ---------------------------------------------------------------------
+// Phase 4 stage 6 — coaches, the class schedule, and a member's own
+// bookings/attendance. Coaches/classes are readable by any signed-in
+// role; bookings/attendance are member-scoped (authAs 'member').
+// ---------------------------------------------------------------------
+
+export async function listCoaches(): Promise<ApiCoach[]> {
+  if (!API_URL) return mockListCoaches()
+  return apiFetch('/coaches')
+}
+
+export async function listClasses(): Promise<ApiGymClass[]> {
+  if (!API_URL) return mockListClasses()
+  return apiFetch('/classes')
+}
+
+export async function listMyBookings(): Promise<ApiBooking[]> {
+  if (!API_URL) return mockListMyBookings()
+  return apiFetch('/members/me/bookings', { authAs: 'member' })
+}
+
+export async function createBooking(input: CreateBookingInput): Promise<ApiBooking> {
+  if (!API_URL) return mockCreateBooking(input)
+  return apiFetch('/members/me/bookings', {
+    method: 'POST',
+    body: input,
+    idempotencyKey: newIdempotencyKey(),
+    authAs: 'member',
+  })
+}
+
+export async function cancelBooking(bookingId: string): Promise<ApiBooking> {
+  if (!API_URL) return mockCancelBooking(bookingId)
+  return apiFetch(`/members/me/bookings/${bookingId}`, {
+    method: 'PATCH',
+    idempotencyKey: newIdempotencyKey(),
+    authAs: 'member',
+  })
+}
+
+export async function listMyAttendance(): Promise<ApiAttendanceDay[]> {
+  if (!API_URL) return mockListMyAttendance()
+  return apiFetch('/members/me/attendance', { authAs: 'member' })
+}
+
 export async function getActiveProgram(memberId: string): Promise<ApiProgram | null> {
   if (!API_URL) return mockGetActiveProgram(memberId)
   return apiFetch(`/members/${memberId}/programs/active`)
@@ -451,9 +507,10 @@ export async function getTodayWorkout(memberId: string): Promise<ApiTodayWorkout
 export async function listWorkoutSessions(
   memberId: string,
   limit = 5,
+  authAs: AuthAs = 'staff',
 ): Promise<ApiWorkoutSession[]> {
   if (!API_URL) return mockListWorkoutSessions(memberId, limit)
-  return apiFetch(`/members/${memberId}/workout-sessions?limit=${limit}`)
+  return apiFetch(`/members/${memberId}/workout-sessions?limit=${limit}`, { authAs })
 }
 
 /** Client-mints the session id up front (docs/DECISIONS.md) so the local

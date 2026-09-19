@@ -351,3 +351,46 @@ export interface ApiProgressPhoto {
   photo_key: string
   shared_with_coach: boolean
 }
+
+// ---------------------------------------------------------------------
+// Phase 4 stage 6 — coaches, the fixed class schedule, and a member's own
+// bookings/attendance. Mirrors app/api/booking.py. Coaches and classes
+// are readable by any authenticated caller; bookings and attendance are
+// member-scoped on the server (claims.subject_id), never a URL param.
+// ---------------------------------------------------------------------
+
+export interface ApiCoach {
+  id: string
+  name: { ar: string; en: string }
+  speciality: { ar: string; en: string }
+}
+
+export interface ApiGymClass {
+  id: string
+  title: { ar: string; en: string }
+  coach_id: string
+  /** 0 = Sunday, matching Date.getDay() */
+  weekdays: number[]
+  time: string
+  duration_min: number
+}
+
+export interface ApiBooking {
+  id: string
+  coach_id: string
+  date: string
+  time: string
+  kind: 'private' | 'intro'
+  status: 'booked' | 'cancelled' | 'done'
+}
+
+export interface CreateBookingInput {
+  coach_id: string
+  date: string
+  time: string
+  kind: 'private' | 'intro'
+}
+
+export interface ApiAttendanceDay {
+  date: string
+}
