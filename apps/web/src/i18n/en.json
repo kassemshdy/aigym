@@ -70,7 +70,8 @@
     "pendingSync": "{{count}} waiting to sync",
     "synced": "Everything saved",
     "loading": "Loading…",
-    "error": "Something went wrong"
+    "error": "Something went wrong",
+    "remove": "Remove"
   },
   "status": {
     "paid": "Paid",
@@ -251,6 +252,17 @@
       "rejected": "Rejected",
       "empty": "No new suggestions",
       "notice": "Nothing reaches the member until you approve it"
+    },
+    "videos": {
+      "title": "Video library",
+      "sub": "What members see in their app",
+      "list": "Videos",
+      "add": "Add a video",
+      "videoTitle": "Title",
+      "link": "YouTube link or video ID",
+      "duration": "Duration (seconds)",
+      "muscleGroup": "Muscle group",
+      "equipment": "Equipment"
     }
   },
   "member": {

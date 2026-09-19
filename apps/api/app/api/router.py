@@ -13,6 +13,7 @@ from app.api.plans import router as plans_router
 from app.api.programs import router as programs_router
 from app.api.sessions import router as sessions_router
 from app.api.staff import router as staff_router
+from app.api.videos import router as videos_router
 
 api_router = APIRouter()
 api_router.include_router(auth_router)
@@ -28,3 +29,4 @@ api_router.include_router(media_router)
 api_router.include_router(programs_router)
 api_router.include_router(sessions_router)
 api_router.include_router(nutrition_router)
+api_router.include_router(videos_router)

@@ -24,6 +24,7 @@ import { ManagerStaff } from '@/features/manager/Staff'
 import { StaffLogin } from '@/features/manager/Login'
 import { API_URL, isMemberSignedIn, isStaffSignedIn } from '@/data/client'
 import { MemberVideoDetail, MemberVideos } from '@/features/member/Videos'
+import { CoachVideos } from '@/features/coach/Videos'
 import { MemberProgress } from '@/features/member/Progress'
 import { MemberProfile } from '@/features/member/Profile'
 
@@ -89,6 +90,7 @@ export default function App() {
           <Route path="member/:id" element={<CoachMemberCard />} />
           <Route path="session/:id" element={<CoachSession />} />
           <Route path="ai" element={<CoachAiDrafts />} />
+          <Route path="videos" element={<CoachVideos />} />
           <Route path="programs/:memberId" element={<ProgramEditor />} />
         </Route>
 

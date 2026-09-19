@@ -17,6 +17,7 @@ const SCREENS = [
   ['coach-card', '/coach/member/m1', 'ipad'],
   ['coach-session', '/coach/session/m1', 'ipad'],
   ['coach-ai', '/coach/ai', 'ipad'],
+  ['coach-videos', '/coach/videos', 'ipad'],
   ['program-editor', '/coach/programs/m1', 'ipad'],
   ['member-today', '/member', 'phone'],
   ['member-calendar', '/member/calendar', 'phone'],
@@ -45,6 +46,7 @@ const SCREENS = [
   ],
   ['member-photos', '/member/photos', 'phone'],
   ['member-videos', '/member/videos', 'phone'],
+  ['member-video-detail', '/member/videos/v1', 'phone'],
   ['member-progress', '/member/progress', 'phone'],
 ]
 
@@ -115,8 +117,13 @@ for (const lang of ['en', 'ar']) {
 
 await browser.close()
 
-// External thumbnails are expected to fail where the network is restricted.
-const real = errors.filter((e) => !/img\.youtube\.com|ERR_|net::/.test(e))
+// External thumbnails and the video-detail iframe are expected to fail where
+// the network is restricted — a blocked youtube-nocookie.com load renders
+// Chromium's own network-error page inside the iframe, and that page's
+// opaque origin throws when touched, not our code.
+const real = errors.filter(
+  (e) => !/img\.youtube\.com|ERR_|net::|Access is denied for this document/.test(e),
+)
 console.log(
   real.length
     ? `PROBLEMS:\n${real.join('\n')}`

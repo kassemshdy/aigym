@@ -17,7 +17,7 @@ const MEMBER_REFRESH_TOKEN_KEY = 'aigym.member.refreshToken'
  * three logins, so a manager demoing the member app must not sign the
  * manager out of it, and vice versa. Every call below defaults to
  * 'staff' so the many existing no-argument call sites are unaffected. */
-type AuthAs = 'staff' | 'member'
+export type AuthAs = 'staff' | 'member'
 
 function tokenKeys(authAs: AuthAs) {
   return authAs === 'member'

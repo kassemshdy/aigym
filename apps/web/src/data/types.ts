@@ -135,6 +135,38 @@ export interface ApiMachine {
   area: string
 }
 
+// ---------------------------------------------------------------------
+// Phase 4 stage 3 — the member video library. Mirrors app/api/videos.py.
+// ---------------------------------------------------------------------
+
+export interface ApiVideo {
+  id: string
+  title: { ar: string; en: string }
+  provider: string
+  external_id: string
+  muscle_group: string
+  equipment: string
+  seconds: number
+  view_count: number
+  active: boolean
+}
+
+export interface CreateVideoInput {
+  title: { ar: string; en: string }
+  provider: string
+  external_id: string
+  muscle_group: string
+  equipment: string
+  seconds: number
+}
+
+export interface UpdateVideoInput {
+  title?: { ar: string; en: string }
+  muscle_group?: string
+  equipment?: string
+  active?: boolean
+}
+
 export interface ApiProgramExercise {
   id: string
   exercise_id: string

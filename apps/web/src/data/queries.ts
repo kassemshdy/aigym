@@ -5,7 +5,15 @@
  * calls the live API or the mock adapter; the shape returned is identical
  * either way (src/data/types.ts).
  */
-import { API_URL, apiFetch, clearTokens, newIdempotencyKey, offlineFetch, setTokens } from './client'
+import {
+  API_URL,
+  apiFetch,
+  clearTokens,
+  newIdempotencyKey,
+  offlineFetch,
+  setTokens,
+  type AuthAs,
+} from './client'
 import {
   mockCreateCheckIn,
   mockCreateExercise,
@@ -13,11 +21,13 @@ import {
   mockCreateNutritionLog,
   mockCreateProgram,
   mockCreateStaff,
+  mockCreateVideo,
   mockCreateWorkoutSession,
   mockFinishWorkoutSession,
   mockGetActiveProgram,
   mockGetMember,
   mockGetTodayWorkout,
+  mockGetVideo,
   mockListWorkoutSessions,
   mockGetWorkoutSession,
   mockLapsedMembers,
@@ -29,12 +39,14 @@ import {
   mockListPlans,
   mockListStaff,
   mockListTodaysCheckIns,
+  mockListVideos,
   mockLogSet,
   mockRecordPayment,
   mockReplaceProgramExercises,
   mockUpdateCheckInStatus,
   mockUpdateExercise,
   mockUpdateProgram,
+  mockUpdateVideo,
   mockWhatsappReminder,
 } from './mockAdapter'
 import type {
@@ -50,6 +62,7 @@ import type {
   ApiProgram,
   ApiStaff,
   ApiTodayWorkout,
+  ApiVideo,
   ApiWorkoutSession,
   ApiWorkoutSet,
   CreateExerciseInput,
@@ -57,6 +70,7 @@ import type {
   CreateNutritionLogInput,
   CreateProgramInput,
   CreateStaffInput,
+  CreateVideoInput,
   CreateWorkoutSessionInput,
   FinishWorkoutSessionInput,
   LogSetInput,
@@ -66,6 +80,7 @@ import type {
   TokenPair,
   UpdateExerciseInput,
   UpdateProgramInput,
+  UpdateVideoInput,
 } from './types'
 
 export async function listMembers(): Promise<ApiMember[]> {
@@ -243,6 +258,35 @@ export async function updateExercise(
 export async function listMachines(): Promise<ApiMachine[]> {
   if (!API_URL) return mockListMachines()
   return apiFetch('/machines')
+}
+
+// ---------------------------------------------------------------------
+// Phase 4 stage 3 — the video library. Readable by staff and members
+// alike (pass authAs to match the caller), writable by staff only.
+// ---------------------------------------------------------------------
+
+export async function listVideos(authAs: AuthAs = 'staff'): Promise<ApiVideo[]> {
+  if (!API_URL) return mockListVideos()
+  return apiFetch('/videos', { authAs })
+}
+
+export async function getVideo(videoId: string, authAs: AuthAs = 'staff'): Promise<ApiVideo> {
+  if (!API_URL) return mockGetVideo(videoId)
+  return apiFetch(`/videos/${videoId}`, { authAs })
+}
+
+export async function createVideo(input: CreateVideoInput): Promise<ApiVideo> {
+  if (!API_URL) return mockCreateVideo(input)
+  return apiFetch('/videos', { method: 'POST', body: input, idempotencyKey: newIdempotencyKey() })
+}
+
+export async function updateVideo(videoId: string, input: UpdateVideoInput): Promise<ApiVideo> {
+  if (!API_URL) return mockUpdateVideo(videoId, input)
+  return apiFetch(`/videos/${videoId}`, {
+    method: 'PATCH',
+    body: input,
+    idempotencyKey: newIdempotencyKey(),
+  })
 }
 
 export async function getActiveProgram(memberId: string): Promise<ApiProgram | null> {

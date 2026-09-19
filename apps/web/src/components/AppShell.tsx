@@ -23,6 +23,7 @@ const TABS: Record<string, (t: (k: string) => string) => Tab[]> = {
   coach: (t) => [
     { to: '/coach', icon: 'users', label: t('nav.queue') },
     { to: '/coach/ai', icon: 'spark', label: t('nav.ai'), tour: 'nav-ai' },
+    { to: '/coach/videos', icon: 'play', label: t('nav.videos') },
   ],
   member: (t) => [
     { to: '/member', icon: 'dumbbell', label: t('nav.workout') },

@@ -17,6 +17,7 @@ import {
   nutrition as seedNutrition,
   payments as seedPayments,
   plans,
+  videos as seedVideos,
 } from '@/mocks/data'
 import type {
   CheckIn as MockCheckIn,
@@ -38,6 +39,7 @@ import type {
   ApiProgram,
   ApiStaff,
   ApiTodayWorkout,
+  ApiVideo,
   ApiWorkoutSession,
   ApiWorkoutSet,
   CreateExerciseInput,
@@ -45,6 +47,7 @@ import type {
   CreateNutritionLogInput,
   CreateProgramInput,
   CreateStaffInput,
+  CreateVideoInput,
   CreateWorkoutSessionInput,
   FinishWorkoutSessionInput,
   LogSetInput,
@@ -52,6 +55,7 @@ import type {
   RecordPaymentInput,
   UpdateExerciseInput,
   UpdateProgramInput,
+  UpdateVideoInput,
 } from './types'
 
 let mockMembers: MockMember[] = seedMembers.map((m) => ({ ...m }))
@@ -334,6 +338,60 @@ export function mockUpdateExercise(exerciseId: string, input: UpdateExerciseInpu
 
 export function mockListMachines(): ApiMachine[] {
   return seedMachines.map((m) => ({ id: m.id, name: toBilingual(m.name), area: m.area }))
+}
+
+let mockVideos: ApiVideo[] = seedVideos.map((v) => ({
+  id: v.id,
+  title: v.title,
+  provider: v.provider,
+  external_id: v.externalId,
+  muscle_group: v.muscle,
+  equipment: v.equipment,
+  seconds: v.seconds,
+  view_count: v.views,
+  active: true,
+}))
+
+export function mockListVideos(): ApiVideo[] {
+  return mockVideos.filter((v) => v.active)
+}
+
+export function mockGetVideo(videoId: string): ApiVideo {
+  const existing = mockVideos.find((v) => v.id === videoId)
+  if (!existing) throw new Error('Video not found')
+  const updated: ApiVideo = { ...existing, view_count: existing.view_count + 1 }
+  mockVideos = mockVideos.map((v) => (v.id === videoId ? updated : v))
+  return updated
+}
+
+export function mockCreateVideo(input: CreateVideoInput): ApiVideo {
+  const video: ApiVideo = {
+    id: newId(),
+    title: input.title,
+    provider: input.provider,
+    external_id: input.external_id,
+    muscle_group: input.muscle_group,
+    equipment: input.equipment,
+    seconds: input.seconds,
+    view_count: 0,
+    active: true,
+  }
+  mockVideos = [...mockVideos, video]
+  return video
+}
+
+export function mockUpdateVideo(videoId: string, input: UpdateVideoInput): ApiVideo {
+  const existing = mockVideos.find((v) => v.id === videoId)
+  if (!existing) throw new Error('Video not found')
+  const updated: ApiVideo = {
+    ...existing,
+    title: input.title ?? existing.title,
+    muscle_group: input.muscle_group ?? existing.muscle_group,
+    equipment: input.equipment ?? existing.equipment,
+    active: input.active ?? existing.active,
+  }
+  mockVideos = mockVideos.map((v) => (v.id === videoId ? updated : v))
+  return updated
 }
 
 export function mockGetActiveProgram(memberId: string): ApiProgram | null {
