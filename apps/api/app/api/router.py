@@ -12,6 +12,7 @@ from app.api.onboarding import router as onboarding_router
 from app.api.payments import router as payments_router
 from app.api.plans import router as plans_router
 from app.api.programs import router as programs_router
+from app.api.progress_photos import router as progress_photos_router
 from app.api.sessions import router as sessions_router
 from app.api.staff import router as staff_router
 from app.api.videos import router as videos_router
@@ -32,3 +33,4 @@ api_router.include_router(sessions_router)
 api_router.include_router(nutrition_router)
 api_router.include_router(videos_router)
 api_router.include_router(food_entries_router)
+api_router.include_router(progress_photos_router)

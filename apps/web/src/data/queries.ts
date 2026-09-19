@@ -22,10 +22,12 @@ import {
   mockCreateMember,
   mockCreateNutritionLog,
   mockCreateProgram,
+  mockCreateProgressPhoto,
   mockCreateStaff,
   mockCreateVideo,
   mockCreateWorkoutSession,
   mockDeleteFoodEntry,
+  mockDeleteProgressPhoto,
   mockFinishWorkoutSession,
   mockGetActiveProgram,
   mockGetMember,
@@ -41,6 +43,8 @@ import {
   mockListNutritionLogs,
   mockListPayments,
   mockListPlans,
+  mockListProgressPhotos,
+  mockListSharedPhotos,
   mockListStaff,
   mockListTodaysCheckIns,
   mockListVideos,
@@ -50,6 +54,7 @@ import {
   mockUpdateCheckInStatus,
   mockUpdateExercise,
   mockUpdateProgram,
+  mockUpdateProgressPhoto,
   mockUpdateVideo,
   mockWhatsappReminder,
 } from './mockAdapter'
@@ -65,6 +70,7 @@ import type {
   ApiPayment,
   ApiPlan,
   ApiProgram,
+  ApiProgressPhoto,
   ApiStaff,
   ApiTodayWorkout,
   ApiVideo,
@@ -333,6 +339,65 @@ export async function uploadFoodPhoto(file: File, dataUrl: string): Promise<stri
   if (!API_URL) return dataUrl
   const result = await uploadMedia(file, 'member')
   return result.key
+}
+
+// ---------------------------------------------------------------------
+// Phase 4 stage 5 — a member's own progress photos (decision 11). Member-
+// scoped writes (authAs 'member'); the one staff-facing read below is
+// intentionally separate and stays on the default 'staff' auth.
+// ---------------------------------------------------------------------
+
+export async function listProgressPhotos(): Promise<ApiProgressPhoto[]> {
+  if (!API_URL) return mockListProgressPhotos()
+  return apiFetch('/members/me/progress-photos', { authAs: 'member' })
+}
+
+/** Same reasoning as uploadFoodPhoto: `dataUrl` stands in for a real
+ * storage key in mock mode. */
+export async function uploadProgressPhoto(file: File, dataUrl: string): Promise<string> {
+  if (!API_URL) return dataUrl
+  const result = await uploadMedia(file, 'member')
+  return result.key
+}
+
+export async function createProgressPhoto(photoKey: string): Promise<ApiProgressPhoto> {
+  if (!API_URL) return mockCreateProgressPhoto(photoKey)
+  return apiFetch('/members/me/progress-photos', {
+    method: 'POST',
+    body: { photo_key: photoKey },
+    idempotencyKey: newIdempotencyKey(),
+    authAs: 'member',
+  })
+}
+
+export async function setProgressPhotoShared(
+  photoId: string,
+  sharedWithCoach: boolean,
+): Promise<ApiProgressPhoto> {
+  if (!API_URL) return mockUpdateProgressPhoto(photoId, sharedWithCoach)
+  return apiFetch(`/members/me/progress-photos/${photoId}`, {
+    method: 'PATCH',
+    body: { shared_with_coach: sharedWithCoach },
+    idempotencyKey: newIdempotencyKey(),
+    authAs: 'member',
+  })
+}
+
+export async function deleteProgressPhoto(photoId: string): Promise<void> {
+  if (!API_URL) return mockDeleteProgressPhoto(photoId)
+  await apiFetch(`/members/me/progress-photos/${photoId}`, {
+    method: 'DELETE',
+    idempotencyKey: newIdempotencyKey(),
+    authAs: 'member',
+  })
+}
+
+/** The one staff-facing read of this data — only ever rows the member
+ * explicitly shared (decision 11), enforced server-side. Staff-scoped
+ * (default authAs), unlike everything else in this section. */
+export async function listSharedPhotos(memberId: string): Promise<ApiProgressPhoto[]> {
+  if (!API_URL) return mockListSharedPhotos()
+  return apiFetch(`/members/${memberId}/shared-photos`)
 }
 
 export async function getActiveProgram(memberId: string): Promise<ApiProgram | null> {

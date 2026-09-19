@@ -336,3 +336,18 @@ export interface CreateFoodEntryInput {
 export interface MediaUploadResult {
   key: string
 }
+
+// ---------------------------------------------------------------------
+// Phase 4 stage 5 — a member's own progress photos (decision 11). Mirrors
+// app/api/progress_photos.py. Member-scoped writes use claims.subject_id
+// on the server, never a member id in the URL; the one staff-facing read
+// (GET /members/{id}/shared-photos) only ever returns shared_with_coach
+// rows — enforced server-side, not a UI filter.
+// ---------------------------------------------------------------------
+
+export interface ApiProgressPhoto {
+  id: string
+  at: string
+  photo_key: string
+  shared_with_coach: boolean
+}

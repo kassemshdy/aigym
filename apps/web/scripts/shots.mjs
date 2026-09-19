@@ -9,6 +9,16 @@ const SCREENS = [
   ['manager-home', '/manager', 'phone'],
   ['manager-members', '/manager/members', 'phone'],
   ['manager-member', '/manager/members/m1', 'phone'],
+  [
+    'manager-member-shared-photos',
+    '/manager/members/m1',
+    'phone',
+    // Language-agnostic: this same prepare fn runs once per lang in the loop below.
+    async (page) => {
+      await page.getByText(/^(View|عرض)$/).click()
+      await page.waitForTimeout(200)
+    },
+  ],
   ['manager-add', '/manager/members/new', 'phone'],
   ['manager-lapsed', '/manager/lapsed', 'phone'],
   ['manager-staff', '/manager/staff', 'phone'],

@@ -398,6 +398,12 @@
     "unshare": "Stop sharing",
     "delete": "Delete"
   },
+  "sharedPhotos": {
+    "title": "Shared photos",
+    "view": "View",
+    "hide": "Hide",
+    "empty": "Nothing shared yet"
+  },
   "calendar": {
     "title": "My calendar",
     "today": "Today",

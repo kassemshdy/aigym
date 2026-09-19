@@ -25,6 +25,7 @@ import type {
 import type { Lang } from '@/i18n'
 import { listSep, shortDate, text } from '@/lib/format'
 import { cn } from '@/lib/cn'
+import { SharedPhotos } from '@/features/photos/SharedPhotos'
 
 const BANDS = ['low', 'ok', 'high', 'unknown'] as const
 
@@ -290,6 +291,8 @@ function MemberCardBody({
           </>
         )}
       </Card>
+
+      <SharedPhotos memberId={memberId} />
 
       {today.exercises.length > 0 ? (
         <Link to={`/coach/session/${memberId}`} className={buttonClass('brand', 'lg', true)}>

@@ -1,7 +1,7 @@
 import { createContext, useContext, useMemo, useReducer, type ReactNode } from 'react'
 import { replyTo } from '@/mocks/agents'
 import { bookings as seedBookings } from '@/mocks/data'
-import type { AgentId, Booking, ChatMessage, FoodEntry, ProgressPhoto, SupplementId } from '@/mocks/types'
+import type { AgentId, Booking, ChatMessage, FoodEntry, SupplementId } from '@/mocks/types'
 import type { Lang } from '@/i18n'
 
 /**
@@ -12,7 +12,6 @@ import type { Lang } from '@/i18n'
 
 interface State {
   food: FoodEntry[]
-  photos: ProgressPhoto[]
   chats: Record<AgentId, ChatMessage[]>
   /** Suggestions the agents escalated to the coach instead of acting on. */
   draftsSent: number
@@ -25,9 +24,6 @@ interface State {
 type Action =
   | { type: 'addFood'; entry: FoodEntry }
   | { type: 'removeFood'; id: string }
-  | { type: 'addPhoto'; photo: ProgressPhoto }
-  | { type: 'setPhotoShared'; id: string; shared: boolean }
-  | { type: 'removePhoto'; id: string }
   | { type: 'chat'; agent: AgentId; messages: ChatMessage[]; draft?: boolean }
   | { type: 'water'; delta: number }
   | { type: 'supplement'; id: SupplementId }
@@ -42,7 +38,6 @@ const initial: State = {
   food: [
     { id: 'f1', at: '08:20', label: { ar: 'بيض مع خبز', en: 'Eggs with bread' }, kcal: 340, protein: 22, carbs: 34, fat: 12, source: 'manual' },
   ],
-  photos: [],
   chats: { nutrition: [], training: [] },
   draftsSent: 0,
   water: 3,
@@ -56,17 +51,6 @@ function reducer(state: State, action: Action): State {
       return { ...state, food: [...state.food, action.entry] }
     case 'removeFood':
       return { ...state, food: state.food.filter((f) => f.id !== action.id) }
-    case 'addPhoto':
-      return { ...state, photos: [action.photo, ...state.photos] }
-    case 'setPhotoShared':
-      return {
-        ...state,
-        photos: state.photos.map((p) =>
-          p.id === action.id ? { ...p, sharedWithCoach: action.shared } : p,
-        ),
-      }
-    case 'removePhoto':
-      return { ...state, photos: state.photos.filter((p) => p.id !== action.id) }
     case 'chat':
       return {
         ...state,
@@ -95,18 +79,6 @@ function makeActions(dispatch: (a: Action) => void) {
       dispatch({ type: 'addFood', entry: { ...entry, id: id(), at: now() } }),
 
     removeFood: (foodId: string) => dispatch({ type: 'removeFood', id: foodId }),
-
-    addPhoto: (url: string) =>
-      dispatch({
-        type: 'addPhoto',
-        // Private by default. Sharing is always a separate, deliberate act.
-        photo: { id: id(), at: new Date().toISOString(), url, sharedWithCoach: false },
-      }),
-
-    setPhotoShared: (photoId: string, shared: boolean) =>
-      dispatch({ type: 'setPhotoShared', id: photoId, shared }),
-
-    removePhoto: (photoId: string) => dispatch({ type: 'removePhoto', id: photoId }),
 
     addWater: (delta: number) => dispatch({ type: 'water', delta }),
 

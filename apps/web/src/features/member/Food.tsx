@@ -9,6 +9,7 @@ import { Empty, Page } from '@/components/ui/Page'
 import { useStore } from '@/state/store'
 import { createFoodEntry, deleteFoodEntry, listFoodEntries, uploadFoodPhoto } from '@/data/queries'
 import { useAsync } from '@/data/useAsync'
+import { useMediaUrl } from '@/data/useMediaUrl'
 import type { ApiFoodEntry } from '@/data/types'
 import { hhmm } from '@/lib/format'
 import type { Lang } from '@/i18n'
@@ -351,12 +352,7 @@ export function MemberFood() {
 function FoodRow({ entry, onRemove }: { entry: ApiFoodEntry; onRemove: () => void }) {
   const { t } = useTranslation()
   const sourceKey = { photo: 'sourcePhoto', manual: 'sourceManual', agent: 'sourceAgent' } as const
-  // Mock mode's photo_key is the FileReader data URL itself (there's no
-  // real object store to fetch it back from); real API mode only ever
-  // hands back an opaque storage key, which isn't a usable <img> src on
-  // its own, so those rows fall back to the same placeholder as a manual
-  // entry — fetching it back through GET /media/{key} is a later pass.
-  const thumb = entry.photo_key?.startsWith('data:') ? entry.photo_key : null
+  const thumb = useMediaUrl(entry.photo_key, 'member')
 
   return (
     <li className="border-line flex items-center gap-3 border-b px-4 py-3 last:border-0">

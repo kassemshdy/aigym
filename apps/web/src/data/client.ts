@@ -224,6 +224,29 @@ export async function uploadMedia(
   return (await response.json()) as MediaUploadResult
 }
 
+/** The read half of the upload above — GET /media/{key} needs the same
+ * bearer token as everything else, so a plain `<img src>` can't fetch it.
+ * Callers turn the blob into an object URL and revoke it when done. */
+export async function fetchMedia(key: string, authAs: AuthAs = 'staff'): Promise<Blob> {
+  if (!API_URL) {
+    throw new Error('fetchMedia called without VITE_API_URL set — this should never happen')
+  }
+
+  const request = () => {
+    const headers: Record<string, string> = {}
+    const token = getAccessToken(authAs)
+    if (token) headers.Authorization = `Bearer ${token}`
+    return fetch(`${API_URL}/media/${key}`, { headers })
+  }
+
+  let response = await request()
+  if (response.status === 401 && getRefreshToken(authAs) && (await refreshTokens(authAs))) {
+    response = await request()
+  }
+  if (!response.ok) throw new ApiError(response.status, response.statusText)
+  return response.blob()
+}
+
 /**
  * The floor-write path (workout sessions/sets, nutrition logs, check-in
  * status — see docs/DECISIONS.md): tries the network first and returns the

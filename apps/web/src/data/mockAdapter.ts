@@ -38,6 +38,7 @@ import type {
   ApiPayment,
   ApiPlan,
   ApiProgram,
+  ApiProgressPhoto,
   ApiStaff,
   ApiTodayWorkout,
   ApiVideo,
@@ -661,4 +662,44 @@ export function mockCreateFoodEntry(input: CreateFoodEntryInput): ApiFoodEntry {
 
 export function mockDeleteFoodEntry(entryId: string): void {
   mockFoodEntries = mockFoodEntries.filter((f) => f.id !== entryId)
+}
+
+// ---------------------------------------------------------------------
+// Phase 4 stage 5 — a member's own progress photos (decision 11). No
+// per-member scoping in mock mode (there's only ever one signed-in
+// member), matching mockFoodEntries. photo_key holds the raw data URL,
+// same reasoning as mockCreateFoodEntry.
+// ---------------------------------------------------------------------
+
+let mockProgressPhotos: ApiProgressPhoto[] = []
+
+export function mockListProgressPhotos(): ApiProgressPhoto[] {
+  return mockProgressPhotos
+}
+
+export function mockCreateProgressPhoto(photoKey: string): ApiProgressPhoto {
+  const photo: ApiProgressPhoto = {
+    id: newId(),
+    at: new Date().toISOString(),
+    photo_key: photoKey,
+    shared_with_coach: false,
+  }
+  mockProgressPhotos = [photo, ...mockProgressPhotos]
+  return photo
+}
+
+export function mockUpdateProgressPhoto(photoId: string, sharedWithCoach: boolean): ApiProgressPhoto {
+  const existing = mockProgressPhotos.find((p) => p.id === photoId)
+  if (!existing) throw new Error('Progress photo not found')
+  const updated: ApiProgressPhoto = { ...existing, shared_with_coach: sharedWithCoach }
+  mockProgressPhotos = mockProgressPhotos.map((p) => (p.id === photoId ? updated : p))
+  return updated
+}
+
+export function mockDeleteProgressPhoto(photoId: string): void {
+  mockProgressPhotos = mockProgressPhotos.filter((p) => p.id !== photoId)
+}
+
+export function mockListSharedPhotos(): ApiProgressPhoto[] {
+  return mockProgressPhotos.filter((p) => p.shared_with_coach)
 }
