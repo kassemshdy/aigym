@@ -22,16 +22,17 @@ import { MemberBook } from '@/features/member/Book'
 import { ManagerLapsed } from '@/features/manager/Lapsed'
 import { ManagerStaff } from '@/features/manager/Staff'
 import { StaffLogin } from '@/features/manager/Login'
-import { useStore } from '@/state/store'
-import { API_URL, isStaffSignedIn } from '@/data/client'
+import { API_URL, isMemberSignedIn, isStaffSignedIn } from '@/data/client'
 import { MemberVideoDetail, MemberVideos } from '@/features/member/Videos'
 import { MemberProgress } from '@/features/member/Progress'
 import { MemberProfile } from '@/features/member/Profile'
 
-/** Member screens hold personal data; coach gets real auth in Phase 3. */
+/** Same shape as RequireStaff below, now that member login is real
+ * (decision 13/28) instead of a `state.signedIn` boolean: with no API
+ * configured, mock mode never gates member routes either — same Phase 1
+ * behavior `main` has always had for staff. */
 function RequireMember({ children }: { children: React.ReactNode }) {
-  const { state } = useStore()
-  if (!state.signedIn) return <Navigate to="/login" replace />
+  if (API_URL && !isMemberSignedIn()) return <Navigate to="/login" replace />
   return <>{children}</>
 }
 

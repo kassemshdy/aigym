@@ -5,7 +5,7 @@
  * calls the live API or the mock adapter; the shape returned is identical
  * either way (src/data/types.ts).
  */
-import { API_URL, apiFetch, newIdempotencyKey, offlineFetch, setTokens } from './client'
+import { API_URL, apiFetch, clearTokens, newIdempotencyKey, offlineFetch, setTokens } from './client'
 import {
   mockCreateCheckIn,
   mockCreateExercise,
@@ -181,6 +181,36 @@ export async function requestStaffPasswordReset(
 }
 
 export { clearTokens as staffSignOut, getStaffRole, isStaffSignedIn } from './client'
+
+// ---------------------------------------------------------------------
+// Phase 4 — member self-service auth (decision 13, decision 28). Mock
+// mode keeps today's tap-through behavior — see RequireMember in App.tsx
+// — these only do anything real once API_URL is set.
+// ---------------------------------------------------------------------
+
+/** Always resolves — the endpoint itself never reveals whether `phone`
+ * matched a member (see app/api/auth.py's request_own_member_code), so
+ * there's nothing meaningful to branch on here either. */
+export async function requestMemberCode(phone: string): Promise<void> {
+  if (!API_URL) return
+  await apiFetch('/auth/member/code', { method: 'POST', body: { phone } })
+}
+
+export async function memberLogin(phone: string, code: string): Promise<void> {
+  if (!API_URL) return
+  const tokens = await apiFetch<TokenPair>('/auth/member/login', {
+    method: 'POST',
+    body: { phone, code },
+    authAs: 'member',
+  })
+  setTokens(tokens, 'member')
+}
+
+export function memberSignOut() {
+  clearTokens('member')
+}
+
+export { getCurrentMemberId, isMemberSignedIn } from './client'
 
 // ---------------------------------------------------------------------
 // Phase 3 — the floor. Coach and manager share one staff data layer

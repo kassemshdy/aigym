@@ -4,23 +4,53 @@ import { useTranslation } from 'react-i18next'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Field, Input } from '@/components/ui/Field'
-import { useStore } from '@/state/store'
 import { gym } from '@/mocks/data'
+import { memberLogin, requestMemberCode } from '@/data/queries'
+import { API_URL, ApiError } from '@/data/client'
 import type { Lang } from '@/i18n'
 
 /**
  * Phone + code, no email: most gym members here do not use email, and a password is one
- * more thing to forget at the door. Phase 4 wires this to a real OTP over WhatsApp.
+ * more thing to forget at the door (decision 13). With no API configured, mock mode keeps
+ * the old tap-through demo behavior — RequireMember in App.tsx doesn't gate on API_URL
+ * being unset, same as staff.
  */
 export function MemberLogin() {
   const { t, i18n } = useTranslation()
   const lang = i18n.language as Lang
   const navigate = useNavigate()
-  const { actions } = useStore()
 
   const [phone, setPhone] = useState('')
   const [code, setCode] = useState('')
   const [sent, setSent] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(false)
+
+  async function sendCode() {
+    setBusy(true)
+    setError(false)
+    try {
+      await requestMemberCode(phone)
+      setSent(true)
+    } catch {
+      setError(true)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function enter() {
+    setBusy(true)
+    setError(false)
+    try {
+      await memberLogin(phone, code)
+      navigate('/member')
+    } catch (err) {
+      setError(err instanceof ApiError ? err.status === 401 : true)
+    } finally {
+      setBusy(false)
+    }
+  }
 
   return (
     <div className="bg-chrome relative min-h-full overflow-hidden">
@@ -54,13 +84,19 @@ export function MemberLogin() {
           />
         </Field>
 
+        {error ? (
+          <p className="bg-ink rounded-xl px-4 py-3 text-sm font-semibold text-white">
+            {t(sent ? 'login.errorCode' : 'login.error')}
+          </p>
+        ) : null}
+
         {!sent ? (
           <Button
             variant="brand"
             full
             size="lg"
-            disabled={phone.trim().length < 6}
-            onClick={() => setSent(true)}
+            disabled={busy || phone.trim().length < 6}
+            onClick={() => void sendCode()}
           >
             {t('login.sendCode')}
           </Button>
@@ -83,15 +119,14 @@ export function MemberLogin() {
               variant="brand"
               full
               size="lg"
-              disabled={code.trim().length < 4}
-              onClick={() => {
-                actions.signIn()
-                navigate('/member')
-              }}
+              disabled={busy || code.trim().length < 4}
+              onClick={() => void enter()}
             >
               {t('login.enter')}
             </Button>
-            <p className="text-muted text-center text-xs">{t('login.demo')}</p>
+            {!API_URL ? (
+              <p className="text-muted text-center text-xs">{t('login.demo')}</p>
+            ) : null}
           </>
         )}
         </Card>

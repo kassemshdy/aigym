@@ -11,7 +11,6 @@ import type { Lang } from '@/i18n'
  */
 
 interface State {
-  signedIn: boolean
   food: FoodEntry[]
   photos: ProgressPhoto[]
   chats: Record<AgentId, ChatMessage[]>
@@ -24,8 +23,6 @@ interface State {
 }
 
 type Action =
-  | { type: 'signIn' }
-  | { type: 'signOut' }
   | { type: 'addFood'; entry: FoodEntry }
   | { type: 'removeFood'; id: string }
   | { type: 'addPhoto'; photo: ProgressPhoto }
@@ -41,16 +38,7 @@ const now = () =>
 
 const id = () => Math.random().toString(36).slice(2, 10)
 
-const SIGNED_IN_KEY = 'aigym.signedIn'
-
 const initial: State = {
-  signedIn: (() => {
-    try {
-      return localStorage.getItem(SIGNED_IN_KEY) === '1'
-    } catch {
-      return false
-    }
-  })(),
   food: [
     { id: 'f1', at: '08:20', label: { ar: 'بيض مع خبز', en: 'Eggs with bread' }, kcal: 340, protein: 22, carbs: 34, fat: 12, source: 'manual' },
   ],
@@ -62,23 +50,8 @@ const initial: State = {
   bookings: seedBookings,
 }
 
-function persistSignedIn(value: boolean) {
-  try {
-    if (value) localStorage.setItem(SIGNED_IN_KEY, '1')
-    else localStorage.removeItem(SIGNED_IN_KEY)
-  } catch {
-    /* private mode — the session just won't survive a reload */
-  }
-}
-
 function reducer(state: State, action: Action): State {
   switch (action.type) {
-    case 'signIn':
-      persistSignedIn(true)
-      return { ...state, signedIn: true }
-    case 'signOut':
-      persistSignedIn(false)
-      return { ...state, signedIn: false }
     case 'addFood':
       return { ...state, food: [...state.food, action.entry] }
     case 'removeFood':
@@ -118,9 +91,6 @@ const Ctx = createContext<{ state: State; actions: ReturnType<typeof makeActions
 
 function makeActions(dispatch: (a: Action) => void) {
   return {
-    signIn: () => dispatch({ type: 'signIn' }),
-    signOut: () => dispatch({ type: 'signOut' }),
-
     logFood: (entry: Omit<FoodEntry, 'id' | 'at'>) =>
       dispatch({ type: 'addFood', entry: { ...entry, id: id(), at: now() } }),
 

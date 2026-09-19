@@ -7,7 +7,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import { Row } from '@/components/ui/Field'
 import { Empty, Page } from '@/components/ui/Page'
 import { currentMemberId, findMember, findPlan, gym, memberName } from '@/mocks/data'
-import { useStore } from '@/state/store'
+import { memberSignOut } from '@/data/queries'
 import { listSep, shortDate, text, usd } from '@/lib/format'
 import type { Lang } from '@/i18n'
 
@@ -16,7 +16,6 @@ export function MemberProfile() {
   const lang = i18n.language as Lang
   const me = findMember(currentMemberId)
   const navigate = useNavigate()
-  const { actions } = useStore()
 
   if (!me) return <Page><Empty>{t('common.none')}</Empty></Page>
 
@@ -68,7 +67,7 @@ export function MemberProfile() {
         size="lg"
         full
         onClick={() => {
-          actions.signOut()
+          memberSignOut()
           navigate('/login')
         }}
       >

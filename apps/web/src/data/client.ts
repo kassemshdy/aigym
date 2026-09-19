@@ -8,6 +8,22 @@ export const API_URL = import.meta.env.VITE_API_URL
 
 const ACCESS_TOKEN_KEY = 'aigym.staff.accessToken'
 const REFRESH_TOKEN_KEY = 'aigym.staff.refreshToken'
+const MEMBER_ACCESS_TOKEN_KEY = 'aigym.member.accessToken'
+const MEMBER_REFRESH_TOKEN_KEY = 'aigym.member.refreshToken'
+
+/** Staff and member are separate, independently-signed-in token pairs —
+ * not a union of one "current user." The prototype's role switcher lets
+ * the same browser tab view manager, coach, and member surfaces without
+ * three logins, so a manager demoing the member app must not sign the
+ * manager out of it, and vice versa. Every call below defaults to
+ * 'staff' so the many existing no-argument call sites are unaffected. */
+type AuthAs = 'staff' | 'member'
+
+function tokenKeys(authAs: AuthAs) {
+  return authAs === 'member'
+    ? { access: MEMBER_ACCESS_TOKEN_KEY, refresh: MEMBER_REFRESH_TOKEN_KEY }
+    : { access: ACCESS_TOKEN_KEY, refresh: REFRESH_TOKEN_KEY }
+}
 
 function readStorage(key: string): string | null {
   try {
@@ -26,45 +42,66 @@ function writeStorage(key: string, value: string | null) {
   }
 }
 
-export function getAccessToken() {
-  return readStorage(ACCESS_TOKEN_KEY)
+export function getAccessToken(authAs: AuthAs = 'staff') {
+  return readStorage(tokenKeys(authAs).access)
 }
 
-function getRefreshToken() {
-  return readStorage(REFRESH_TOKEN_KEY)
+function getRefreshToken(authAs: AuthAs = 'staff') {
+  return readStorage(tokenKeys(authAs).refresh)
 }
 
-export function setTokens(tokens: TokenPair) {
-  writeStorage(ACCESS_TOKEN_KEY, tokens.access_token)
-  writeStorage(REFRESH_TOKEN_KEY, tokens.refresh_token)
+export function setTokens(tokens: TokenPair, authAs: AuthAs = 'staff') {
+  const keys = tokenKeys(authAs)
+  writeStorage(keys.access, tokens.access_token)
+  writeStorage(keys.refresh, tokens.refresh_token)
 }
 
-export function clearTokens() {
-  writeStorage(ACCESS_TOKEN_KEY, null)
-  writeStorage(REFRESH_TOKEN_KEY, null)
+export function clearTokens(authAs: AuthAs = 'staff') {
+  const keys = tokenKeys(authAs)
+  writeStorage(keys.access, null)
+  writeStorage(keys.refresh, null)
 }
 
 export function isStaffSignedIn() {
-  return getAccessToken() !== null
+  return getAccessToken('staff') !== null
 }
 
-/** Decodes the access token's `role` claim client-side, without verifying
- * the signature — used only to pick which surface to land on after login
- * (coach vs. manager/super_admin). The server re-checks the real,
- * signature-verified role on every request via require_role(); this is UX
- * routing, not a security boundary. */
-export function getStaffRole(): string | null {
-  const token = getAccessToken()
-  if (!token) return null
+export function isMemberSignedIn() {
+  return getAccessToken('member') !== null
+}
+
+/** Decodes an access token's payload client-side, without verifying the
+ * signature — used only for UX (which surface to land on, which member id
+ * to read as "me"). The server re-checks the real, signature-verified
+ * claims on every request (require_role / require_member); this is
+ * routing, never a security boundary. */
+function decodeTokenPayload(token: string): Record<string, unknown> | null {
   try {
     const payload = token.split('.')[1]
     const decoded: unknown = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')))
-    return decoded && typeof decoded === 'object' && 'role' in decoded
-      ? String((decoded as { role: unknown }).role)
-      : null
+    return decoded && typeof decoded === 'object' ? (decoded as Record<string, unknown>) : null
   } catch {
     return null
   }
+}
+
+export function getStaffRole(): string | null {
+  const token = getAccessToken('staff')
+  if (!token) return null
+  const payload = decodeTokenPayload(token)
+  return payload && 'role' in payload ? String(payload.role) : null
+}
+
+/** The signed-in member's own id, decoded from their access token's `sub`
+ * claim — replaces the old hardcoded mock `currentMemberId`. Member-facing
+ * queries pass this as the member id; the server independently derives the
+ * same id from the verified token via require_member (decision 28), so a
+ * tampered client-side value can't read or write anyone else's data. */
+export function getCurrentMemberId(): string | null {
+  const token = getAccessToken('member')
+  if (!token) return null
+  const payload = decodeTokenPayload(token)
+  return payload && 'sub' in payload ? String(payload.sub) : null
 }
 
 export class ApiError extends Error {
@@ -76,8 +113,8 @@ export class ApiError extends Error {
   }
 }
 
-async function refreshTokens(): Promise<boolean> {
-  const refreshToken = getRefreshToken()
+async function refreshTokens(authAs: AuthAs): Promise<boolean> {
+  const refreshToken = getRefreshToken(authAs)
   if (!refreshToken) return false
   const response = await fetch(`${API_URL}/auth/refresh`, {
     method: 'POST',
@@ -85,10 +122,10 @@ async function refreshTokens(): Promise<boolean> {
     body: JSON.stringify({ refresh_token: refreshToken }),
   })
   if (!response.ok) {
-    clearTokens()
+    clearTokens(authAs)
     return false
   }
-  setTokens((await response.json()) as TokenPair)
+  setTokens((await response.json()) as TokenPair, authAs)
   return true
 }
 
@@ -97,22 +134,27 @@ interface FetchOptions {
   body?: unknown
   /** Required for POST/PATCH/DELETE — the middleware rejects mutations without one. */
   idempotencyKey?: string
+  /** Which token pair to attach — defaults to staff (every existing call
+   * site). Member-facing queries (data/queries.ts's member functions)
+   * pass 'member' explicitly. */
+  authAs?: AuthAs
 }
 
 /**
- * The one function that calls `fetch`. Attaches the manager's bearer token
- * when present, retries once after a silent refresh on 401, and surfaces
- * failures as ApiError so callers can show a real message instead of a
- * blank screen.
+ * The one function that calls `fetch`. Attaches the calling surface's
+ * bearer token when present, retries once after a silent refresh on 401,
+ * and surfaces failures as ApiError so callers can show a real message
+ * instead of a blank screen.
  */
 export async function apiFetch<T>(path: string, options: FetchOptions = {}): Promise<T> {
   if (!API_URL) {
     throw new Error('apiFetch called without VITE_API_URL set — this should never happen')
   }
+  const authAs = options.authAs ?? 'staff'
 
   const request = () => {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-    const token = getAccessToken()
+    const token = getAccessToken(authAs)
     if (token) headers.Authorization = `Bearer ${token}`
     if (options.idempotencyKey) headers['Idempotency-Key'] = options.idempotencyKey
     return fetch(`${API_URL}${path}`, {
@@ -123,7 +165,7 @@ export async function apiFetch<T>(path: string, options: FetchOptions = {}): Pro
   }
 
   let response = await request()
-  if (response.status === 401 && getRefreshToken() && (await refreshTokens())) {
+  if (response.status === 401 && getRefreshToken(authAs) && (await refreshTokens(authAs))) {
     response = await request()
   }
 

@@ -332,7 +332,9 @@
     "code": "Code",
     "codeSent": "We sent a code on WhatsApp",
     "enter": "Enter",
-    "demo": "Prototype: any code works"
+    "demo": "Prototype: any code works",
+    "error": "Something went wrong — try again",
+    "errorCode": "Wrong or expired code"
   },
   "food": {
     "title": "My food today",

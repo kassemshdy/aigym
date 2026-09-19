@@ -146,6 +146,101 @@ async def test_member_code_login_flow(client: AsyncClient) -> None:
     assert replay.status_code == 401
 
 
+async def test_self_service_member_code_flow(client: AsyncClient, monkeypatch) -> None:
+    await _onboard_gym(client)
+    staff_login = await client.post(
+        "/auth/staff/login", json={"username": "mona", "password": "hunter22"}
+    )
+    auth_header = {"Authorization": f"Bearer {staff_login.json()['access_token']}"}
+    me = await client.get("/auth/me", headers=auth_header)
+    gym_id = uuid.UUID(me.json()["gym_id"])
+    await _insert_member(gym_id, phone="+96173333333")
+
+    sent: list[tuple[str, str]] = []
+
+    async def fake_send(*, to: str, body: str) -> bool:
+        sent.append((to, body))
+        return True
+
+    monkeypatch.setattr("app.api.auth.send_whatsapp_text", fake_send)
+
+    response = await client.post("/auth/member/code", json={"phone": "+96173333333"})
+    assert response.status_code == 200
+    assert response.json() == {"sent": True}
+    assert len(sent) == 1
+    to, body = sent[0]
+    assert to == "+96173333333"
+    match = re.search(r"code is (\d{6})", body)
+    assert match, body
+    code = match.group(1)
+
+    login = await client.post(
+        "/auth/member/login", json={"phone": "+96173333333", "code": code}
+    )
+    assert login.status_code == 200, login.text
+    assert (
+        await client.get(
+            "/auth/me", headers={"Authorization": f"Bearer {login.json()['access_token']}"}
+        )
+    ).json()["subject_type"] == "member"
+
+
+async def test_self_service_member_code_unknown_phone_looks_identical(
+    client: AsyncClient, monkeypatch
+) -> None:
+    """No member exists with this phone — the response must be
+    indistinguishable from the real-member case, and nothing gets sent."""
+    called = False
+
+    async def fake_send(*, to: str, body: str) -> bool:
+        nonlocal called
+        called = True
+        return True
+
+    monkeypatch.setattr("app.api.auth.send_whatsapp_text", fake_send)
+
+    response = await client.post("/auth/member/code", json={"phone": "+96179999999"})
+    assert response.status_code == 200
+    assert response.json() == {"sent": True}
+    assert called is False
+
+
+async def test_self_service_member_code_rate_limited_response_still_looks_identical(
+    client: AsyncClient, monkeypatch
+) -> None:
+    await _onboard_gym(client)
+    staff_login = await client.post(
+        "/auth/staff/login", json={"username": "mona", "password": "hunter22"}
+    )
+    auth_header = {"Authorization": f"Bearer {staff_login.json()['access_token']}"}
+    me = await client.get("/auth/me", headers=auth_header)
+    gym_id = uuid.UUID(me.json()["gym_id"])
+    await _insert_member(gym_id, phone="+96174444444")
+
+    sent_count = 0
+
+    async def fake_send(*, to: str, body: str) -> bool:
+        nonlocal sent_count
+        sent_count += 1
+        return True
+
+    monkeypatch.setattr("app.api.auth.send_whatsapp_text", fake_send)
+
+    limit = get_settings().member_code_rate_limit_per_hour
+    for _ in range(limit):
+        response = await client.post("/auth/member/code", json={"phone": "+96174444444"})
+        assert response.status_code == 200
+        assert response.json() == {"sent": True}
+    assert sent_count == limit
+
+    # Over the limit: still 200/{"sent": true}, never a 429 — a 429 here
+    # would itself leak that the phone is real and hit its rate limit.
+    over_limit = await client.post("/auth/member/code", json={"phone": "+96174444444"})
+    assert over_limit.status_code == 200
+    assert over_limit.json() == {"sent": True}
+    assert sent_count == limit  # no additional delivery attempted
+
+
 async def test_member_code_rate_limited(client: AsyncClient) -> None:
     await _onboard_gym(client)
     staff_login = await client.post(

@@ -59,3 +59,20 @@ def require_role(*roles: str) -> RoleChecker:
         return claims
 
     return _check
+
+
+async def require_member(claims: CurrentClaims) -> AccessTokenClaims:
+    """A member's own token — a subject_type check, not a role check
+    (members have no roles). Endpoints behind this scope every query by
+    claims.subject_id (the member id from the verified token), never a URL
+    path parameter: RLS (app/db.py's tenant_session) only enforces *gym*
+    isolation, it has no concept of "this member's own row," so a route
+    that trusted a path-param member_id would let any member at the same
+    gym read another's by changing the id in the URL (decision 28).
+    """
+    if claims.subject_type != "member":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Member login required")
+    return claims
+
+
+CurrentMember = Annotated[AccessTokenClaims, Depends(require_member)]
