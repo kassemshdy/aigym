@@ -302,3 +302,37 @@ export interface CreateStaffInput {
   phone: string
   role: 'manager' | 'coach' | 'super_admin'
 }
+
+// ---------------------------------------------------------------------
+// Phase 4 stage 4 — a member's own food log. Mirrors
+// app/api/food_entries.py. Scoped to the signed-in member on the server
+// (claims.subject_id), never a member id in the URL.
+// ---------------------------------------------------------------------
+
+export interface ApiFoodEntry {
+  id: string
+  at: string
+  label: string
+  kcal: number
+  protein: number
+  carbs: number
+  fat: number
+  source: 'photo' | 'manual' | 'agent'
+  photo_key: string | null
+  estimate: { kcal: number; protein: number; carbs: number; fat: number } | null
+}
+
+export interface CreateFoodEntryInput {
+  label: string
+  kcal: number
+  protein: number
+  carbs: number
+  fat: number
+  source: 'photo' | 'manual' | 'agent'
+  photo_key?: string | null
+  estimate?: { kcal: number; protein: number; carbs: number; fat: number } | null
+}
+
+export interface MediaUploadResult {
+  key: string
+}

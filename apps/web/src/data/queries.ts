@@ -12,17 +12,20 @@ import {
   newIdempotencyKey,
   offlineFetch,
   setTokens,
+  uploadMedia,
   type AuthAs,
 } from './client'
 import {
   mockCreateCheckIn,
   mockCreateExercise,
+  mockCreateFoodEntry,
   mockCreateMember,
   mockCreateNutritionLog,
   mockCreateProgram,
   mockCreateStaff,
   mockCreateVideo,
   mockCreateWorkoutSession,
+  mockDeleteFoodEntry,
   mockFinishWorkoutSession,
   mockGetActiveProgram,
   mockGetMember,
@@ -32,6 +35,7 @@ import {
   mockGetWorkoutSession,
   mockLapsedMembers,
   mockListExercises,
+  mockListFoodEntries,
   mockListMachines,
   mockListMembers,
   mockListNutritionLogs,
@@ -52,6 +56,7 @@ import {
 import type {
   ApiCheckIn,
   ApiExercise,
+  ApiFoodEntry,
   ApiLapsedMember,
   ApiMachine,
   ApiMember,
@@ -66,6 +71,7 @@ import type {
   ApiWorkoutSession,
   ApiWorkoutSet,
   CreateExerciseInput,
+  CreateFoodEntryInput,
   CreateMemberInput,
   CreateNutritionLogInput,
   CreateProgramInput,
@@ -287,6 +293,46 @@ export async function updateVideo(videoId: string, input: UpdateVideoInput): Pro
     body: input,
     idempotencyKey: newIdempotencyKey(),
   })
+}
+
+// ---------------------------------------------------------------------
+// Phase 4 stage 4 — a member's own food log. All member-scoped (authAs
+// 'member'); the server derives "which member" from the token, never a
+// URL parameter (decision 28).
+// ---------------------------------------------------------------------
+
+export async function listFoodEntries(): Promise<ApiFoodEntry[]> {
+  if (!API_URL) return mockListFoodEntries()
+  return apiFetch('/members/me/food-entries', { authAs: 'member' })
+}
+
+export async function createFoodEntry(input: CreateFoodEntryInput): Promise<ApiFoodEntry> {
+  if (!API_URL) return mockCreateFoodEntry(input)
+  return apiFetch('/members/me/food-entries', {
+    method: 'POST',
+    body: input,
+    idempotencyKey: newIdempotencyKey(),
+    authAs: 'member',
+  })
+}
+
+export async function deleteFoodEntry(entryId: string): Promise<void> {
+  if (!API_URL) return mockDeleteFoodEntry(entryId)
+  await apiFetch(`/members/me/food-entries/${entryId}`, {
+    method: 'DELETE',
+    idempotencyKey: newIdempotencyKey(),
+    authAs: 'member',
+  })
+}
+
+/** `dataUrl` is the already-computed FileReader preview MemberFood.tsx
+ * builds for the confirm-card thumbnail either way; mock mode reuses it
+ * as the food entry's photo_key (there's no real object store to
+ * round-trip through) instead of re-deriving it from `file`. */
+export async function uploadFoodPhoto(file: File, dataUrl: string): Promise<string> {
+  if (!API_URL) return dataUrl
+  const result = await uploadMedia(file, 'member')
+  return result.key
 }
 
 export async function getActiveProgram(memberId: string): Promise<ApiProgram | null> {

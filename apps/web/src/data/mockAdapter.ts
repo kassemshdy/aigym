@@ -29,6 +29,7 @@ import type { Text } from '@/lib/format'
 import type {
   ApiCheckIn,
   ApiExercise,
+  ApiFoodEntry,
   ApiLapsedMember,
   ApiMachine,
   ApiMember,
@@ -43,6 +44,7 @@ import type {
   ApiWorkoutSession,
   ApiWorkoutSet,
   CreateExerciseInput,
+  CreateFoodEntryInput,
   CreateMemberInput,
   CreateNutritionLogInput,
   CreateProgramInput,
@@ -611,4 +613,52 @@ export function mockCreateStaff(input: CreateStaffInput): ApiStaff {
   const staff: ApiStaff = { id: newId(), username: input.username, name: input.name, role: input.role }
   mockStaff = [...mockStaff, staff]
   return staff
+}
+
+// ---------------------------------------------------------------------
+// Phase 4 stage 4 — a member's own food log. Seeded with one entry so the
+// screen isn't empty on first load, matching the old state.food seed.
+// photo_key holds the raw data URL in mock mode (there's no real object
+// store to round-trip through) — real API mode never sees that shape,
+// since app/api/food_entries.py only ever hands back opaque storage keys.
+// ---------------------------------------------------------------------
+
+let mockFoodEntries: ApiFoodEntry[] = [
+  {
+    id: 'food-seed-1',
+    at: new Date().toISOString(),
+    label: 'Eggs with bread',
+    kcal: 340,
+    protein: 22,
+    carbs: 34,
+    fat: 12,
+    source: 'manual',
+    photo_key: null,
+    estimate: null,
+  },
+]
+
+export function mockListFoodEntries(): ApiFoodEntry[] {
+  return mockFoodEntries
+}
+
+export function mockCreateFoodEntry(input: CreateFoodEntryInput): ApiFoodEntry {
+  const entry: ApiFoodEntry = {
+    id: newId(),
+    at: new Date().toISOString(),
+    label: input.label,
+    kcal: input.kcal,
+    protein: input.protein,
+    carbs: input.carbs,
+    fat: input.fat,
+    source: input.source,
+    photo_key: input.photo_key ?? null,
+    estimate: input.estimate ?? null,
+  }
+  mockFoodEntries = [...mockFoodEntries, entry]
+  return entry
+}
+
+export function mockDeleteFoodEntry(entryId: string): void {
+  mockFoodEntries = mockFoodEntries.filter((f) => f.id !== entryId)
 }

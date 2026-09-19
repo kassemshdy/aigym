@@ -7,7 +7,7 @@ lookup in this product, never a 403 that would confirm the key is real.
 
 import asyncio
 
-from fastapi import APIRouter, HTTPException, Response, status
+from fastapi import APIRouter, HTTPException, Response, UploadFile, status
 from sqlalchemy import select
 
 from app import storage
@@ -15,6 +15,24 @@ from app.deps import CurrentClaims, CurrentSession
 from app.models import FoodEntry, ProgressPhoto
 
 router = APIRouter(tags=["media"])
+
+
+@router.post("/media", status_code=status.HTTP_201_CREATED)
+async def upload_media(file: UploadFile, _claims: CurrentClaims) -> dict[str, str]:
+    """The upload half of app/storage.py — any authenticated caller can
+    use it (a member uploading their own food/progress photo today; staff
+    have no use for it yet but nothing stops them). The resulting key is
+    an orphan until a food-entry or progress-photo write references it —
+    that write, not this upload, is what decides who may ever see it via
+    GET /media/{key}."""
+    data = await file.read()
+    try:
+        key = await asyncio.to_thread(storage.save, data, file.content_type or "")
+    except storage.UnsupportedContentType as exc:
+        raise HTTPException(
+            status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, "Unsupported content type"
+        ) from exc
+    return {"key": key}
 
 
 @router.get("/media/{key}")

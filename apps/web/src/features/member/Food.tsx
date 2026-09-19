@@ -7,8 +7,10 @@ import { Stepper } from '@/components/ui/Stepper'
 import { Icon } from '@/components/ui/Icon'
 import { Empty, Page } from '@/components/ui/Page'
 import { useStore } from '@/state/store'
-import type { FoodEntry } from '@/mocks/types'
-import { text } from '@/lib/format'
+import { createFoodEntry, deleteFoodEntry, listFoodEntries, uploadFoodPhoto } from '@/data/queries'
+import { useAsync } from '@/data/useAsync'
+import type { ApiFoodEntry } from '@/data/types'
+import { hhmm } from '@/lib/format'
 import type { Lang } from '@/i18n'
 import { cn } from '@/lib/cn'
 
@@ -27,22 +29,36 @@ const GUESSES = [
   { label: { ar: 'منقوشة زعتر', en: 'Zaatar manqoushe' }, kcal: 350, protein: 8, carbs: 46, fat: 15 },
 ]
 
-/** Once the member edits the name it is a plain string in their own words. */
-type Draft = { label: string; kcal: number; protein: number; carbs: number; fat: number; photo?: string }
+/** Once the member edits the name it is a plain string in their own words.
+ * `photoFile` is the original File (for a real upload); `photo` is its
+ * FileReader data-URL preview, shown in the confirm card either way and
+ * reused as-is for the photo_key in mock mode (see uploadFoodPhoto). */
+type Draft = {
+  label: string
+  kcal: number
+  protein: number
+  carbs: number
+  fat: number
+  photo?: string
+  photoFile?: File
+}
 
 export function MemberFood() {
   const { t, i18n } = useTranslation()
   const lang = i18n.language as Lang
   const { state, actions } = useStore()
   const fileRef = useRef<HTMLInputElement>(null)
+  const entries = useAsync(listFoodEntries, [])
 
   const [analyzing, setAnalyzing] = useState(false)
   const [draft, setDraft] = useState<Draft | null>(null)
   const [portion, setPortion] = useState(1)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(false)
 
   const totals = useMemo(
     () =>
-      state.food.reduce(
+      (entries.data ?? []).reduce(
         (acc, f) => ({
           kcal: acc.kcal + f.kcal,
           protein: acc.protein + f.protein,
@@ -51,7 +67,7 @@ export function MemberFood() {
         }),
         { kcal: 0, protein: 0, carbs: 0, fat: 0 },
       ),
-    [state.food],
+    [entries.data],
   )
 
   const onPhoto = (file: File) => {
@@ -62,7 +78,7 @@ export function MemberFood() {
       // Stands in for the round trip to the vision model.
       setTimeout(() => {
         const guess = GUESSES[Math.floor(Math.random() * GUESSES.length)]
-        setDraft({ ...guess, label: guess.label[lang], photo })
+        setDraft({ ...guess, label: guess.label[lang], photo, photoFile: file })
         setPortion(1)
         setAnalyzing(false)
       }, 1200)
@@ -75,6 +91,37 @@ export function MemberFood() {
     protein: Math.round(draft.protein * portion),
     carbs: Math.round(draft.carbs * portion),
     fat: Math.round(draft.fat * portion),
+  }
+
+  async function confirm() {
+    if (!draft || !scaled) return
+    setSaving(true)
+    setError(false)
+    try {
+      const photoKey = draft.photoFile
+        ? await uploadFoodPhoto(draft.photoFile, draft.photo ?? '')
+        : null
+      await createFoodEntry({
+        label: draft.label,
+        ...scaled,
+        source: draft.photoFile ? 'photo' : 'manual',
+        photo_key: photoKey,
+        estimate: draft.photoFile
+          ? { kcal: draft.kcal, protein: draft.protein, carbs: draft.carbs, fat: draft.fat }
+          : null,
+      })
+      setDraft(null)
+      entries.reload()
+    } catch {
+      setError(true)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function remove(entryId: string) {
+    await deleteFoodEntry(entryId)
+    entries.reload()
   }
 
   return (
@@ -226,22 +273,17 @@ export function MemberFood() {
 
             <p className="text-muted text-xs">{t('food.notSure')}</p>
 
+            {error ? (
+              <p className="bg-ink rounded-xl px-4 py-3 text-sm font-semibold text-white">
+                {t('common.error')}
+              </p>
+            ) : null}
+
             <div className="grid grid-cols-2 gap-2">
-              <Button variant="secondary" size="lg" onClick={() => setDraft(null)}>
+              <Button variant="secondary" size="lg" onClick={() => setDraft(null)} disabled={saving}>
                 {t('common.cancel')}
               </Button>
-              <Button
-                size="lg"
-                onClick={() => {
-                  actions.logFood({
-                    label: draft.label,
-                    ...scaled,
-                    source: draft.photo ? 'photo' : 'manual',
-                    photo: draft.photo,
-                  })
-                  setDraft(null)
-                }}
-              >
+              <Button size="lg" disabled={saving} onClick={() => void confirm()}>
                 <Icon name="check" />
                 {t('food.confirm')}
               </Button>
@@ -284,40 +326,51 @@ export function MemberFood() {
 
       <Card>
         <CardTitle>{t('food.title')}</CardTitle>
-        {state.food.length === 0 ? (
+        {entries.loading ? (
+          <p className="text-muted p-4 text-sm">{t('common.loading')}</p>
+        ) : entries.error || !entries.data ? (
+          <div className="p-4">
+            <Empty>{t('common.error')}</Empty>
+          </div>
+        ) : entries.data.length === 0 ? (
           <p className="text-muted p-4 text-sm">{t('food.empty')}</p>
         ) : (
           <ul>
-            {state.food.map((f) => (
-              <FoodRow key={f.id} entry={f} onRemove={() => actions.removeFood(f.id)} />
+            {entries.data.map((f) => (
+              <FoodRow key={f.id} entry={f} onRemove={() => void remove(f.id)} />
             ))}
           </ul>
         )}
       </Card>
 
-      {state.food.length === 0 && !draft ? <Empty>{t('food.empty')}</Empty> : null}
+      {entries.data?.length === 0 && !draft ? <Empty>{t('food.empty')}</Empty> : null}
     </Page>
   )
 }
 
-function FoodRow({ entry, onRemove }: { entry: FoodEntry; onRemove: () => void }) {
-  const { t, i18n } = useTranslation()
-  const lang = i18n.language as Lang
+function FoodRow({ entry, onRemove }: { entry: ApiFoodEntry; onRemove: () => void }) {
+  const { t } = useTranslation()
   const sourceKey = { photo: 'sourcePhoto', manual: 'sourceManual', agent: 'sourceAgent' } as const
+  // Mock mode's photo_key is the FileReader data URL itself (there's no
+  // real object store to fetch it back from); real API mode only ever
+  // hands back an opaque storage key, which isn't a usable <img> src on
+  // its own, so those rows fall back to the same placeholder as a manual
+  // entry — fetching it back through GET /media/{key} is a later pass.
+  const thumb = entry.photo_key?.startsWith('data:') ? entry.photo_key : null
 
   return (
     <li className="border-line flex items-center gap-3 border-b px-4 py-3 last:border-0">
-      {entry.photo ? (
-        <img src={entry.photo} alt="" className="size-11 shrink-0 rounded-xl object-cover" />
+      {thumb ? (
+        <img src={thumb} alt="" className="size-11 shrink-0 rounded-xl object-cover" />
       ) : (
         <span className="bg-canvas text-muted flex size-11 shrink-0 items-center justify-center rounded-xl">
           <Icon name="camera" size={18} />
         </span>
       )}
       <span className="min-w-0 flex-1">
-        <span className="block truncate font-semibold">{text(entry.label, lang)}</span>
+        <span className="block truncate font-semibold">{entry.label}</span>
         <span className="text-muted block text-xs">
-          <bdi className="tnum">{entry.at}</bdi> · {t(`food.${sourceKey[entry.source]}`)}
+          <bdi className="tnum">{hhmm(entry.at)}</bdi> · {t(`food.${sourceKey[entry.source]}`)}
         </span>
       </span>
       <span className="text-end">

@@ -1,5 +1,5 @@
 import { enqueue, replay } from '@/offline/outbox'
-import type { TokenPair } from './types'
+import type { MediaUploadResult, TokenPair } from './types'
 
 /** Unset ⇒ the whole data layer falls back to mocks (see queries.ts). This
  * is the only place `fetch` appears, per apps/web/AGENTS.md's Phase 2
@@ -184,6 +184,44 @@ export async function apiFetch<T>(path: string, options: FetchOptions = {}): Pro
 
 export function newIdempotencyKey() {
   return crypto.randomUUID()
+}
+
+/** The one binary-upload path (progress/food photos) — separate from
+ * apiFetch because a multipart body must NOT get apiFetch's
+ * `Content-Type: application/json` + JSON.stringify treatment. Same
+ * bearer-token and 401-refresh-retry behavior as apiFetch otherwise. */
+export async function uploadMedia(
+  file: File,
+  authAs: AuthAs = 'staff',
+): Promise<MediaUploadResult> {
+  if (!API_URL) {
+    throw new Error('uploadMedia called without VITE_API_URL set — this should never happen')
+  }
+  const idempotencyKey = newIdempotencyKey()
+
+  const request = () => {
+    const headers: Record<string, string> = { 'Idempotency-Key': idempotencyKey }
+    const token = getAccessToken(authAs)
+    if (token) headers.Authorization = `Bearer ${token}`
+    const form = new FormData()
+    form.append('file', file)
+    return fetch(`${API_URL}/media`, { method: 'POST', headers, body: form })
+  }
+
+  let response = await request()
+  if (response.status === 401 && getRefreshToken(authAs) && (await refreshTokens(authAs))) {
+    response = await request()
+  }
+
+  if (!response.ok) {
+    const body: unknown = await response.json().catch(() => null)
+    const detail =
+      body && typeof body === 'object' && 'detail' in body
+        ? String((body as { detail: unknown }).detail)
+        : response.statusText
+    throw new ApiError(response.status, detail)
+  }
+  return (await response.json()) as MediaUploadResult
 }
 
 /**
