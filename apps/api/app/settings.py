@@ -54,6 +54,13 @@ class Settings(BaseSettings):
 
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])
 
+    # Where member-uploaded photos (progress photos, food photos) live — a
+    # Railway Volume mounted on the api service, not S3/R2 (decision 28: no
+    # new vendor, same pattern Postgres already uses on this project). Local
+    # dev defaults to a folder under the repo; Railway sets this to the
+    # volume's real mount path.
+    media_root: str = "./data/media"
+
     @property
     def is_production(self) -> bool:
         return self.env == "production"

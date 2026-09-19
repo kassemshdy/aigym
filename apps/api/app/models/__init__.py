@@ -5,6 +5,7 @@ isn't imported here is invisible to `alembic revision --autogenerate`.
 """
 
 from app.models.auth import MemberLoginCode, RefreshToken
+from app.models.content import FoodEntry, ProgressPhoto, Video
 from app.models.floor import Attendance, Booking, CheckIn, Coach, GymClass, Machine
 from app.models.money import Payment, Plan, Subscription
 from app.models.people import Member, MemberProfile
@@ -25,6 +26,7 @@ __all__ = [
     "CheckIn",
     "Coach",
     "Exercise",
+    "FoodEntry",
     "Gym",
     "GymClass",
     "IdempotencyKey",
@@ -37,10 +39,12 @@ __all__ = [
     "Payment",
     "Plan",
     "ProgramExercise",
+    "ProgressPhoto",
     "RefreshToken",
     "StaffGymRole",
     "StaffUser",
     "Subscription",
+    "Video",
     "WorkoutSession",
     "WorkoutSet",
 ]

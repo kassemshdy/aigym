@@ -25,10 +25,13 @@ from sqlalchemy import select, text
 from app.db import get_sessionmaker, tenant_session
 from app.models import (
     Exercise,
+    FoodEntry,
     Member,
     MemberProgram,
     NutritionLog,
     ProgramExercise,
+    ProgressPhoto,
+    Video,
     WorkoutSession,
     WorkoutSet,
 )
@@ -519,6 +522,54 @@ async def test_rls_blocks_cross_gym_select_on_every_floor_table(two_gyms: TwoGym
         (WorkoutSession, session_id),
         (WorkoutSet, set_id),
         (NutritionLog, nutrition_id),
+    ]:
+        assert await _select_as_gym(model, row_id, two_gyms.a.gym_id) is None, (
+            f"gym A could read gym B's {model.__tablename__} row — RLS is not enforcing"
+        )
+        assert await _select_as_gym(model, row_id, two_gyms.b.gym_id) is not None, (
+            f"gym B could not read its own {model.__tablename__} row — fixture or policy is broken"
+        )
+
+
+# --------------------------------------------------------------------------
+# Phase 4 content tables (videos, food_entries, progress_photos). API-layer
+# coverage lands alongside each table's endpoints (stages 3-5) — this is the
+# database layer only, same shape as the floor-table test above.
+# --------------------------------------------------------------------------
+
+
+async def test_rls_blocks_cross_gym_select_on_every_content_table(two_gyms: TwoGyms) -> None:
+    video_id = uuid.uuid4()
+    food_entry_id = uuid.uuid4()
+    progress_photo_id = uuid.uuid4()
+
+    async with tenant_session(two_gyms.b.gym_id) as session:
+        session.add(
+            Video(
+                id=video_id, gym_id=two_gyms.b.gym_id,
+                title={"ar": "سكوات", "en": "Squat"}, provider="youtube",
+                external_id="abc123", muscle_group="legs", equipment="barbell",
+                seconds=120, active=True,
+            )
+        )
+        session.add(
+            FoodEntry(
+                id=food_entry_id, gym_id=two_gyms.b.gym_id, member_id=two_gyms.member_b,
+                at=datetime.now(UTC), label="Eggs", kcal=300, protein=20, carbs=10,
+                fat=15, source="manual",
+            )
+        )
+        session.add(
+            ProgressPhoto(
+                id=progress_photo_id, gym_id=two_gyms.b.gym_id, member_id=two_gyms.member_b,
+                at=datetime.now(UTC), photo_key="fake-key.jpg",
+            )
+        )
+
+    for model, row_id in [
+        (Video, video_id),
+        (FoodEntry, food_entry_id),
+        (ProgressPhoto, progress_photo_id),
     ]:
         assert await _select_as_gym(model, row_id, two_gyms.a.gym_id) is None, (
             f"gym A could read gym B's {model.__tablename__} row — RLS is not enforcing"
