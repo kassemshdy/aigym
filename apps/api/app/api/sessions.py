@@ -236,7 +236,18 @@ class TodayWorkoutOut(BaseModel):
 
 
 @router.get("/members/{member_id}/today-workout", response_model=TodayWorkoutOut)
-async def get_today_workout(member_id: uuid.UUID, session: CurrentSession) -> TodayWorkoutOut:
+async def get_today_workout(
+    member_id: uuid.UUID, session: CurrentSession, claims: CurrentClaims
+) -> TodayWorkoutOut:
+    """Powers CoachMemberCard's "today's workout" and, since Phase 4 stage
+    7, a member's own MemberToday screen — decision 2's "broaden, don't
+    duplicate" pattern. A member caller must be asking about themselves;
+    the 404 below covers both a member id that doesn't exist and one that
+    isn't the caller's own (decision 28), which look identical here by
+    design."""
+    if claims.subject_type == "member" and claims.subject_id != member_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Member not found")
+
     member = await session.get(Member, member_id)
     if member is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Member not found")
