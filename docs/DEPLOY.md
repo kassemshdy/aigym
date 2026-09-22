@@ -207,6 +207,54 @@ exits 1 with a clear message. The eval job never runs on an ordinary push anyway
 (decision 32), so this blocks nothing until someone dispatches it or opens a PR touching
 the AI layer.
 
+### Before a real gym uses this: the seed is destructive by default
+
+`scripts/seed.py` opens by deleting the gym, and `gyms.id` cascades to every
+gym-scoped table. Since it runs as the **Pre-Deploy Command on every deploy**, that
+combination would destroy every real member, payment, logged set and photo each time you
+shipped — and then re-insert the six invented sales-demo members (Rami Haddad and friends,
+some deliberately lapsed to make the "stopped coming" list look good in a demo).
+
+Two defences now, deliberately independent of each other:
+
+- **`--no-demo`** bootstraps a gym's configuration — plans, coaches, machines, exercises,
+  classes, the owner account — *inserting only what is absent, never updating*, and never
+  deleting the gym. It also clears the demo members if a previous demo seed left them
+  behind. `main()` picks this automatically when `AIGYM_ENV=production`.
+- **A refusal that does not trust that env var.** If the demo path finds a member on the
+  database that it did not invent, it raises rather than repaving. A wrong `AIGYM_ENV`, a
+  mistyped flag and a hand-run of the script against production are the same accident, and
+  all three stop there instead of at a restore-from-backup.
+
+**Insert-if-absent, never update, is the important half.** Plans, exercises and machines
+become the gym's own data the moment they open the app. Dues are derived from
+`plans.price_usd` and never stored (decision 17), so a seed that re-asserted its own prices
+on every deploy would silently undo `set_gym_plans.py` and quietly corrupt every figure
+the product is sold on. Note the consequence: **shipping a corrected plan price by editing
+`PLAN_ROWS` no longer works in production** — that is now the gym's data, not the seed's.
+
+**Going live with a real gym, in order:**
+
+```bash
+# 1. Confirm the service is marked production (the automatic --no-demo default).
+railway variables -s api | grep AIGYM_ENV        # expect: production
+
+# 2. Belt and braces: make the Pre-Deploy Command explicit rather than inferred.
+#    sh -c "bash scripts/bootstrap_db.sh && alembic upgrade head \
+#           && uv run python scripts/seed.py --no-demo"
+#    Remember this only takes effect on a real git push, not a redeploy.
+
+# 3. Set the owner's password (prompts; nothing lands in shell history).
+railway ssh -s api -- uv run python scripts/set_staff_password.py
+
+# 4. Set the gym's real prices. The starter $30/$80/$280 are placeholders.
+railway ssh -s api -- uv run python scripts/set_gym_plans.py
+```
+
+Step 4 is not cosmetic. Every dues figure — what a member owes, what the gym is owed, the
+collection rate on the owner dashboard — is computed from these values, so wrong prices do
+not look wrong, they just make every downstream number wrong.
+
 ### Seeding real content, and setting the manager's password
 
 `scripts/bootstrap_db.sh`, `alembic upgrade head`, and `scripts/seed.py` all run automatically

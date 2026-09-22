@@ -1,4 +1,5 @@
 import uuid
+from collections.abc import Sequence
 from datetime import UTC, date, datetime, timedelta
 from typing import Annotated, Any
 
@@ -20,6 +21,9 @@ ManagerOrCoach = Depends(require_role("super_admin", "manager", "coach"))
 
 
 async def _current_subscription(session: AsyncSession, member_id: uuid.UUID) -> Subscription | None:
+    """Single-member lookup, for the one caller that genuinely needs it
+    (record_payment). Anything rendering a *list* uses the bulk helpers
+    below instead — see their docstring."""
     result = await session.execute(
         select(Subscription)
         .where(Subscription.member_id == member_id)
@@ -29,11 +33,41 @@ async def _current_subscription(session: AsyncSession, member_id: uuid.UUID) -> 
     return result.scalar_one_or_none()
 
 
-async def _last_visit(session: AsyncSession, member_id: uuid.UUID) -> date | None:
+async def _current_subscriptions(
+    session: AsyncSession, member_ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, tuple[Subscription, Plan]]:
+    """Every member's current subscription and its plan in one query.
+
+    DISTINCT ON (member_id) ORDER BY member_id, ends_at DESC is Postgres's
+    "latest row per group" — exactly what _current_subscription does for
+    one member, done for all of them at once. The join to plans is inner
+    rather than outer deliberately: subscriptions.plan_id is
+    ondelete="RESTRICT", so a subscription without a plan cannot exist.
+    """
+    if not member_ids:
+        return {}
     result = await session.execute(
-        select(func.max(Attendance.date)).where(Attendance.member_id == member_id)
+        select(Subscription, Plan)
+        .join(Plan, Plan.id == Subscription.plan_id)
+        .where(Subscription.member_id.in_(member_ids))
+        .distinct(Subscription.member_id)
+        .order_by(Subscription.member_id, Subscription.ends_at.desc())
     )
-    return result.scalar_one_or_none()
+    return {sub.member_id: (sub, plan) for sub, plan in result.all()}
+
+
+async def _last_visits(
+    session: AsyncSession, member_ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, date]:
+    """One GROUP BY instead of a MAX() per member."""
+    if not member_ids:
+        return {}
+    result = await session.execute(
+        select(Attendance.member_id, func.max(Attendance.date))
+        .where(Attendance.member_id.in_(member_ids))
+        .group_by(Attendance.member_id)
+    )
+    return {member_id: last_visit for member_id, last_visit in result.all()}
 
 
 class DuesOut(BaseModel):
@@ -72,9 +106,15 @@ class MemberDetailOut(MemberOut):
     profile: MemberProfileOut | None
 
 
-async def _to_member_out(session: AsyncSession, member: Member) -> MemberOut:
-    subscription = await _current_subscription(session, member.id)
-    plan = await session.get(Plan, subscription.plan_id) if subscription else None
+def _build_member_out(
+    member: Member,
+    current: tuple[Subscription, Plan] | None,
+    last_visit: date | None,
+) -> MemberOut:
+    """The one place a MemberOut is assembled. Pure: every caller fetches
+    its own rows — one at a time for a detail screen, in bulk for a list —
+    so the two paths can never drift in what they report."""
+    subscription, plan = current if current is not None else (None, None)
     dues = None
     if subscription is not None and plan is not None:
         info = compute_dues(
@@ -92,15 +132,27 @@ async def _to_member_out(session: AsyncSession, member: Member) -> MemberOut:
         plan_id=plan.id if plan else None,
         plan_name=plan.name if plan else None,
         ends_at=subscription.ends_at if subscription else None,
-        last_visit=await _last_visit(session, member.id),
+        last_visit=last_visit,
         dues=dues,
     )
+
+
+async def _to_member_out(session: AsyncSession, member: Member) -> MemberOut:
+    subscriptions = await _current_subscriptions(session, [member.id])
+    visits = await _last_visits(session, [member.id])
+    return _build_member_out(member, subscriptions.get(member.id), visits.get(member.id))
 
 
 @router.get("/members", response_model=list[MemberOut])
 async def list_members(session: CurrentSession) -> list[MemberOut]:
     result = await session.execute(select(Member).order_by(Member.name_en))
-    return [await _to_member_out(session, m) for m in result.scalars().all()]
+    members = list(result.scalars().all())
+    member_ids = [m.id for m in members]
+    subscriptions = await _current_subscriptions(session, member_ids)
+    visits = await _last_visits(session, member_ids)
+    return [
+        _build_member_out(m, subscriptions.get(m.id), visits.get(m.id)) for m in members
+    ]
 
 
 class LapsedMemberOut(BaseModel):
@@ -119,12 +171,13 @@ async def lapsed_members(
     """The GTM number: members 14+ days without a visit, or who have never
     checked in at all."""
     result = await session.execute(select(Member))
-    members = result.scalars().all()
+    members = list(result.scalars().all())
+    visits = await _last_visits(session, [m.id for m in members])
     today = date.today()
 
     out: list[LapsedMemberOut] = []
     for member in members:
-        last_visit = await _last_visit(session, member.id)
+        last_visit = visits.get(member.id)
         days_since = (today - last_visit).days if last_visit else None
         if days_since is None or days_since >= min_days:
             out.append(
