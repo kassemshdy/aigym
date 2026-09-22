@@ -45,7 +45,14 @@ from app.ai.gather import (
 )
 from app.ai.models import HAIKU_MODEL
 from app.deps import CurrentMember, CurrentSession
-from app.domain.ai_context import build_system_prompt
+from app.domain.ai_context import (
+    CatalogExerciseRow,
+    CatalogVideoRow,
+    FoodEntryRow,
+    MemberContextRow,
+    RecentSessionRow,
+    build_system_prompt,
+)
 from app.domain.guardrails import REFERRAL_TEXT, is_obviously_medical
 from app.models import AiPlanDraft, FoodEntry
 
@@ -132,20 +139,64 @@ class ChatReplyOut(BaseModel):
     referred: bool
 
 
-def _referral(lang: Lang) -> ChatReplyOut:
-    return ChatReplyOut(text=REFERRAL_TEXT[lang], food=None, draft=False, referred=True)
+def _referral(lang: Lang) -> ChatReply:
+    return ChatReply(text=REFERRAL_TEXT[lang], food=None, draft=None, referred=True)
+
+
+def answer_chat(
+    *,
+    agent: Agent,
+    lang: Lang,
+    text: str,
+    history: list[ChatTurn],
+    profile: MemberContextRow,
+    recent_sessions: list[RecentSessionRow],
+    today_food: list[FoodEntryRow],
+    exercises: list[CatalogExerciseRow],
+    videos: list[CatalogVideoRow],
+    gym_id: uuid.UUID,
+) -> ChatReply:
+    """One turn of an assistant, with every guardrail applied and nothing
+    written — the route does the writing, and scripts/run_evals.py grades
+    exactly this function so the golden set measures real behavior rather
+    than a parallel implementation of it.
+
+    Both the deterministic pre-filter and the model's own `referred` flag
+    collapse into the same referral reply, so a caller only ever has to
+    check `referred`, never re-derive it."""
+    # Deterministic pre-filter, before any API call — catches the obvious
+    # cases for free and short-circuits the whole flow (roadmap: "checked
+    # before a reply is sent, not requested in the prompt").
+    if is_obviously_medical(text):
+        return _referral(lang)
+
+    persona = _PERSONA[agent].format(lang_name=_LANG_NAME[lang])
+    system = build_system_prompt(
+        persona_instructions=persona, lang=lang, exercises=exercises, videos=videos,
+        profile=profile, recent_sessions=recent_sessions, today_food=today_food,
+    )
+
+    messages: list[MessageParam] = [
+        {"role": turn.role, "content": turn.text} for turn in history
+    ]
+    messages.append({"role": "user", "content": text})
+
+    reply = run_structured(
+        model=HAIKU_MODEL, system=system, messages=messages, response_model=ChatReply,
+        max_tokens=1024, purpose=f"chat_{agent}", gym_id=gym_id,
+    )
+
+    # The structured `referred` signal, not the model's prose, decides —
+    # same code-not-prompt pattern the pre-filter above already uses.
+    if reply.referred:
+        return _referral(lang)
+    return reply
 
 
 @router.post("/members/me/chat/{agent}", response_model=ChatReplyOut)
 async def send_chat_message(
     agent: Agent, body: ChatRequest, session: CurrentSession, claims: CurrentMember
 ) -> ChatReplyOut:
-    # Deterministic pre-filter, before any API call — catches the obvious
-    # cases for free and short-circuits the whole flow (roadmap: "checked
-    # before a reply is sent, not requested in the prompt").
-    if is_obviously_medical(body.text):
-        return _referral(body.lang)
-
     profile = await gather_member_context(session, claims.subject_id)
     if profile is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Profile not found")
@@ -153,21 +204,11 @@ async def send_chat_message(
     today_food = await gather_today_food(session, claims.subject_id)
     exercises, videos = await gather_gym_catalog(session)
 
-    persona = _PERSONA[agent].format(lang_name=_LANG_NAME[body.lang])
-    system = build_system_prompt(
-        persona_instructions=persona, lang=body.lang, exercises=exercises, videos=videos,
-        profile=profile, recent_sessions=recent_sessions, today_food=today_food,
-    )
-
-    messages: list[MessageParam] = [
-        {"role": turn.role, "content": turn.text} for turn in body.history
-    ]
-    messages.append({"role": "user", "content": body.text})
-
     try:
-        reply = run_structured(
-            model=HAIKU_MODEL, system=system, messages=messages, response_model=ChatReply,
-            max_tokens=1024, purpose=f"chat_{agent}", gym_id=claims.gym_id,
+        reply = answer_chat(
+            agent=agent, lang=body.lang, text=body.text, history=body.history,
+            profile=profile, recent_sessions=recent_sessions, today_food=today_food,
+            exercises=exercises, videos=videos, gym_id=claims.gym_id,
         )
     except AnthropicNotConfigured as exc:
         raise HTTPException(
@@ -178,10 +219,8 @@ async def send_chat_message(
             status.HTTP_503_SERVICE_UNAVAILABLE, "AI assistant is temporarily unavailable"
         ) from exc
 
-    # The structured `referred` signal, not the model's prose, decides —
-    # same code-not-prompt pattern the pre-filter above already uses.
     if reply.referred:
-        return _referral(body.lang)
+        return ChatReplyOut(text=reply.text, food=None, draft=False, referred=True)
 
     if reply.draft is not None:
         session.add(

@@ -145,9 +145,7 @@ symlink to it). Read the matching skill before the task:
 | `backend-conventions` | working in `apps/api` |
 | `tenancy-rules` | touching a gym-scoped table, a Row-Level Security policy, or anything that reads/writes across gyms |
 | `generate-migration` | adding or changing an Alembic migration |
-
-`ai-prompt-eval` lands with the AI layer in Phase 5 — still deliberately absent rather
-than written against code that does not exist yet.
+| `ai-prompt-eval` | changing a prompt, a guardrail, or anything under `app/ai/` |
 
 ## Phases
 
