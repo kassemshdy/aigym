@@ -4,9 +4,9 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from httpx import AsyncClient
-from sqlalchemy import select
+from sqlalchemy import event, select
 
-from app.db import tenant_session
+from app.db import get_engine, tenant_session
 from app.models import Attendance, Subscription
 
 ONBOARDING_SECRET = "dev-onboarding-secret-change-me"
@@ -150,6 +150,54 @@ async def test_whatsapp_reminder_composer(client: AsyncClient) -> None:
     )
     assert reminder.status_code == 200
     assert reminder.json()["wa_link"].startswith("https://wa.me/96174000005")
+
+
+async def test_listing_members_does_not_scale_its_query_count_with_member_count(
+    client: AsyncClient,
+) -> None:
+    """The regression guard for Phase 6 stage 1. GET /members used to run
+    three queries per member (current subscription, its plan, last visit),
+    so a gym growing from 5 to 300 members grew the request from ~15 to
+    ~900 round trips. Asserting the *shape* — that adding members does not
+    add queries — rather than an exact count, which would break on any
+    unrelated middleware change.
+    """
+    _gym_id, headers = await _gym_and_staff_token(client, slug="members-f")
+    plan_id = await _get_a_plan_id(client, headers)
+
+    statements: list[str] = []
+
+    @event.listens_for(get_engine().sync_engine, "before_cursor_execute")
+    def _count(conn, cursor, statement, parameters, context, executemany):  # type: ignore[no-untyped-def]
+        statements.append(statement)
+
+    try:
+        for i in range(2):
+            await client.post(
+                "/members",
+                headers=_idem(headers),
+                json=_member_payload(plan_id, f"+9617410{i:04d}"),
+            )
+        statements.clear()
+        first = await client.get("/members", headers=headers)
+        with_two = len(statements)
+
+        for i in range(2, 8):
+            await client.post(
+                "/members",
+                headers=_idem(headers),
+                json=_member_payload(plan_id, f"+9617410{i:04d}"),
+            )
+        statements.clear()
+        second = await client.get("/members", headers=headers)
+        with_eight = len(statements)
+    finally:
+        event.remove(get_engine().sync_engine, "before_cursor_execute", _count)
+
+    assert len(first.json()) == 2
+    assert len(second.json()) == 8
+    # Four times the members, identical query count.
+    assert with_eight == with_two, f"{with_two} queries for 2 members, {with_eight} for 8"
 
 
 async def test_list_payments(client: AsyncClient) -> None:
