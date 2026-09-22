@@ -37,6 +37,7 @@ import { text } from '@/lib/format'
 import type { Text } from '@/lib/format'
 import type { Lang } from '@/i18n'
 import type {
+  AiDraftKind,
   ApiAiDraft,
   ApiAttendanceDay,
   ApiBooking,
@@ -881,6 +882,83 @@ export function mockApproveAiDraft(draftId: string, edits?: ApproveAiDraftInput)
 
 export function mockRejectAiDraft(draftId: string): ApiAiDraft {
   return mockDecideAiDraft(draftId, 'rejected')
+}
+
+/** Mock branch of generateAiDraft — no LLM to call, so it writes a
+ * plausible, always-bilingual pending draft straight into the same
+ * mockAiDrafts list the inbox above already reads (decision 31: one
+ * mechanism, coach-triggered or chat-triggered). `lang` isn't needed here
+ * since these fixtures are genuinely bilingual already, unlike a model's
+ * single-language reply. */
+export function mockGenerateAiDraft(memberId: string, kind: AiDraftKind): ApiAiDraft {
+  const member = seedMembers.find((m) => m.id === memberId)
+  const base = {
+    id: newId(), member_id: memberId, status: 'pending' as const,
+    decided_at: null, original: null,
+  }
+
+  let draft: ApiAiDraft
+  if (kind === 'plan') {
+    const picks = mockExercises.filter((e) => e.active).slice(0, 4)
+    draft = {
+      ...base,
+      created_by: 'generate_plan',
+      kind: 'plan',
+      headline: { ar: 'خطة مقترحة من الذكاء الاصطناعي', en: 'AI-suggested plan' },
+      body: {
+        ar: 'خطة بـ٤ تمارين بالاعتماد على هدف العضو ومستواه.',
+        en: "A 4-exercise plan based on the member's goal and level.",
+      },
+      reason: {
+        ar: 'مبني على هدف العضو ومستواه وجلساته الأخيرة.',
+        en: "Based on the member's goal, level, and recent sessions.",
+      },
+      payload: {
+        type: 'program_exercise_update',
+        title: { ar: 'برنامج مقترح', en: 'Suggested program' },
+        exercises: picks.map((e) => ({
+          exercise_id: e.id, sets: 3, reps: { ar: '٨-١٢', en: '8-12' }, target_weight_kg: null,
+        })),
+      },
+    }
+  } else if (kind === 'nutrition') {
+    const weight = member?.weightKg ?? 75
+    const target = Math.max(1200, Math.round((weight * 28) / 50) * 50)
+    draft = {
+      ...base,
+      created_by: 'generate_nutrition',
+      kind: 'nutrition',
+      headline: { ar: 'هدف سعرات جديد مقترح', en: 'New suggested calorie target' },
+      body: {
+        ar: `اقتراح ${target} سعرة باليوم بالاعتماد على وزن العضو وهدفه.`,
+        en: `Suggesting ${target} kcal/day based on the member's weight and goal.`,
+      },
+      reason: {
+        ar: 'محسوب من وزن العضو وهدفه الحالي.',
+        en: "Calculated from the member's current weight and goal.",
+      },
+      payload: { type: 'calorie_target_update', daily_kcal_target: target },
+    }
+  } else {
+    draft = {
+      ...base,
+      created_by: 'generate_tip',
+      kind: 'tip',
+      headline: { ar: 'نصيحة سريعة', en: 'Quick tip' },
+      body: {
+        ar: 'شرب مي أكتر بأيام التمرين ممكن يحسّن الأداء.',
+        en: 'Drinking more water on training days may help performance.',
+      },
+      reason: {
+        ar: 'بناءً على آخر الجلسات المسجلة.',
+        en: 'Based on recently logged sessions.',
+      },
+      payload: null,
+    }
+  }
+
+  mockAiDrafts = [draft, ...mockAiDrafts]
+  return draft
 }
 
 /** The mock branch of sendChatMessage — calls the existing replyTo()

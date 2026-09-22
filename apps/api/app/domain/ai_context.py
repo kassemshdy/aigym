@@ -94,12 +94,16 @@ def _format_catalog(
     return "\n".join(lines)
 
 
-def _format_member_data(
+def format_member_data(
     profile: MemberContextRow,
     recent_sessions: list[RecentSessionRow],
     today_food: list[FoodEntryRow],
     lang: str,
 ) -> str:
+    """Public (not `_`-prefixed) because app/api/ai_drafts.py's generate
+    route (stage 9) reuses it verbatim for its own, differently-shaped
+    system prompt — same member-context text either way, no reason to
+    duplicate it."""
     lines = ["Member profile:"]
     lines.append(f"- goal: {profile.goal}, level: {profile.level}")
     lines.append(f"- height: {profile.height_cm} cm, weight: {profile.weight_kg} kg")
@@ -150,7 +154,7 @@ def build_system_prompt(
     today_food: list[FoodEntryRow],
 ) -> list[TextBlockParam]:
     stable_text = f"{persona_instructions}\n\n{_format_catalog(exercises, videos, lang)}"
-    volatile_text = _format_member_data(profile, recent_sessions, today_food, lang)
+    volatile_text = format_member_data(profile, recent_sessions, today_food, lang)
     return [
         {"type": "text", "text": stable_text, "cache_control": {"type": "ephemeral"}},
         {"type": "text", "text": volatile_text},

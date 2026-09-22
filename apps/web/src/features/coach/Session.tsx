@@ -7,6 +7,7 @@ import { Button, buttonClass } from '@/components/ui/Button'
 import { Stepper } from '@/components/ui/Stepper'
 import { Icon } from '@/components/ui/Icon'
 import { Empty, Page } from '@/components/ui/Page'
+import { GenerateAiButton } from '@/features/coach/GenerateAiButton'
 import { useAsync } from '@/data/useAsync'
 import {
   createWorkoutSession,
@@ -250,6 +251,15 @@ function SessionBody({
             </p>
           ) : null}
         </Card>
+
+        {/* Deliberately a button the coach taps, not an automatic call on
+            every finished session — that volume is a real recurring cost
+            nothing in the roadmap asks for. */}
+        <GenerateAiButton
+          memberId={member.id}
+          kind="tip"
+          label={t('coach.session.getAiSuggestion')}
+        />
 
         <Link to="/coach" className={buttonClass('brand', 'lg', true)}>
           {t('common.done')}

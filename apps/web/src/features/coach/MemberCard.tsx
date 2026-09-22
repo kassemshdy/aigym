@@ -26,6 +26,7 @@ import type { Lang } from '@/i18n'
 import { listSep, shortDate, text } from '@/lib/format'
 import { cn } from '@/lib/cn'
 import { SharedPhotos } from '@/features/photos/SharedPhotos'
+import { GenerateAiButton } from '@/features/coach/GenerateAiButton'
 
 const BANDS = ['low', 'ok', 'high', 'unknown'] as const
 
@@ -289,6 +290,21 @@ function MemberCardBody({
           </>
         )}
       </Card>
+
+      {member.profile ? (
+        <Card>
+          <CardTitle>{t('coach.card.aiTitle')}</CardTitle>
+          <div className="space-y-2 p-4">
+            <GenerateAiButton memberId={memberId} kind="plan" label={t('coach.ai.generatePlan')} />
+            <GenerateAiButton
+              memberId={memberId}
+              kind="nutrition"
+              label={t('coach.ai.generateNutrition')}
+            />
+            <GenerateAiButton memberId={memberId} kind="tip" label={t('coach.ai.generateTip')} />
+          </div>
+        </Card>
+      ) : null}
 
       <SharedPhotos memberId={memberId} />
 

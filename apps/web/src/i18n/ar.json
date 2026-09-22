@@ -223,7 +223,8 @@
       "editPlan": "عدّل الخطة",
       "progress": "التقدّم",
       "lastWorkout": "آخر تمرين",
-      "noWorkoutsYet": "ما في تمارين مسجّلة بعد"
+      "noWorkoutsYet": "ما في تمارين مسجّلة بعد",
+      "aiTitle": "اطلب اقتراح من الذكاء الاصطناعي"
     },
     "food": {
       "low": "أكل قليل",
@@ -253,7 +254,8 @@
       "good": "منيح",
       "hard": "صعب",
       "struggled": "تعّب كتير",
-      "feedbackSaved": "انحفظ"
+      "feedbackSaved": "انحفظ",
+      "getAiSuggestion": "خود اقتراح للمرة الجاي من الذكاء الاصطناعي"
     },
     "ai": {
       "title": "اقتراحات الذكاء الاصطناعي",
@@ -267,7 +269,11 @@
       "notice": "ما بيوصل للمشترك إلا بعد ما توافق",
       "edit": "عدّل قبل ما توافق",
       "editPlaceholder": "عدّل الاقتراح",
-      "editedNotice": "معدّل عن الاقتراح الأصلي"
+      "editedNotice": "معدّل عن الاقتراح الأصلي",
+      "generating": "عم نجهّز الاقتراح…",
+      "generatePlan": "اقترح خطة تمرين",
+      "generateNutrition": "اقترح هدف سعرات",
+      "generateTip": "اقترح نصيحة"
     },
     "videos": {
       "title": "مكتبة الفيديوهات",

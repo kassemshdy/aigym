@@ -33,6 +33,7 @@ import {
   mockDeleteProgressPhoto,
   mockEstimateFoodEntry,
   mockFinishWorkoutSession,
+  mockGenerateAiDraft,
   mockGetActiveProgram,
   mockGetMember,
   mockGetTodayWorkout,
@@ -72,6 +73,7 @@ import {
 } from './mockAdapter'
 import type { Lang } from '@/i18n'
 import type {
+  AiDraftKind,
   ApiAiDraft,
   ApiAttendanceDay,
   ApiBooking,
@@ -675,6 +677,22 @@ export async function rejectAiDraft(draftId: string): Promise<ApiAiDraft> {
   if (!API_URL) return mockRejectAiDraft(draftId)
   return apiFetch(`/ai-drafts/${draftId}/reject`, {
     method: 'POST',
+    idempotencyKey: newIdempotencyKey(),
+  })
+}
+
+/** Phase 5 stage 9 — a coach action, not a chat message, but the same
+ * mechanism either way (decision 31): this always writes a new pending
+ * draft into the inbox above, never applies anything directly. */
+export async function generateAiDraft(
+  memberId: string,
+  kind: AiDraftKind,
+  lang: Lang,
+): Promise<ApiAiDraft> {
+  if (!API_URL) return mockGenerateAiDraft(memberId, kind)
+  return apiFetch(`/members/${memberId}/ai-drafts/generate`, {
+    method: 'POST',
+    body: { kind, lang },
     idempotencyKey: newIdempotencyKey(),
   })
 }

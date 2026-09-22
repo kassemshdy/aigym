@@ -103,3 +103,12 @@ async def gather_gym_catalog(
         for v in videos_result.scalars().all()
     ]
     return exercises, videos
+
+
+async def gather_exercise_catalog_with_ids(session: AsyncSession) -> list[Exercise]:
+    """Stage 9's generate route needs real exercise ids to build a
+    program_exercise_update payload the coach can actually approve — unlike
+    gather_gym_catalog's rows (stage 6/7), which deliberately drop the id
+    since chat replies never reference one directly."""
+    result = await session.execute(select(Exercise).where(Exercise.active.is_(True)))
+    return list(result.scalars().all())

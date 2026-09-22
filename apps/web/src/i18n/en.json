@@ -223,7 +223,8 @@
       "editPlan": "Edit plan",
       "progress": "Progress",
       "lastWorkout": "Last workout",
-      "noWorkoutsYet": "No workouts logged yet"
+      "noWorkoutsYet": "No workouts logged yet",
+      "aiTitle": "Ask AI for a suggestion"
     },
     "food": {
       "low": "Ate little",
@@ -253,7 +254,8 @@
       "good": "Good",
       "hard": "Hard",
       "struggled": "Really struggled",
-      "feedbackSaved": "Saved"
+      "feedbackSaved": "Saved",
+      "getAiSuggestion": "Get an AI suggestion for next time"
     },
     "ai": {
       "title": "AI suggestions",
@@ -267,7 +269,11 @@
       "notice": "Nothing reaches the member until you approve it",
       "edit": "Edit before approving",
       "editPlaceholder": "Edit the suggestion",
-      "editedNotice": "Edited from the original suggestion"
+      "editedNotice": "Edited from the original suggestion",
+      "generating": "Drafting…",
+      "generatePlan": "Suggest a training plan",
+      "generateNutrition": "Suggest a calorie target",
+      "generateTip": "Suggest a tip"
     },
     "videos": {
       "title": "Video library",
