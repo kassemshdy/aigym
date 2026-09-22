@@ -419,3 +419,67 @@ the feature itself:
 `scripts/shots.mjs` seeds both roles' seen-flags in its init script, the same way it already
 seeds `aigym.signedIn` — the screenshot suite captures steady-state screens, not the one-time
 onboarding overlay.
+
+## 28. Phase 4's member self-service architecture: five choices, one number
+
+Phase 4 took member screens off mocks and onto the real API. It's one decision, not five,
+because the five pieces below are really one architectural stance applied consistently —
+splitting them across separate numbers would have scattered a single idea across the file,
+so every code comment citing this decision (`app/storage.py`, `app/deps.py`, `app/db.py`,
+`app/api/{auth,members,sessions,progress_photos,food_entries,booking}.py`,
+`app/models/content.py`, `data/client.ts`, `data/queries.ts`,
+`features/coach/Videos.tsx`) points here.
+
+**Self-service member login-code request is a new, unauthenticated endpoint.**
+`POST /auth/member/code` (body: `{phone}`) sits alongside the existing staff-assisted
+`POST /auth/member/{member_id}/code` (decision 13) rather than replacing it — a front desk
+can still request a code on a member's behalf, but a member dialing in alone now can too.
+It must not leak whether a phone number belongs to a member: the response is `{"sent": true}`
+whether the phone matched, whether a code was actually created, or whether the rate limit was
+already hit. Gym resolution mirrors decision 18's pattern — `Member` is looked up by phone
+through the elevated/owner connection before any `gym_id` is known — the same "single-gym
+MVP, first match wins" limitation staff login already accepts, immediately followed by
+scoping into a normal RLS-scoped session, never used to read or write business data itself
+(`app/db.py`'s `get_owner_sessionmaker` docstring now documents both call sites). WhatsApp
+delivery reuses decision 20's real-Business-API exception for the identical reason: a member
+alone on their phone has no front desk to hand a link to, same as a locked-out staff member.
+
+**Member-owned resources are scoped by `/members/me/...`, not a path-param id.**
+Row-Level Security (decision 16) enforces *gym* isolation, and nothing more — it has no
+concept of "this member's own row." A route that trusted a path-param `member_id` would let
+any member at the same gym read or write another's data by changing the id in the URL. Every
+new member-facing write (`food_entries.py`, `progress_photos.py`, `booking.py`) takes the
+member id from `claims.subject_id` via `require_member` (`app/deps.py`) instead, and every
+*existing* staff endpoint broadened to also serve members —
+`GET /members/{id}`, `GET /members/{id}/today-workout`,
+`GET /members/{id}/workout-sessions` — gained an explicit ownership check
+(`claims.subject_type == "member" and claims.subject_id != member_id` → 404) rather than a
+second, duplicate route. All three had no such check before, because only staff had ever
+called them; opening the same route to members without the check would have been a real
+cross-member data leak, not a theoretical one — caught before it shipped, not after, by
+asking "who else can reach this now?" every time an endpoint's caller set grew. The 404 (never
+403) matches the anti-enumeration convention already used everywhere else in this codebase:
+"doesn't exist" and "exists but isn't yours" must look identical from outside.
+
+**Object storage is a Railway Volume on `api`, not S3/R2.** No new vendor, no new secrets,
+same pattern Postgres already uses on this project — accepting the same single-replica
+constraint already accepted for the database. `app/storage.py` wraps a mounted directory
+(`AIGYM_MEDIA_ROOT`) behind `save`/`read`/`delete`, keys are opaque freshly-minted filenames
+validated against a strict format regex independently at the storage layer (defense in depth,
+not just relying on the DB-ownership check one layer up), and `GET /media/{key}` /
+`POST /media` are the only routes that ever touch it — a photo's row, not the key itself, is
+what decides who can ever see it. Provisioned directly against the live `api` service (not
+just described in code): a `media` volume at `/data/media`, `AIGYM_MEDIA_ROOT` set to match.
+
+**The offline outbox (decision 23) is not extended to photo uploads or food-entry writes.**
+Decision 23 scoped it narrowly on purpose and noted extending it later is cheap; it wasn't
+free enough for this phase. Binary photo payloads don't fit the existing JSON-queue shape
+without real design work (Blobs in IndexedDB, multipart replay), so member writes built this
+phase fail visibly if offline, same as manager writes already do — a documented, deliberate
+gap, not a silent one.
+
+**Video embedding stays decision 5's hand-built YouTube iframe.** A `Video` row stores
+`provider` + `external_id` plus manually-entered title/muscle/equipment/duration; a coach
+fills the form in by hand, same tap-light pattern as an `Exercise`. No live oEmbed fetch —
+`features/coach/Videos.tsx` accepts either a bare YouTube id or a full URL and extracts the
+id client-side, which is the only parsing help a coach gets.
