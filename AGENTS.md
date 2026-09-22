@@ -149,7 +149,13 @@ symlink to it). Read the matching skill before the task:
 
 ## Phases
 
-See `docs/ROADMAP.md`. Phase 2 (backend: tenancy, auth, members, money) is done — manager
-screens run on the API when `VITE_API_URL` is set, mocks otherwise. Coach and member
-screens are still Phase 1: mock data, no backend, no auth. Do not add API calls to a coach
-or member screen until Phase 3/4 gives that surface a reason to.
+See `docs/ROADMAP.md`. Phases 2–5 are built: tenancy/auth/money (2), the coach's floor
+tools and the offline outbox (3), member self-service and content (4), and the AI layer
+(5). Every surface reads and writes the real API when `VITE_API_URL` is set, and falls back
+to mocks when it isn't — keep both branches working for anything new.
+
+Phase 5's AI needs `AIGYM_ANTHROPIC_API_KEY`. Without it the AI routes answer 503 by
+design, and nothing else is affected (decision 29). It is **not set on the live service
+yet** — see `docs/DEPLOY.md`.
+
+Next up is Phase 6 (sell it): gym self-serve signup, branding, owner analytics, imports.

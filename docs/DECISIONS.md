@@ -483,3 +483,124 @@ gap, not a silent one.
 fills the form in by hand, same tap-light pattern as an `Exercise`. No live oEmbed fetch —
 `features/coach/Videos.tsx` accepts either a bare YouTube id or a full URL and extracts the
 id client-side, which is the only parsing help a coach gets.
+
+## 29. Anthropic Claude, two models, and no Sentry AI tracing this phase
+
+Nothing in this file had committed to an LLM provider before Phase 5. The choice is
+**Anthropic Claude** via the official Python SDK, with the model split by what the call
+actually costs and how hard it has to think:
+
+- **Haiku 4.5** for the two high-volume member-facing surfaces — chat (`app/api/chat.py`)
+  and food-photo vision (`app/api/food_entries.py`) — and for the eval judge.
+- **Sonnet 5** for coach-facing plan *generation* only (`kind: 'plan'` in
+  `app/api/ai_drafts.py`), the one genuinely reasoning-heavy call in the product.
+
+Model ids live in `app/ai/models.py` as constants, not settings: bumping a model is a code
+change reviewed like any other, not an env var someone flips in production without a
+deploy.
+
+**Structured outputs everywhere, never prompt-begged JSON.** Every call goes through
+`app/ai/client.py`'s `run_structured()`, which uses `client.messages.parse(...)` with a
+pydantic `output_format` and returns `parsed_output`. That one wrapper is also the only
+place the SDK is constructed, so error handling, the structured log line, and the
+"no API key configured" case are each written once. A missing `AIGYM_ANTHROPIC_API_KEY`
+raises a typed `AnthropicNotConfigured` that routes turn into a **503, never a 500** — a
+deployment without the key yet is a real, expected state, the same treatment decision 20
+gives absent WhatsApp credentials.
+
+**Prompt caching is designed for but not assumed.** `app/domain/ai_context.py` splits the
+system prompt at a `cache_control` breakpoint: persona plus the gym's catalogs first
+(identical every turn, every member), this member's own profile/sessions/food after. For a
+small gym's catalog the stable half may simply never clear the model's minimum cacheable
+prefix, so the payoff is to be **verified with `usage.cache_read_input_tokens` on real
+traffic**, not claimed from the design.
+
+**Sentry AI tracing is deferred.** The roadmap named it, but no Sentry dependency, DSN, or
+init code exists anywhere in this backend, and standing one up is a decision about
+observability vendors that this phase had no business making on the way past. The
+structured JSON line `run_structured()` already emits through `app/logging.py`'s
+`JsonFormatter` — model, purpose, latency, token counts, stop reason — is this phase's
+whole observability story. A fast-follow, recorded here rather than left as a silent gap.
+
+## 30. Injuries are a structured shape, not free text
+
+`MemberProfile.injuries` was untyped JSONB — in practice a free-text note. Phase 5 reshapes
+it into `app/schemas/injuries.py`'s `MemberInjury`: a `body_part` drawn from a fixed
+canonical set, a bilingual `note`, and an optional `severity`.
+
+The reason is decision 10's, applied to safety. The roadmap requires that injury
+contraindications are *"checked before a reply is sent, not requested in the prompt."* A
+deterministic check needs a stable key to match an exercise's risk tags against — a fresh
+LLM inference over free text on every turn is neither deterministic nor free, and asking
+the model to police itself is exactly the arrangement decision 10 exists to avoid.
+`app/domain/guardrails.py` matches `body_part` against a small hand-maintained
+`muscle_group` + name-pattern table, deliberately in code rather than as a new `Exercise`
+column: it is cheaper than a migration and easy to extend as real gym data shows gaps.
+
+The cost is a fixed vocabulary — an injury that doesn't fit falls back to `other` plus the
+note, and stops being guardrail-checkable. That is the right trade: a guardrail that
+silently half-works on free text is worse than one with a known edge.
+
+## 31. One draft mechanism, whatever proposed the change
+
+A member asking the chat assistant for more bench weight and a coach tapping "suggest a
+plan" produce **the same thing**: a pending `ai_plan_drafts` row. One mechanism, not two to
+keep in sync, because decision 10's rule is about the *change*, not about who asked for it.
+`app/api/chat.py` and `app/api/ai_drafts.py`'s generate route are two producers;
+`POST /ai-drafts/{id}/approve` is the single consumer, and the only thing in the product
+that ever applies one.
+
+The two origins differ in exactly one way, and it is deliberate: **a chat draft carries no
+payload.** A casual message doesn't give a model enough to produce a validated
+`program_exercise_update` — real exercise ids from this gym's catalog, sane sets and reps —
+and asking it to anyway would manufacture precisely the unvalidated write decision 10 is
+there to prevent. Chat drafts are informational escalations the coach reads and acts on by
+hand. Coach-triggered generation does carry a payload, because it can: the prompt is built
+from the real catalog, the model picks exercises by **index** rather than copying UUIDs
+(models are reliable at picking from a numbered list and unreliable at reproducing a 36-character
+id), and the index is resolved server-side against the very list the prompt was built from.
+
+That payload is also where the numeric guardrails finally have something to check, which is
+why they run there and not in chat: a proposed exercise that would aggravate a recorded
+injury is dropped before the payload is written — if every proposal is dropped the draft
+degrades to a status-only tip rather than an empty program — and a calorie target below
+`calorie_floor()` is raised to the floor, with the adjustment stated in the draft's reason
+rather than applied quietly.
+
+## 32. The eval that spends money is not in the default CI path
+
+`apps/api/evals/golden_set.jsonl` is graded against real Claude, so every run costs real
+money. Running it on every push would be a recurring bill nobody agreed to, charged forever,
+mostly against pushes that never touched a prompt.
+
+So the golden set runs in its own workflow (`.github/workflows/ai-eval.yml`) on
+`workflow_dispatch` and on pull requests whose diff actually touches the AI layer — never on
+every push. A full run is **under $0.25**; the measured figure lives in
+`.agents/skills/ai-prompt-eval/SKILL.md` so nobody has to re-derive it.
+
+Keeping the paid job out of the default path creates an obvious failure mode — a runner that
+quietly breaks and is never exercised — so the grading logic is pure
+(`app/domain/evals.py`), and `tests/test_evals.py` covers it and the runner's wiring against
+a mocked client **in the normal `api` job**. Same discipline everywhere else in Phase 5:
+every test in the standard suite monkeypatches the Anthropic client, and no stage from 2
+through 9 spends a cent in ordinary CI.
+
+The runner grades `answer_chat()` — the same function the live route calls — rather than a
+reimplementation of the prompt, since an eval that exercises a copy measures the copy. Cases
+carry their own profile fixtures instead of reading a seeded database, so a case builds an
+identical prompt on any machine and a year from now.
+
+## 33. An edited approval records what the AI originally said
+
+`ai_plan_drafts.original` snapshots the draft's pre-edit fields the first time a coach
+changes anything before approving — first edit only, so it always holds what the model
+actually proposed rather than the previous edit.
+
+It exists because the interesting signal isn't the approve/reject counter, it's the
+*diff*: a coach who approves every nutrition draft but always rewrites the calorie number
+is telling us something specific about the prompt that a rejection count never would. The
+alternative — an edit that silently overwrites the draft — throws that away at exactly the
+moment it's generated, and no amount of later analysis recovers it.
+
+Capturing it is nearly free, which is the point: a column and a first-edit check, decided
+now rather than after a few hundred approvals have already been lost.
