@@ -20,12 +20,13 @@ ship the same way as any other code change, rather than needing a manual
 import asyncio
 import uuid
 from datetime import UTC, date, datetime, timedelta
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.models import (
+    AiPlanDraft,
     Attendance,
     Booking,
     CheckIn,
@@ -86,7 +87,7 @@ class MemberSeed(NamedTuple):
     height_cm: int
     weight_kg: int
     body_fat: int
-    injuries: list[dict[str, str]]
+    injuries: list[dict[str, Any]]
     days_per_week: int
     job: str
     sleep_hours: int
@@ -102,7 +103,8 @@ MEMBER_ROWS = [
     MemberSeed(
         "m1", "رامي حداد", "Rami Haddad", "+96170123456", "p1",
         "2025-11-02", "2026-09-08", "lose", "mid", 178, 92, 26,
-        [{"ar": "أسفل الظهر", "en": "Lower back"}],
+        [{"body_part": "lower_back", "note": {"ar": "أسفل الظهر", "en": "Lower back"},
+          "severity": None}],
         3, "desk", 6, [98, 97, 96, 95, 94, 93, 92],
     ),
     MemberSeed(
@@ -118,13 +120,15 @@ MEMBER_ROWS = [
     MemberSeed(
         "m4", "مايا شمعون", "Maya Chamoun", "+96103445566", "p1",
         "2026-08-01", "2026-09-01", "health", "new", 170, 68, 29,
-        [{"ar": "ركبة يمين", "en": "Right knee"}],
+        [{"body_part": "knee_right", "note": {"ar": "ركبة يمين", "en": "Right knee"},
+          "severity": None}],
         2, "shift", 5, [69, 69, 69, 68, 68, 68, 68],
     ),
     MemberSeed(
         "m5", "علي حمدان", "Ali Hamdan", "+96181220034", "pt",
         "2026-05-20", "2026-09-20", "strength", "strong", 175, 84, 16,
-        [{"ar": "كتف يسار", "en": "Left shoulder"}],
+        [{"body_part": "shoulder_left", "note": {"ar": "كتف يسار", "en": "Left shoulder"},
+          "severity": None}],
         5, "active", 7, [82, 82, 83, 83, 83, 84, 84],
     ),
     MemberSeed(
@@ -150,6 +154,62 @@ PAYMENT_ROWS = [
     ("y3", "m5", 150, "2026-08-20", "transfer"),
     ("y4", "m2", 90, "2026-06-14", "cash"),
     ("y5", "m7", 35, "2026-08-11", "cash"),
+]
+
+# Seeded directly (bypassing the LLM) so /coach/ai isn't empty on the live
+# gym before any real chat or coach-generated draft exists. Mirrors
+# apps/web/src/mocks/data.ts's aiDrafts fixture. (mock_id, member_mock_id,
+# kind, headline, body, reason, payload)
+AiDraftRow = tuple[
+    str, str, str, dict[str, str], dict[str, str], dict[str, str], dict[str, Any] | None
+]
+AI_DRAFT_ROWS: list[AiDraftRow] = [
+    (
+        "a1", "m1", "plan",
+        {"ar": "خطة ٣ أيام — ضغط أقل على أسفل الظهر", "en": "3-day plan — less load on lower back"},
+        {
+            "ar": "استبدال السكوات بالحر بضغط الأرجل، وإضافة تقوية للحزام الأساسي يومين بالأسبوع. "
+                  "زيادة الوزن ٢.٥ كغ كل أسبوعين مش كل أسبوع.",
+            "en": "Swap free squats for leg press, add core bracing twice a week. "
+                  "Progress weight 2.5 kg every two weeks, not weekly.",
+        },
+        {
+            "ar": "مسجّل عنده إصابة أسفل الظهر، بينام ٦ ساعات، وشغله مكتبي "
+                  "— الاستشفاء أبطأ من المعدل.",
+            "en": "Recorded lower-back injury, sleeps 6h, desk job "
+                  "— recovery slower than average.",
+        },
+        None,
+    ),
+    (
+        "a2", "m4", "nutrition",
+        {"ar": "هدف سعرات ١٧٠٠ باليوم", "en": "1700 kcal/day target"},
+        {
+            "ar": "توزيع الأكل على ٣ وجبات، والتركيز على وجبة بعد التمرين مباشرة.",
+            "en": "Split meals across the day, one right after training.",
+        },
+        {
+            "ar": "وزن ٦٨ كغ وهدفها صحة عامة، وشغلها ورديات — أبسط خطة هي الأنجح.",
+            "en": "68 kg, general-health goal, shift work "
+                  "— the simplest plan is the one that sticks.",
+        },
+        {"type": "calorie_target_update", "daily_kcal_target": 1700},
+    ),
+    (
+        "a3", "m5", "tip",
+        {"ar": "خفّف حجم تمرين الكتف هالأسبوع", "en": "Reduce shoulder volume this week"},
+        {
+            "ar": "آخر ٣ حصص الوزن نزل بالضغط العلوي. خفّف مجموعة وحدة ورجاع الأسبوع الجاي.",
+            "en": "Overhead press weight dropped across the last 3 sessions. "
+                  "Cut one set, rebuild next week.",
+        },
+        {
+            "ar": "إصابة كتف يسار مسجّلة + تراجع بالأداء ٣ حصص متتالية.",
+            "en": "Recorded left-shoulder injury plus 3 consecutive sessions "
+                  "of declining performance.",
+        },
+        None,
+    ),
 ]
 
 COACH_ROWS = [
@@ -466,6 +526,18 @@ async def seed(session: AsyncSession) -> None:
             role="super_admin",
         )
     )
+
+    # Seeded directly, bypassing the LLM entirely — so /coach/ai isn't empty
+    # on the live gym before any real chat or coach-generated draft exists.
+    # Mirrors apps/web/src/mocks/data.ts's aiDrafts fixture.
+    for mock_id, member_mock_id, kind, headline, body, reason, payload in AI_DRAFT_ROWS:
+        session.add(
+            AiPlanDraft(
+                id=uid("ai-draft", mock_id), gym_id=GYM_ID, member_id=member_ids[member_mock_id],
+                created_by="coach_plan" if kind == "plan" else "coach_nutrition",
+                kind=kind, headline=headline, body=body, reason=reason, payload=payload,
+            )
+        )
 
     await session.commit()
 

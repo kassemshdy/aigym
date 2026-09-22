@@ -181,6 +181,32 @@ itself — this environment can't reach `*.up.railway.app` to drive that (same r
 noted throughout this file), and no member has used the live product yet to exercise it
 naturally. Worth a manual check the first time a real gym member uploads a photo.
 
+### The Anthropic key (Phase 5) — not set yet
+
+**`AIGYM_ANTHROPIC_API_KEY` is not set on the live `api` service.** Until it is, every AI
+route — member chat, food-photo estimates, and the coach's "suggest a plan" action —
+answers **503, by design rather than by accident**: `app/ai/client.py` raises a typed
+`AnthropicNotConfigured` that routes turn into a 503, so an un-keyed deployment degrades
+predictably instead of 500-ing (decision 29). Nothing else in the product is affected; the
+screens that don't call Claude behave exactly as they did in Phase 4.
+
+Setting it is a dashboard/CLI step against Railway's own variable store, on the `api`
+service, alongside the other secrets above — never committed, and `.env.example` carries a
+placeholder only. Nothing about it can be verified from this development environment, which
+cannot reach `*.up.railway.app` (same restriction noted throughout this file), so:
+
+**After setting it, smoke-check one real message.** Sign in as a member on the live URL,
+send one message to either assistant, and confirm a real reply comes back rather than the
+"assistant is unavailable" state. That one round trip exercises the whole path — key,
+client wrapper, context assembly, structured output — and is the only way to know the key
+is actually live. Same class of gap as the media volume's first real photo upload above.
+
+The **GitHub Actions secret of the same name** is separate and also not set. It is what the
+`ai-eval` workflow needs to run the golden set against real Claude; without it that job
+exits 1 with a clear message. The eval job never runs on an ordinary push anyway
+(decision 32), so this blocks nothing until someone dispatches it or opens a PR touching
+the AI layer.
+
 ### Seeding real content, and setting the manager's password
 
 `scripts/bootstrap_db.sh`, `alembic upgrade head`, and `scripts/seed.py` all run automatically

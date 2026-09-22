@@ -26,6 +26,7 @@ import type { Lang } from '@/i18n'
 import { listSep, shortDate, text } from '@/lib/format'
 import { cn } from '@/lib/cn'
 import { SharedPhotos } from '@/features/photos/SharedPhotos'
+import { GenerateAiButton } from '@/features/coach/GenerateAiButton'
 
 const BANDS = ['low', 'ok', 'high', 'unknown'] as const
 
@@ -154,9 +155,7 @@ function MemberCardBody({
         {injuries.length > 0 ? (
           <p className="bg-soon-bg text-soon mt-2 rounded-xl px-4 py-3 text-center text-sm font-bold">
             {t('manager.member.injuries')}:{' '}
-            {injuries
-              .map((i) => text(i as Parameters<typeof text>[0], lang))
-              .join(listSep(lang))}
+            {injuries.map((i) => i.note[lang]).join(listSep(lang))}
           </p>
         ) : null}
       </Card>
@@ -291,6 +290,21 @@ function MemberCardBody({
           </>
         )}
       </Card>
+
+      {member.profile ? (
+        <Card>
+          <CardTitle>{t('coach.card.aiTitle')}</CardTitle>
+          <div className="space-y-2 p-4">
+            <GenerateAiButton memberId={memberId} kind="plan" label={t('coach.ai.generatePlan')} />
+            <GenerateAiButton
+              memberId={memberId}
+              kind="nutrition"
+              label={t('coach.ai.generateNutrition')}
+            />
+            <GenerateAiButton memberId={memberId} kind="tip" label={t('coach.ai.generateTip')} />
+          </div>
+        </Card>
+      ) : null}
 
       <SharedPhotos memberId={memberId} />
 

@@ -39,3 +39,7 @@ class MemberProfile(Base, GymScopedMixin, TimestampMixin):
     job: Mapped[str] = mapped_column(String, nullable=False)
     sleep_hours: Mapped[float] = mapped_column(Numeric(3, 1, asdecimal=False), nullable=False)
     weight_trend: Mapped[list[float]] = mapped_column(JSONB, nullable=False, default=list)
+    # Set only by an approved ai_plan_drafts row (kind='nutrition') — never
+    # directly by the member themselves. Null means "no AI-approved target
+    # yet," not zero; Food.tsx falls back to a hardcoded default until set.
+    daily_kcal_target: Mapped[int | None] = mapped_column(Integer, nullable=True)

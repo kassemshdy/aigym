@@ -1,0 +1,51 @@
+# The one CI job in this repo that spends real money — it calls Claude for
+# every case in apps/api/evals/golden_set.jsonl. That is why it lives in
+# its own workflow instead of the `api` job: a `paths:` filter belongs to
+# a workflow, not a job, and this must NOT run on every push (decision 32).
+#
+# It fires only when the AI layer itself changes, or when someone asks for
+# it by hand. Everything else in Phase 5 — including tests/test_evals.py,
+# which catches a broken runner — is mocked and free, and runs in ci.yml.
+#
+# Measured cost per full run: under $0.25. See
+# .agents/skills/ai-prompt-eval/SKILL.md.
+name: AI eval
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'apps/api/app/ai/**'
+      - 'apps/api/app/api/chat.py'
+      - 'apps/api/app/domain/guardrails.py'
+      - 'apps/api/app/domain/ai_context.py'
+      - 'apps/api/app/domain/evals.py'
+      - 'apps/api/evals/**'
+      - 'apps/api/scripts/run_evals.py'
+      - '.github/workflows/ai-eval.yml'
+
+jobs:
+  golden-set:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    env:
+      # Repository secret, same value as the Railway `api` service's.
+      # Without it the runner exits 1 with a clear message rather than
+      # failing somewhere inside the SDK.
+      AIGYM_ANTHROPIC_API_KEY: ${{ secrets.AIGYM_ANTHROPIC_API_KEY }}
+      # No database is touched — every case carries its own fixture
+      # profile — but app/settings.py still wants these to construct.
+      AIGYM_DATABASE_URL: postgresql+psycopg://unused:unused@localhost:5432/unused
+      AIGYM_DATABASE_URL_MIGRATIONS: postgresql+psycopg://unused:unused@localhost:5432/unused
+      AIGYM_JWT_SECRET: ci-eval-secret-32-bytes-minimum-length
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: '0.8.17'
+      - run: uv python install 3.11
+      - run: uv sync --frozen
+      - name: Run the golden set against live Claude
+        run: uv run python scripts/run_evals.py

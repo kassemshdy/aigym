@@ -59,6 +59,7 @@ const SCREENS = [
   ['member-video-detail', '/member/videos/v1', 'phone'],
   ['member-progress', '/member/progress', 'phone'],
   ['member-profile', '/member/profile', 'phone'],
+  ['member-profile-edit', '/member/profile/edit', 'phone'],
 ]
 
 const SIZES = { phone: { width: 390, height: 844 }, ipad: { width: 1024, height: 768 } }

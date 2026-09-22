@@ -12,7 +12,7 @@ import { Icon } from '@/components/ui/Icon'
 import { Empty, Page } from '@/components/ui/Page'
 import { getMember, listPayments, recordPayment, whatsappReminderLink } from '@/data/queries'
 import { useAsync } from '@/data/useAsync'
-import { listSep, shortDate, text, usd } from '@/lib/format'
+import { listSep, shortDate, usd } from '@/lib/format'
 import { cn } from '@/lib/cn'
 import type { Lang } from '@/i18n'
 import { SharedPhotos } from '@/features/photos/SharedPhotos'
@@ -161,9 +161,7 @@ export function ManagerMemberDetail() {
               label={t('manager.member.injuries')}
               value={
                 m.profile.injuries.length
-                  ? m.profile.injuries
-                      .map((i) => text(i as Parameters<typeof text>[0], lang))
-                      .join(listSep(lang))
+                  ? m.profile.injuries.map((i) => i.note[lang]).join(listSep(lang))
                   : t('manager.member.noInjuries')
               }
             />

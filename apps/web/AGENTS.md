@@ -1,8 +1,9 @@
 # apps/web — React app
 
-Vite + React 19 + TypeScript + Tailwind v4. No Next.js. Manager and coach screens run on
-the API when `VITE_API_URL` is set, mocks when it isn't (Phase 2 shipped manager, Phase 3
-shipped coach); member screens stay on mocks until Phase 4.
+Vite + React 19 + TypeScript + Tailwind v4. No Next.js. Every surface runs on the API when
+`VITE_API_URL` is set and on mocks when it isn't — manager (Phase 2), coach (Phase 3),
+member (Phase 4), and the AI screens (Phase 5). The mock fallback is not legacy: it is how
+this app stays demoable without a backend, so every query function keeps both branches.
 
 ## Layout
 
@@ -34,8 +35,8 @@ src/
 │                      switcher, bottom tabs
 └── features/
     ├── manager/      Home, Members, MemberDetail, AddMember, Plans, Payments, Login
-    ├── coach/        Queue, CheckIn, MemberCard, Session, AiDrafts (still mocked —
-    │                 Phase 5, see decision 10)
+    ├── coach/        Queue, CheckIn, MemberCard, Session, AiDrafts (the approval inbox —
+    │                 decision 10), GenerateAiButton (asks for a draft — decision 31)
     ├── programs/     ProgramEditor — plan assign/edit, shared by manager and coach,
     │                 mounted at both /manager/programs/:id and /coach/programs/:id so
     │                 AppShell's tab bar shows the right surface
@@ -135,5 +136,12 @@ same shape, and only then wire the component. A `queries.ts` function with no mo
 breaks `main`'s mock-only build — see the "must stay deployable" invariant in
 `docs/DECISIONS.md`.
 
-Member screens are the next surface to cross this boundary (Phase 4) — same pattern,
-`src/mocks/data` stays their source until then.
+Every surface has now crossed this boundary, so there is no "still on mocks" list left to
+consult — but the rule above is unchanged and still the thing that breaks the build when
+skipped.
+
+The Phase 5 AI calls are the same pattern with one wrinkle: mock mode has no model to call,
+so `mockSendChatMessage` falls back to `mocks/agents.ts`'s regex `replyTo()`,
+`mockEstimateFoodEntry` picks from `mocks/data.ts`'s `foodGuesses`, and
+`mockGenerateAiDraft` writes a canned bilingual draft. They are stand-ins for a model, not
+for a network layer — the shape they return is exactly what the API returns.

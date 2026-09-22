@@ -40,7 +40,9 @@ export const members: Member[] = [
     id: 'm1', name: 'رامي حداد', nameEn: 'Rami Haddad', phone: '+96170123456',
     planId: 'p1', joinedAt: '2025-11-02', endsAt: '2026-09-08', status: 'due', owedUsd: 35,
     lastVisit: '2026-09-08', goal: 'lose', level: 'mid', heightCm: 178, weightKg: 92,
-    bodyFat: 26, injuries: [{ ar: 'أسفل الظهر', en: 'Lower back' }], daysPerWeek: 3, job: 'desk', sleepHours: 6,
+    bodyFat: 26,
+    injuries: [{ bodyPart: 'lower_back', note: { ar: 'أسفل الظهر', en: 'Lower back' }, severity: null }],
+    daysPerWeek: 3, job: 'desk', sleepHours: 6,
     weightTrend: [98, 97, 96, 95, 94, 93, 92],
   },
   {
@@ -61,14 +63,18 @@ export const members: Member[] = [
     id: 'm4', name: 'مايا شمعون', nameEn: 'Maya Chamoun', phone: '+96103445566',
     planId: 'p1', joinedAt: '2026-08-01', endsAt: '2026-09-01', status: 'due', owedUsd: 35,
     lastVisit: '2026-08-29', goal: 'health', level: 'new', heightCm: 170, weightKg: 68,
-    bodyFat: 29, injuries: [{ ar: 'ركبة يمين', en: 'Right knee' }], daysPerWeek: 2, job: 'shift', sleepHours: 5,
+    bodyFat: 29,
+    injuries: [{ bodyPart: 'knee_right', note: { ar: 'ركبة يمين', en: 'Right knee' }, severity: null }],
+    daysPerWeek: 2, job: 'shift', sleepHours: 5,
     weightTrend: [69, 69, 69, 68, 68, 68, 68],
   },
   {
     id: 'm5', name: 'علي حمدان', nameEn: 'Ali Hamdan', phone: '+96181220034',
     planId: 'pt', joinedAt: '2026-05-20', endsAt: '2026-09-20', status: 'paid', owedUsd: 0,
     lastVisit: '2026-09-10', goal: 'strength', level: 'strong', heightCm: 175, weightKg: 84,
-    bodyFat: 16, injuries: [{ ar: 'كتف يسار', en: 'Left shoulder' }], daysPerWeek: 5, job: 'active', sleepHours: 7,
+    bodyFat: 16,
+    injuries: [{ bodyPart: 'shoulder_left', note: { ar: 'كتف يسار', en: 'Left shoulder' }, severity: null }],
+    daysPerWeek: 5, job: 'active', sleepHours: 7,
     weightTrend: [82, 82, 83, 83, 83, 84, 84],
   },
   {
@@ -156,6 +162,17 @@ export const nutrition: NutritionEntry[] = [
   { memberId: 'm3', date: '2026-09-10', band: 'low', meals: ['قهوة بس'], source: 'coach_asked' },
 ]
 
+/** Mock stand-in for a food photo estimate (Phase 5 stage 8). Real mode
+ * sends the photo to Claude for the same shape (app/api/food_entries.py's
+ * POST /members/me/food-entries/estimate); mock mode has no vision model
+ * to call, so it picks one of these at random instead. */
+export const foodGuesses: { label: { ar: string; en: string }; kcal: number; protein: number; carbs: number; fat: number }[] = [
+  { label: { ar: 'دجاج مشوي مع رز', en: 'Grilled chicken with rice' }, kcal: 620, protein: 45, carbs: 68, fat: 14 },
+  { label: { ar: 'لبنة مع خبز وزيتون', en: 'Labneh with bread and olives' }, kcal: 410, protein: 16, carbs: 44, fat: 19 },
+  { label: { ar: 'سلطة مع تونة', en: 'Salad with tuna' }, kcal: 280, protein: 28, carbs: 12, fat: 13 },
+  { label: { ar: 'منقوشة زعتر', en: 'Zaatar manqoushe' }, kcal: 350, protein: 8, carbs: 46, fat: 15 },
+]
+
 export const videos: Video[] = [
   { id: 'v1', title: { ar: 'بنش برس — الوضعية الصح', en: 'Bench Press — Correct Form' }, provider: 'youtube', externalId: 'gRVjAtPip0Y', seconds: 214, muscle: 'chest', equipment: 'barbell', views: 148 },
   { id: 'v2', title: { ar: 'تفتيح دمبل بدون إصابة', en: 'Dumbbell Fly Without Injury' }, provider: 'youtube', externalId: 'eozdVDA78K0', seconds: 176, muscle: 'chest', equipment: 'dumbbell', views: 96 },
@@ -182,6 +199,7 @@ export const aiDrafts: AiDraft[] = [
   },
   {
     id: 'a2', memberId: 'm4', kind: 'nutrition', status: 'pending', createdAt: '2026-09-10',
+    payload: { type: 'calorie_target_update', daily_kcal_target: 1700 },
     headline: { ar: 'هدف بروتين ١٠٥ غ باليوم', en: 'Protein target 105 g/day' },
     body: {
       ar: 'توزيع البروتين على ٣ وجبات، والتركيز على وجبة بعد التمرين مباشرة. ما في داعي لعدّ كل شي — بس الوجبات الثلاث.',

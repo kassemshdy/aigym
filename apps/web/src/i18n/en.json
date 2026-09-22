@@ -94,6 +94,18 @@
     "active": "Active job",
     "shift": "Shift work"
   },
+  "injuryBodyPart": {
+    "lower_back": "Lower back",
+    "knee_left": "Left knee",
+    "knee_right": "Right knee",
+    "shoulder_left": "Left shoulder",
+    "shoulder_right": "Right shoulder",
+    "hip": "Hip",
+    "neck": "Neck",
+    "wrist": "Wrist",
+    "ankle": "Ankle",
+    "other": "Other"
+  },
   "manager": {
     "login": {
       "title": "Manager sign in",
@@ -153,6 +165,7 @@
       "step2": "Plan",
       "step3": "Body data",
       "step4": "Lifestyle",
+      "step5": "Injuries & sleep",
       "name": "Name",
       "phone": "Mobile number",
       "goal": "Their goal",
@@ -210,7 +223,8 @@
       "editPlan": "Edit plan",
       "progress": "Progress",
       "lastWorkout": "Last workout",
-      "noWorkoutsYet": "No workouts logged yet"
+      "noWorkoutsYet": "No workouts logged yet",
+      "aiTitle": "Ask AI for a suggestion"
     },
     "food": {
       "low": "Ate little",
@@ -240,7 +254,8 @@
       "good": "Good",
       "hard": "Hard",
       "struggled": "Really struggled",
-      "feedbackSaved": "Saved"
+      "feedbackSaved": "Saved",
+      "getAiSuggestion": "Get an AI suggestion for next time"
     },
     "ai": {
       "title": "AI suggestions",
@@ -251,7 +266,14 @@
       "approved": "Approved",
       "rejected": "Rejected",
       "empty": "No new suggestions",
-      "notice": "Nothing reaches the member until you approve it"
+      "notice": "Nothing reaches the member until you approve it",
+      "edit": "Edit before approving",
+      "editPlaceholder": "Edit the suggestion",
+      "editedNotice": "Edited from the original suggestion",
+      "generating": "Drafting…",
+      "generatePlan": "Suggest a training plan",
+      "generateNutrition": "Suggest a calorie target",
+      "generateTip": "Suggest a tip"
     },
     "videos": {
       "title": "Video library",
@@ -287,7 +309,25 @@
       "title": "My details",
       "membership": "My membership",
       "endsOn": "Ends on",
-      "signOut": "Sign out"
+      "signOut": "Sign out",
+      "edit": "Edit",
+      "editTitle": "Edit my details",
+      "save": "Save",
+      "saved": "Saved",
+      "injuryEditor": {
+        "item": "Injury {{n}}",
+        "bodyPart": "Where",
+        "note": "Note",
+        "notePlaceholder": "Describe it briefly",
+        "severityLabel": "How bad",
+        "severity": {
+          "none": "Not sure",
+          "mild": "Mild",
+          "moderate": "Moderate",
+          "severe": "Severe"
+        },
+        "add": "Add an injury"
+      }
     }
   },
   "muscle": {
@@ -360,6 +400,7 @@
     "remove": "Remove",
     "g": "g",
     "analyzing": "Reading the photo…",
+    "analyzeError": "Couldn't read the photo — try again or add it manually",
     "estimate": "Food estimate",
     "confirm": "Log it",
     "portion": "Portion",
@@ -384,6 +425,7 @@
     "suggestions": "Try asking",
     "draftSent": "Sent to your coach to approve",
     "foodLogged": "Added to today's food",
+    "referred": "This needs a coach or a doctor, not the assistant",
     "disclaimer": "The assistant answers and logs your food, but never changes your program — that is the coach's call."
   },
   "photos": {

@@ -1,7 +1,7 @@
 # apps/api — FastAPI service
 
 FastAPI + SQLAlchemy 2.0 (async, `psycopg`) + Alembic + Postgres 16, managed with `uv`.
-Backs the manager and coach surfaces; member endpoints land in Phase 4/5.
+Backs every surface — manager, coach, member — plus the Phase 5 AI layer under `app/ai/`.
 
 ## Layout
 
@@ -157,8 +157,15 @@ Full runbook: `docs/DEPLOY.md`.
 
 ## Phase boundary
 
-Coach endpoints (exercises, programs, workout sessions/sets, nutrition logs, check-in
-status) shipped in Phase 3 — `apps/web`'s coach screens read and write the real API now,
-same as manager. Member endpoints (AI drafts, video library, progress, the member's own
-auth) are still Phase 4/5 — `apps/web`'s member screens stay on mocks until then. Do not
-add auth or data-layer plumbing here for screens that are not switching over yet.
+There isn't one any more: manager (Phase 2), coach (Phase 3), member (Phase 4) and the AI
+layer (Phase 5) all read and write the real API. `apps/web` still falls back to mocks with
+`VITE_API_URL` unset, and that fallback is expected to keep working — every new query
+function gets both branches.
+
+The AI layer is the one part with a runtime prerequisite: with `AIGYM_ANTHROPIC_API_KEY`
+unset, `app/ai/client.py` raises `AnthropicNotConfigured` and its routes answer **503, not
+500** — a keyless deployment is a supported state, not a bug (decision 29). Keep it that
+way when adding a route that calls Claude.
+
+Read `.agents/skills/ai-prompt-eval` before changing a prompt or a guardrail, and note that
+the golden set costs real money to run, so it is not in the default CI path (decision 32).

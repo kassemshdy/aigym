@@ -1,5 +1,6 @@
 import { createContext, useContext, useMemo, useReducer, type ReactNode } from 'react'
-import { replyTo } from '@/mocks/agents'
+import { sendChatMessage } from '@/data/queries'
+import type { ChatTurnInput } from '@/data/types'
 import type { AgentId, ChatMessage, FoodEntry, SupplementId } from '@/mocks/types'
 import type { Lang } from '@/i18n'
 
@@ -67,7 +68,7 @@ function reducer(state: State, action: Action): State {
 
 const Ctx = createContext<{ state: State; actions: ReturnType<typeof makeActions> } | null>(null)
 
-function makeActions(dispatch: (a: Action) => void) {
+function makeActions(dispatch: (a: Action) => void, chats: Record<AgentId, ChatMessage[]>) {
   return {
     logFood: (entry: Omit<FoodEntry, 'id' | 'at'>) =>
       dispatch({ type: 'addFood', entry: { ...entry, id: id(), at: now() } }),
@@ -79,24 +80,42 @@ function makeActions(dispatch: (a: Action) => void) {
     toggleSupplement: (supplementId: SupplementId) =>
       dispatch({ type: 'supplement', id: supplementId }),
 
-    /** Sends a message and applies whatever the agent is allowed to do with it. */
-    ask: (agent: AgentId, text: string, lang: Lang) => {
-      const reply = replyTo(agent, text, lang)
+    /** Sends a message and applies whatever the agent is allowed to do with
+     * it. The network call (data/queries.ts's sendChatMessage — the only
+     * place `fetch` reaches Claude) is the one async step; the transcript
+     * itself stays in this store, same as before Phase 5 stage 7. */
+    ask: async (agent: AgentId, text: string, lang: Lang) => {
+      const history: ChatTurnInput[] = chats[agent].map((m) => ({
+        role: m.role === 'member' ? 'user' : 'assistant',
+        text: m.text,
+      }))
+      const reply = await sendChatMessage(agent, text, history, lang)
       const messages: ChatMessage[] = [
         { id: id(), role: 'member', text, at: now() },
         {
           id: id(),
           role: 'agent',
-          text: reply.body,
+          text: reply.text,
           at: now(),
-          note: reply.draft ? 'draft_sent' : reply.food ? 'food_logged' : undefined,
+          note: reply.referred
+            ? 'referred'
+            : reply.draft
+              ? 'draft_sent'
+              : reply.food
+                ? 'food_logged'
+                : undefined,
         },
       ]
       dispatch({ type: 'chat', agent, messages, draft: reply.draft })
       if (reply.food) {
         dispatch({
           type: 'addFood',
-          entry: { ...reply.food, id: id(), at: now(), source: 'agent' },
+          entry: {
+            id: id(), at: now(), source: 'agent',
+            label: { ar: reply.food.label, en: reply.food.label },
+            kcal: reply.food.kcal, protein: reply.food.protein,
+            carbs: reply.food.carbs, fat: reply.food.fat,
+          },
         })
       }
     },
@@ -105,7 +124,10 @@ function makeActions(dispatch: (a: Action) => void) {
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initial)
-  const value = useMemo(() => ({ state, actions: makeActions(dispatch) }), [state])
+  const value = useMemo(
+    () => ({ state, actions: makeActions(dispatch, state.chats) }),
+    [state],
+  )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
 

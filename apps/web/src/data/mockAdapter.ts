@@ -7,6 +7,7 @@
  * for.
  */
 import {
+  aiDrafts as seedAiDrafts,
   attendance as seedAttendance,
   bookings as seedBookings,
   checkIns as seedCheckIns,
@@ -16,6 +17,7 @@ import {
   dayPlans as seedDayPlans,
   daysSinceVisit,
   findPlan,
+  foodGuesses,
   machines as seedMachines,
   members as seedMembers,
   nutrition as seedNutrition,
@@ -29,19 +31,28 @@ import type {
   Payment as MockPayment,
 } from '@/mocks/types'
 import { waLink } from '@/lib/whatsapp'
+import { replyTo } from '@/mocks/agents'
+import type { AgentId } from '@/mocks/types'
+import { text } from '@/lib/format'
 import type { Text } from '@/lib/format'
+import type { Lang } from '@/i18n'
 import type {
+  AiDraftKind,
+  ApiAiDraft,
   ApiAttendanceDay,
   ApiBooking,
+  ApiChatReply,
   ApiCheckIn,
   ApiCoach,
   ApiExercise,
   ApiFoodEntry,
+  ApiFoodEstimate,
   ApiGymClass,
   ApiLapsedMember,
   ApiMachine,
   ApiMember,
   ApiMemberDetail,
+  ApiMemberProfile,
   ApiNutritionLog,
   ApiPayment,
   ApiPlan,
@@ -61,6 +72,7 @@ import type {
   CreateStaffInput,
   CreateVideoInput,
   CreateWorkoutSessionInput,
+  ApproveAiDraftInput,
   FinishWorkoutSessionInput,
   LogSetInput,
   ReplaceProgramExercisesInput,
@@ -68,9 +80,13 @@ import type {
   UpdateExerciseInput,
   UpdateProgramInput,
   UpdateVideoInput,
+  UpdateMyProfileInput,
 } from './types'
 
 let mockMembers: MockMember[] = seedMembers.map((m) => ({ ...m }))
+// Session-only, mirrors ai_plan_drafts.approve writing MemberProfile.daily_kcal_target
+// on the real backend — a coach can only ever set it by approving a draft.
+const mockDailyKcalTargets = new Map<string, number>()
 let mockPayments: MockPayment[] = seedPayments.map((p) => ({ ...p }))
 let mockCheckIns: MockCheckIn[] = seedCheckIns.map((c) => ({ ...c }))
 
@@ -102,11 +118,16 @@ function toApiMemberDetail(m: MockMember): ApiMemberDetail {
       height_cm: m.heightCm,
       weight_kg: m.weightKg,
       body_fat: m.bodyFat,
-      injuries: m.injuries,
+      injuries: m.injuries.map((i) => ({
+        body_part: i.bodyPart,
+        note: i.note,
+        severity: i.severity,
+      })),
       days_per_week: m.daysPerWeek,
       job: m.job,
       sleep_hours: m.sleepHours,
       weight_trend: m.weightTrend,
+      daily_kcal_target: mockDailyKcalTargets.get(m.id) ?? null,
     },
   }
 }
@@ -119,6 +140,28 @@ export function mockGetMember(memberId: string): ApiMemberDetail {
   const m = mockMembers.find((x) => x.id === memberId)
   if (!m) throw new Error('Member not found')
   return toApiMemberDetail(m)
+}
+
+export function mockUpdateMyProfile(input: UpdateMyProfileInput): ApiMemberProfile {
+  const idx = mockMembers.findIndex((x) => x.id === currentMemberId)
+  if (idx === -1) throw new Error('Member not found')
+  const existing = mockMembers[idx]
+  const updated: MockMember = {
+    ...existing,
+    goal: input.goal ?? existing.goal,
+    level: input.level ?? existing.level,
+    heightCm: input.height_cm ?? existing.heightCm,
+    weightKg: input.weight_kg ?? existing.weightKg,
+    bodyFat: input.body_fat !== undefined ? input.body_fat : existing.bodyFat,
+    injuries: input.injuries
+      ? input.injuries.map((i) => ({ bodyPart: i.body_part, note: i.note, severity: i.severity }))
+      : existing.injuries,
+    daysPerWeek: input.days_per_week ?? existing.daysPerWeek,
+    job: input.job ?? existing.job,
+    sleepHours: input.sleep_hours ?? existing.sleepHours,
+  }
+  mockMembers = mockMembers.map((x, i) => (i === idx ? updated : x))
+  return toApiMemberDetail(updated).profile as ApiMemberProfile
 }
 
 export function mockListTodaysCheckIns(): ApiCheckIn[] {
@@ -195,7 +238,11 @@ export function mockCreateMember(input: CreateMemberInput): ApiMemberDetail {
     heightCm: input.height_cm,
     weightKg: input.weight_kg,
     bodyFat: input.body_fat,
-    injuries: [],
+    injuries: input.injuries.map((i) => ({
+      bodyPart: i.body_part,
+      note: i.note,
+      severity: i.severity,
+    })),
     daysPerWeek: input.days_per_week,
     job: input.job,
     sleepHours: input.sleep_hours,
@@ -673,6 +720,14 @@ export function mockDeleteFoodEntry(entryId: string): void {
   mockFoodEntries = mockFoodEntries.filter((f) => f.id !== entryId)
 }
 
+/** Mock branch of estimateFoodEntry — no photo to actually look at, so it
+ * picks one of foodGuesses at random, same behavior Food.tsx's onPhoto()
+ * had inline before Phase 5 stage 8 moved the vision call server-side. */
+export function mockEstimateFoodEntry(lang: Lang): ApiFoodEstimate {
+  const guess = foodGuesses[Math.floor(Math.random() * foodGuesses.length)]
+  return { label: text(guess.label, lang), kcal: guess.kcal, protein: guess.protein, carbs: guess.carbs, fat: guess.fat }
+}
+
 // ---------------------------------------------------------------------
 // Phase 4 stage 5 — a member's own progress photos (decision 11). No
 // per-member scoping in mock mode (there's only ever one signed-in
@@ -768,4 +823,163 @@ export function mockCancelBooking(bookingId: string): ApiBooking {
 
 export function mockListMyAttendance(): ApiAttendanceDay[] {
   return seedAttendance.filter((a) => a.memberId === currentMemberId).map((a) => ({ date: a.date }))
+}
+
+let mockAiDrafts: ApiAiDraft[] = seedAiDrafts.map((d) => ({
+  id: d.id,
+  member_id: d.memberId,
+  created_by:
+    d.kind === 'plan' ? 'coach_plan' : d.kind === 'nutrition' ? 'coach_nutrition' : 'coach_recommendation',
+  kind: d.kind,
+  headline: d.headline,
+  body: d.body,
+  reason: d.reason,
+  payload: d.payload ?? null,
+  status: d.status,
+  decided_at: null,
+  original: null,
+}))
+
+export function mockListAiDrafts(): ApiAiDraft[] {
+  return mockAiDrafts
+}
+
+function mockDecideAiDraft(
+  draftId: string,
+  status: 'approved' | 'rejected',
+  edits?: ApproveAiDraftInput,
+): ApiAiDraft {
+  const existing = mockAiDrafts.find((d) => d.id === draftId)
+  if (!existing) throw new Error('Draft not found')
+  if (existing.status !== 'pending') throw new Error('Draft already decided')
+
+  const edited = edits ? Object.values(edits).some((v) => v !== undefined) : false
+  const original =
+    edited && !existing.original ? { headline: existing.headline, body: existing.body } : existing.original
+
+  const updated: ApiAiDraft = {
+    ...existing,
+    headline: edits?.headline ?? existing.headline,
+    body: edits?.body ?? existing.body,
+    reason: edits?.reason ?? existing.reason,
+    payload: edits?.payload ?? existing.payload,
+    status,
+    decided_at: new Date().toISOString(),
+    original,
+  }
+
+  if (status === 'approved' && updated.payload?.type === 'calorie_target_update') {
+    mockDailyKcalTargets.set(updated.member_id, updated.payload.daily_kcal_target as number)
+  }
+
+  mockAiDrafts = mockAiDrafts.map((d) => (d.id === draftId ? updated : d))
+  return updated
+}
+
+export function mockApproveAiDraft(draftId: string, edits?: ApproveAiDraftInput): ApiAiDraft {
+  return mockDecideAiDraft(draftId, 'approved', edits)
+}
+
+export function mockRejectAiDraft(draftId: string): ApiAiDraft {
+  return mockDecideAiDraft(draftId, 'rejected')
+}
+
+/** Mock branch of generateAiDraft — no LLM to call, so it writes a
+ * plausible, always-bilingual pending draft straight into the same
+ * mockAiDrafts list the inbox above already reads (decision 31: one
+ * mechanism, coach-triggered or chat-triggered). `lang` isn't needed here
+ * since these fixtures are genuinely bilingual already, unlike a model's
+ * single-language reply. */
+export function mockGenerateAiDraft(memberId: string, kind: AiDraftKind): ApiAiDraft {
+  const member = seedMembers.find((m) => m.id === memberId)
+  const base = {
+    id: newId(), member_id: memberId, status: 'pending' as const,
+    decided_at: null, original: null,
+  }
+
+  let draft: ApiAiDraft
+  if (kind === 'plan') {
+    const picks = mockExercises.filter((e) => e.active).slice(0, 4)
+    draft = {
+      ...base,
+      created_by: 'generate_plan',
+      kind: 'plan',
+      headline: { ar: 'خطة مقترحة من الذكاء الاصطناعي', en: 'AI-suggested plan' },
+      body: {
+        ar: 'خطة بـ٤ تمارين بالاعتماد على هدف العضو ومستواه.',
+        en: "A 4-exercise plan based on the member's goal and level.",
+      },
+      reason: {
+        ar: 'مبني على هدف العضو ومستواه وجلساته الأخيرة.',
+        en: "Based on the member's goal, level, and recent sessions.",
+      },
+      payload: {
+        type: 'program_exercise_update',
+        title: { ar: 'برنامج مقترح', en: 'Suggested program' },
+        exercises: picks.map((e) => ({
+          exercise_id: e.id, sets: 3, reps: { ar: '٨-١٢', en: '8-12' }, target_weight_kg: null,
+        })),
+      },
+    }
+  } else if (kind === 'nutrition') {
+    const weight = member?.weightKg ?? 75
+    const target = Math.max(1200, Math.round((weight * 28) / 50) * 50)
+    draft = {
+      ...base,
+      created_by: 'generate_nutrition',
+      kind: 'nutrition',
+      headline: { ar: 'هدف سعرات جديد مقترح', en: 'New suggested calorie target' },
+      body: {
+        ar: `اقتراح ${target} سعرة باليوم بالاعتماد على وزن العضو وهدفه.`,
+        en: `Suggesting ${target} kcal/day based on the member's weight and goal.`,
+      },
+      reason: {
+        ar: 'محسوب من وزن العضو وهدفه الحالي.',
+        en: "Calculated from the member's current weight and goal.",
+      },
+      payload: { type: 'calorie_target_update', daily_kcal_target: target },
+    }
+  } else {
+    draft = {
+      ...base,
+      created_by: 'generate_tip',
+      kind: 'tip',
+      headline: { ar: 'نصيحة سريعة', en: 'Quick tip' },
+      body: {
+        ar: 'شرب مي أكتر بأيام التمرين ممكن يحسّن الأداء.',
+        en: 'Drinking more water on training days may help performance.',
+      },
+      reason: {
+        ar: 'بناءً على آخر الجلسات المسجلة.',
+        en: 'Based on recently logged sessions.',
+      },
+      payload: null,
+    }
+  }
+
+  mockAiDrafts = [draft, ...mockAiDrafts]
+  return draft
+}
+
+/** The mock branch of sendChatMessage — calls the existing replyTo()
+ * unchanged, so mock-mode chat behavior is bit-for-bit identical to
+ * before Phase 5 stage 7 closed the `fetch`-in-a-feature-file boundary
+ * violation mocks/agents.ts's replyTo() used to be called through
+ * directly. */
+export function mockSendChatMessage(agent: AgentId, message: string, lang: Lang): ApiChatReply {
+  const reply = replyTo(agent, message, lang)
+  return {
+    text: reply.body,
+    food: reply.food
+      ? {
+          label: text(reply.food.label, lang),
+          kcal: reply.food.kcal,
+          protein: reply.food.protein,
+          carbs: reply.food.carbs,
+          fat: reply.food.fat,
+        }
+      : null,
+    draft: Boolean(reply.draft),
+    referred: false,
+  }
 }

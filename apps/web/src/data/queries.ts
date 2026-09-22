@@ -16,6 +16,7 @@ import {
   type AuthAs,
 } from './client'
 import {
+  mockApproveAiDraft,
   mockCancelBooking,
   mockCreateBooking,
   mockCreateCheckIn,
@@ -30,7 +31,9 @@ import {
   mockCreateWorkoutSession,
   mockDeleteFoodEntry,
   mockDeleteProgressPhoto,
+  mockEstimateFoodEntry,
   mockFinishWorkoutSession,
+  mockGenerateAiDraft,
   mockGetActiveProgram,
   mockGetMember,
   mockGetTodayWorkout,
@@ -38,6 +41,7 @@ import {
   mockListWorkoutSessions,
   mockGetWorkoutSession,
   mockLapsedMembers,
+  mockListAiDrafts,
   mockListClasses,
   mockListCoaches,
   mockListExercises,
@@ -56,26 +60,35 @@ import {
   mockListVideos,
   mockLogSet,
   mockRecordPayment,
+  mockRejectAiDraft,
   mockReplaceProgramExercises,
+  mockSendChatMessage,
   mockUpdateCheckInStatus,
   mockUpdateExercise,
+  mockUpdateMyProfile,
   mockUpdateProgram,
   mockUpdateProgressPhoto,
   mockUpdateVideo,
   mockWhatsappReminder,
 } from './mockAdapter'
+import type { Lang } from '@/i18n'
 import type {
+  AiDraftKind,
+  ApiAiDraft,
   ApiAttendanceDay,
   ApiBooking,
+  ApiChatReply,
   ApiCheckIn,
   ApiCoach,
   ApiExercise,
   ApiFoodEntry,
+  ApiFoodEstimate,
   ApiGymClass,
   ApiLapsedMember,
   ApiMachine,
   ApiMember,
   ApiMemberDetail,
+  ApiMemberProfile,
   ApiNutritionLog,
   ApiPayment,
   ApiPlan,
@@ -86,6 +99,8 @@ import type {
   ApiVideo,
   ApiWorkoutSession,
   ApiWorkoutSet,
+  ChatAgent,
+  ChatTurnInput,
   CreateBookingInput,
   CreateExerciseInput,
   CreateFoodEntryInput,
@@ -95,6 +110,7 @@ import type {
   CreateStaffInput,
   CreateVideoInput,
   CreateWorkoutSessionInput,
+  ApproveAiDraftInput,
   FinishWorkoutSessionInput,
   LogSetInput,
   RecordPaymentInput,
@@ -102,6 +118,7 @@ import type {
   StaffPasswordResetResult,
   TokenPair,
   UpdateExerciseInput,
+  UpdateMyProfileInput,
   UpdateProgramInput,
   UpdateVideoInput,
 } from './types'
@@ -114,6 +131,20 @@ export async function listMembers(): Promise<ApiMember[]> {
 export async function getMember(memberId: string): Promise<ApiMemberDetail> {
   if (!API_URL) return mockGetMember(memberId)
   return apiFetch(`/members/${memberId}`)
+}
+
+/** A member editing their own body/lifestyle profile — decision 28's
+ * /members/me/... pattern, deliberately separate from staff's updateMember
+ * (which also edits name/phone/plan-adjacent fields). Excludes
+ * daily_kcal_target entirely; that's coach/AI-approval-only. */
+export async function updateMyProfile(input: UpdateMyProfileInput): Promise<ApiMemberProfile> {
+  if (!API_URL) return mockUpdateMyProfile(input)
+  return apiFetch('/members/me/profile', {
+    method: 'PATCH',
+    body: input,
+    authAs: 'member',
+    idempotencyKey: newIdempotencyKey(),
+  })
 }
 
 export async function listPlans(): Promise<ApiPlan[]> {
@@ -350,6 +381,20 @@ export async function uploadFoodPhoto(file: File, dataUrl: string): Promise<stri
   if (!API_URL) return dataUrl
   const result = await uploadMedia(file, 'member')
   return result.key
+}
+
+/** Phase 5 stage 8 — a single best-guess read of an already-uploaded
+ * photo, never a write (decision 12's confirm step is untouched). Food.tsx
+ * uploads the photo first (uploadFoodPhoto) so this has a real photo_key
+ * to send. */
+export async function estimateFoodEntry(photoKey: string, lang: Lang): Promise<ApiFoodEstimate> {
+  if (!API_URL) return mockEstimateFoodEntry(lang)
+  return apiFetch('/members/me/food-entries/estimate', {
+    method: 'POST',
+    body: { photo_key: photoKey, lang },
+    idempotencyKey: newIdempotencyKey(),
+    authAs: 'member',
+  })
 }
 
 // ---------------------------------------------------------------------
@@ -603,4 +648,72 @@ export async function listStaff(): Promise<ApiStaff[]> {
 export async function createStaff(input: CreateStaffInput): Promise<ApiStaff> {
   if (!API_URL) return mockCreateStaff(input)
   return apiFetch('/staff', { method: 'POST', body: input, idempotencyKey: newIdempotencyKey() })
+}
+
+// ---------------------------------------------------------------------
+// Phase 5 — the coach's AI draft inbox (decision 10). Nothing an assistant
+// or a coach's "generate" action proposes reaches a member's program or
+// calorie target until approved here.
+// ---------------------------------------------------------------------
+
+export async function listAiDrafts(): Promise<ApiAiDraft[]> {
+  if (!API_URL) return mockListAiDrafts()
+  return apiFetch('/ai-drafts')
+}
+
+export async function approveAiDraft(
+  draftId: string,
+  edits?: ApproveAiDraftInput,
+): Promise<ApiAiDraft> {
+  if (!API_URL) return mockApproveAiDraft(draftId, edits)
+  return apiFetch(`/ai-drafts/${draftId}/approve`, {
+    method: 'POST',
+    body: edits ?? {},
+    idempotencyKey: newIdempotencyKey(),
+  })
+}
+
+export async function rejectAiDraft(draftId: string): Promise<ApiAiDraft> {
+  if (!API_URL) return mockRejectAiDraft(draftId)
+  return apiFetch(`/ai-drafts/${draftId}/reject`, {
+    method: 'POST',
+    idempotencyKey: newIdempotencyKey(),
+  })
+}
+
+/** Phase 5 stage 9 — a coach action, not a chat message, but the same
+ * mechanism either way (decision 31): this always writes a new pending
+ * draft into the inbox above, never applies anything directly. */
+export async function generateAiDraft(
+  memberId: string,
+  kind: AiDraftKind,
+  lang: Lang,
+): Promise<ApiAiDraft> {
+  if (!API_URL) return mockGenerateAiDraft(memberId, kind)
+  return apiFetch(`/members/${memberId}/ai-drafts/generate`, {
+    method: 'POST',
+    body: { kind, lang },
+    idempotencyKey: newIdempotencyKey(),
+  })
+}
+
+// ---------------------------------------------------------------------
+// Phase 5 stage 7 — the member chat assistants. The only place `fetch`
+// (via apiFetch) reaches Claude; mocks/agents.ts's replyTo() stays the
+// mock branch, unchanged.
+// ---------------------------------------------------------------------
+
+export async function sendChatMessage(
+  agent: ChatAgent,
+  message: string,
+  history: ChatTurnInput[],
+  lang: Lang,
+): Promise<ApiChatReply> {
+  if (!API_URL) return mockSendChatMessage(agent, message, lang)
+  return apiFetch(`/members/me/chat/${agent}`, {
+    method: 'POST',
+    body: { text: message, history, lang },
+    authAs: 'member',
+    idempotencyKey: newIdempotencyKey(),
+  })
 }

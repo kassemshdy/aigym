@@ -101,27 +101,47 @@ to `main` once the whole phase was solid, rather than the two-milestone split or
 planned — Stage 7 turned out to depend on Stage 6's attendance endpoint, so the stages
 weren't cleanly separable after all.
 
-## Phase 5 — AI
+## Phase 5 — AI ✅ built
 
-Body and lifestyle intake, plan generation, per-session coach recommendations, nutrition
-guidance, guardrails, coach approval flow, eval harness in CI, Sentry AI tracing, and
-capture of coach edits as feedback signal.
+Runs on **Anthropic Claude** — Haiku 4.5 for the high-volume member-facing surfaces,
+Sonnet 5 for coach-facing plan generation only (decision 29). Every call goes through one
+wrapper, `app/ai/client.py`'s `run_structured()`, using structured outputs rather than
+prompt-begged JSON.
 
-Plus the two member-facing assistants, which are the hardest part of this phase because
-they talk to members directly rather than through a coach:
-
+- **Intake** — `MemberProfile`'s body and lifestyle fields finally have a member-facing way
+  to be set (`PATCH /members/me/profile` plus an edit screen), and the manager's add-member
+  wizard fills in the three fields it used to hardcode. `injuries` became a structured
+  shape so the guardrails can reason about it deterministically (decision 30).
 - **Context** — body data, lifestyle, recorded injuries, recent sessions, and today's food
   are assembled per turn; the gym's own exercises and Coach Assaf's videos are retrieved so
-  answers reference what the gym actually has.
+  answers reference what the gym actually has. Split at a `cache_control` breakpoint —
+  stable catalog first, volatile member data after — with the caching payoff to be measured
+  on real traffic rather than assumed (decision 29).
 - **Authority, enforced in code** — the reply schema carries a `draft` flag; anything
   touching the program or targets is written to `ai_plan_drafts` and surfaced in the
-  coach's inbox. The model never gets to be the gate. See decision 10.
+  coach's inbox, which now runs on real data with edit-before-approve. The model never gets
+  to be the gate. See decision 10. A coach's own "suggest a plan" action goes through the
+  exact same mechanism (decision 31).
 - **Safety** — injury contraindications and a calorie floor are checked before a reply is
-  sent, not requested in the prompt. Medical questions get referred, not answered.
+  sent, not requested in the prompt. Medical questions are caught by a deterministic
+  pre-filter *before* any API call, and referred rather than answered.
 - **Food vision** — meal photo in, estimate out, member confirms. Both the estimate and
-  the correction are stored (decision 12).
-- **Evals** — the golden set covers refusals as well as answers: an assistant that agrees
-  to change a program fails the suite.
+  the correction are stored (decision 12). The photo now uploads on selection rather than
+  at confirm time, since the vision call needs it server-side first.
+- **Evals** — 27 golden-set cases in both languages, covering refusals as well as answers:
+  an assistant that agrees to change a program fails the suite. The paid run is its own
+  path-filtered job, never on every push (decision 32); the grader and runner are covered
+  for free in the normal suite.
+
+**Explicitly cut, and why:** Sentry AI tracing — no Sentry exists anywhere in this backend
+yet, and choosing an observability vendor was not this phase's call to make in passing;
+structured JSON logging covers it for now (decision 29). And no server-side chat-history
+table — the client carries enough turn history for a stateless per-turn call, and a durable
+transcript (gym-scoped, RLS, retention questions) isn't asked for by any requirement here.
+
+**Before the AI works in production**, `AIGYM_ANTHROPIC_API_KEY` must be set on the Railway
+`api` service — until it is, every AI route answers 503 by design rather than 500. Same for
+the GitHub Actions secret of the same name before the eval job can run. See `docs/DEPLOY.md`.
 
 ## Phase 6 — Sell it
 

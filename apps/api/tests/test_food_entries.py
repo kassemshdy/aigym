@@ -2,10 +2,13 @@ import itertools
 import re
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 from urllib.parse import unquote
 
+import pytest
 from httpx import AsyncClient
 
+import app.api.food_entries as food_entries_module
 from app.db import tenant_session
 from app.models import Member
 
@@ -167,3 +170,85 @@ async def test_upload_rejects_unsupported_content_type(client: AsyncClient) -> N
         files={"file": ("doc.pdf", b"not an image", "application/pdf")},
     )
     assert response.status_code == 415
+
+
+async def _uploaded_photo_key(client: AsyncClient, member_headers: dict[str, str]) -> str:
+    upload = await client.post(
+        "/media",
+        headers=_idem(member_headers),
+        files={"file": ("meal.jpg", b"fake-jpeg-bytes", "image/jpeg")},
+    )
+    assert upload.status_code == 201, upload.text
+    return upload.json()["key"]
+
+
+async def test_estimate_food_entry_returns_the_models_guess_without_writing_anything(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gym_id, staff_headers = await _gym_and_staff_token(client, slug="food-vision-a")
+    member_headers = await _member_token(client, gym_id, staff_headers, phone="+96170600006")
+    photo_key = await _uploaded_photo_key(client, member_headers)
+
+    def _fake_run_structured(**kwargs: Any) -> food_entries_module.FoodEstimateOut:
+        assert kwargs["messages"][0]["content"][0]["source"]["media_type"] == "image/jpeg"
+        return food_entries_module.FoodEstimateOut(
+            label="Grilled chicken with rice", kcal=620, protein=45, carbs=68, fat=14
+        )
+
+    monkeypatch.setattr(food_entries_module, "run_structured", _fake_run_structured)
+
+    response = await client.post(
+        "/members/me/food-entries/estimate",
+        headers=_idem(member_headers),
+        json={"photo_key": photo_key, "lang": "en"},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json() == {
+        "label": "Grilled chicken with rice", "kcal": 620, "protein": 45, "carbs": 68, "fat": 14,
+    }
+
+    listed = await client.get("/members/me/food-entries", headers=member_headers)
+    assert listed.json() == []
+
+
+async def test_estimate_with_unknown_photo_key_returns_404(client: AsyncClient) -> None:
+    gym_id, staff_headers = await _gym_and_staff_token(client, slug="food-vision-b")
+    member_headers = await _member_token(client, gym_id, staff_headers, phone="+96170600007")
+
+    response = await client.post(
+        "/members/me/food-entries/estimate",
+        headers=_idem(member_headers),
+        json={"photo_key": "0" * 32 + ".jpg"},
+    )
+    assert response.status_code == 404
+
+
+async def test_estimate_ai_not_configured_returns_503(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gym_id, staff_headers = await _gym_and_staff_token(client, slug="food-vision-c")
+    member_headers = await _member_token(client, gym_id, staff_headers, phone="+96170600008")
+    photo_key = await _uploaded_photo_key(client, member_headers)
+
+    def _raise(**kwargs: Any) -> Any:
+        raise food_entries_module.AnthropicNotConfigured("no key")
+
+    monkeypatch.setattr(food_entries_module, "run_structured", _raise)
+
+    response = await client.post(
+        "/members/me/food-entries/estimate",
+        headers=_idem(member_headers),
+        json={"photo_key": photo_key},
+    )
+    assert response.status_code == 503
+
+
+async def test_staff_cannot_call_estimate(client: AsyncClient) -> None:
+    _gym_id, staff_headers = await _gym_and_staff_token(client, slug="food-vision-d")
+
+    response = await client.post(
+        "/members/me/food-entries/estimate",
+        headers=_idem(staff_headers),
+        json={"photo_key": "0" * 32 + ".jpg"},
+    )
+    assert response.status_code == 403

@@ -24,6 +24,7 @@ from sqlalchemy import select, text
 
 from app.db import get_sessionmaker, tenant_session
 from app.models import (
+    AiPlanDraft,
     Exercise,
     FoodEntry,
     Member,
@@ -577,3 +578,32 @@ async def test_rls_blocks_cross_gym_select_on_every_content_table(two_gyms: TwoG
         assert await _select_as_gym(model, row_id, two_gyms.b.gym_id) is not None, (
             f"gym B could not read its own {model.__tablename__} row — fixture or policy is broken"
         )
+
+
+# --------------------------------------------------------------------------
+# Phase 5 ai_plan_drafts. API-layer coverage lands alongside its endpoints
+# (stage 4) — this is the database layer only, same shape as the tables
+# above.
+# --------------------------------------------------------------------------
+
+
+async def test_rls_blocks_cross_gym_select_on_ai_plan_drafts(two_gyms: TwoGyms) -> None:
+    draft_id = uuid.uuid4()
+
+    async with tenant_session(two_gyms.b.gym_id) as session:
+        session.add(
+            AiPlanDraft(
+                id=draft_id, gym_id=two_gyms.b.gym_id, member_id=two_gyms.member_b,
+                created_by="coach_plan", kind="tip",
+                headline={"ar": "نصيحة", "en": "Tip"},
+                body={"ar": "نص", "en": "Body"},
+                reason={"ar": "سبب", "en": "Reason"},
+            )
+        )
+
+    assert await _select_as_gym(AiPlanDraft, draft_id, two_gyms.a.gym_id) is None, (
+        "gym A could read gym B's ai_plan_drafts row — RLS is not enforcing"
+    )
+    assert await _select_as_gym(AiPlanDraft, draft_id, two_gyms.b.gym_id) is not None, (
+        "gym B could not read its own ai_plan_drafts row — fixture or policy is broken"
+    )

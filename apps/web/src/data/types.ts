@@ -32,17 +32,41 @@ export interface ApiMember {
   dues: ApiDues | null
 }
 
+/** Mirrors app/schemas/injuries.py's MemberInjury. body_part is a
+ * canonical key the guardrail logic (Phase 5 stage 3) can reason about —
+ * not free text (see docs/DECISIONS.md, decision 30). */
+export type InjuryBodyPart =
+  | 'lower_back'
+  | 'knee_left'
+  | 'knee_right'
+  | 'shoulder_left'
+  | 'shoulder_right'
+  | 'hip'
+  | 'neck'
+  | 'wrist'
+  | 'ankle'
+  | 'other'
+
+export interface ApiMemberInjury {
+  body_part: InjuryBodyPart
+  note: { ar: string; en: string }
+  severity: 'mild' | 'moderate' | 'severe' | null
+}
+
 export interface ApiMemberProfile {
   goal: string
   level: string
   height_cm: number
   weight_kg: number
   body_fat: number | null
-  injuries: unknown[]
+  injuries: ApiMemberInjury[]
   days_per_week: number
   job: string
   sleep_hours: number
   weight_trend: number[]
+  /** Set only by an approved ai_plan_drafts row (kind='nutrition') — null
+   * until then. See app/models/people.py. */
+  daily_kcal_target: number | null
 }
 
 export interface ApiMemberDetail extends ApiMember {
@@ -68,10 +92,22 @@ export interface CreateMemberInput {
   height_cm: number
   weight_kg: number
   body_fat: number | null
-  injuries: unknown[]
+  injuries: ApiMemberInjury[]
   days_per_week: number
   job: 'desk' | 'active' | 'shift'
   sleep_hours: number
+}
+
+export interface UpdateMyProfileInput {
+  goal?: 'lose' | 'gain' | 'strength' | 'health'
+  level?: 'new' | 'mid' | 'strong'
+  height_cm?: number
+  weight_kg?: number
+  body_fat?: number | null
+  injuries?: ApiMemberInjury[]
+  days_per_week?: number
+  job?: 'desk' | 'active' | 'shift'
+  sleep_hours?: number
 }
 
 export interface RecordPaymentInput {
@@ -337,6 +373,18 @@ export interface MediaUploadResult {
   key: string
 }
 
+/** Mirrors app/api/food_entries.py's FoodEstimateOut (Phase 5 stage 8) — a
+ * single best-guess reading of an already-uploaded photo. Never a write;
+ * the member still confirms or corrects it before createFoodEntry runs
+ * (decision 12). */
+export interface ApiFoodEstimate {
+  label: string
+  kcal: number
+  protein: number
+  carbs: number
+  fat: number
+}
+
 // ---------------------------------------------------------------------
 // Phase 4 stage 5 — a member's own progress photos (decision 11). Mirrors
 // app/api/progress_photos.py. Member-scoped writes use claims.subject_id
@@ -393,4 +441,65 @@ export interface CreateBookingInput {
 
 export interface ApiAttendanceDay {
   date: string
+}
+
+// ---------------------------------------------------------------------
+// Phase 5 — the AI layer. Mirrors app/api/ai_drafts.py. Decision 10: an
+// assistant or a coach's "generate" action never touches a member's
+// program or calorie target directly — it writes a pending row here, and
+// nothing is applied until a coach approves it.
+// ---------------------------------------------------------------------
+
+export type AiDraftKind = 'plan' | 'nutrition' | 'tip'
+export type AiDraftStatus = 'pending' | 'approved' | 'rejected'
+
+export interface ApiAiDraft {
+  id: string
+  member_id: string
+  created_by: string
+  kind: AiDraftKind
+  headline: { ar: string; en: string }
+  body: { ar: string; en: string }
+  reason: { ar: string; en: string }
+  payload: Record<string, unknown> | null
+  status: AiDraftStatus
+  decided_at: string | null
+  original: { headline: { ar: string; en: string }; body: { ar: string; en: string } } | null
+}
+
+export interface ApproveAiDraftInput {
+  headline?: { ar: string; en: string }
+  body?: { ar: string; en: string }
+  reason?: { ar: string; en: string }
+  payload?: Record<string, unknown>
+}
+
+// ---------------------------------------------------------------------
+// Phase 5 stage 7 — the member chat assistants. Mirrors app/api/chat.py.
+// No server-side chat-history table (decision 29): the client resends
+// enough turn history for a stateless per-turn call.
+// ---------------------------------------------------------------------
+
+export type ChatAgent = 'nutrition' | 'training'
+
+export interface ChatTurnInput {
+  role: 'user' | 'assistant'
+  text: string
+}
+
+export interface ApiFoodProposal {
+  label: string
+  kcal: number
+  protein: number
+  carbs: number
+  fat: number
+}
+
+export interface ApiChatReply {
+  text: string
+  food: ApiFoodProposal | null
+  /** Collapsed to a bool on the wire — the draft's own content lives in
+   * the coach's inbox (ApiAiDraft), not here. */
+  draft: boolean
+  referred: boolean
 }

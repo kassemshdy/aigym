@@ -54,6 +54,12 @@ class Settings(BaseSettings):
 
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])
 
+    # Anthropic API key for the AI layer (Phase 5) — Claude chat assistants,
+    # food-vision estimates, coach plan drafts. Unset by default, same
+    # pattern as the WhatsApp Business API credentials: a deployment
+    # without it degrades those specific features to a 503, not a crash.
+    anthropic_api_key: str | None = None
+
     # Where member-uploaded photos (progress photos, food photos) live — a
     # Railway Volume mounted on the api service, not S3/R2 (decision 28: no
     # new vendor, same pattern Postgres already uses on this project). Local

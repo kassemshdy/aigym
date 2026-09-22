@@ -52,6 +52,7 @@ export function MemberChat() {
   const lang = i18n.language as Lang
   const { state, actions } = useStore()
   const [text, setText] = useState('')
+  const [sending, setSending] = useState(false)
   const endRef = useRef<HTMLDivElement>(null)
 
   const messages = state.chats[id]
@@ -60,11 +61,16 @@ export function MemberChat() {
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
   }, [messages.length])
 
-  const send = (value: string) => {
+  const send = async (value: string) => {
     const trimmed = value.trim()
-    if (!trimmed) return
-    actions.ask(id, trimmed, lang)
+    if (!trimmed || sending) return
     setText('')
+    setSending(true)
+    try {
+      await actions.ask(id, trimmed, lang)
+    } finally {
+      setSending(false)
+    }
   }
 
   return (
@@ -89,8 +95,9 @@ export function MemberChat() {
               <button
                 key={s.en}
                 type="button"
-                onClick={() => send(s[lang])}
-                className="border-line bg-surface min-h-tap w-full rounded-xl border px-4 text-start text-sm font-semibold"
+                disabled={sending}
+                onClick={() => void send(s[lang])}
+                className="border-line bg-surface min-h-tap w-full rounded-xl border px-4 text-start text-sm font-semibold disabled:opacity-50"
               >
                 {s[lang]}
               </button>
@@ -115,11 +122,21 @@ export function MemberChat() {
                   <p
                     className={cn(
                       'mt-2 flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-bold',
-                      m.note === 'draft_sent' ? 'bg-soon-bg text-soon' : 'bg-paid-bg text-paid',
+                      m.note === 'draft_sent'
+                        ? 'bg-soon-bg text-soon'
+                        : m.note === 'referred'
+                          ? 'bg-canvas text-ink border-line border'
+                          : 'bg-paid-bg text-paid',
                     )}
                   >
-                    <Icon name="check" size={14} />
-                    {t(m.note === 'draft_sent' ? 'chat.draftSent' : 'chat.foodLogged')}
+                    <Icon name={m.note === 'referred' ? 'help' : 'check'} size={14} />
+                    {t(
+                      m.note === 'draft_sent'
+                        ? 'chat.draftSent'
+                        : m.note === 'referred'
+                          ? 'chat.referred'
+                          : 'chat.foodLogged',
+                    )}
                   </p>
                 ) : null}
               </div>
@@ -134,16 +151,17 @@ export function MemberChat() {
           className="flex gap-2"
           onSubmit={(e) => {
             e.preventDefault()
-            send(text)
+            void send(text)
           }}
         >
           <input
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder={t('chat.placeholder')}
-            className="border-line bg-canvas min-h-tap flex-1 rounded-xl border px-4 text-base outline-none focus:border-ink"
+            disabled={sending}
+            className="border-line bg-canvas min-h-tap flex-1 rounded-xl border px-4 text-base outline-none focus:border-ink disabled:opacity-50"
           />
-          <Button type="submit" disabled={!text.trim()}>
+          <Button type="submit" disabled={!text.trim() || sending}>
             {t('chat.send')}
           </Button>
         </form>

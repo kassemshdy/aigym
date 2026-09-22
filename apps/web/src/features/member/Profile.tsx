@@ -9,7 +9,7 @@ import { Empty, Page } from '@/components/ui/Page'
 import { currentMemberId as mockCurrentMemberId, gym } from '@/mocks/data'
 import { getCurrentMemberId, getMember, memberSignOut } from '@/data/queries'
 import { useAsync } from '@/data/useAsync'
-import { listSep, shortDate, text, usd } from '@/lib/format'
+import { listSep, shortDate, usd } from '@/lib/format'
 import type { Lang } from '@/i18n'
 
 export function MemberProfile() {
@@ -65,7 +65,7 @@ export function MemberProfile() {
               label={t('manager.member.injuries')}
               value={
                 profile.injuries.length
-                  ? profile.injuries.map((i) => text(i as Parameters<typeof text>[0], lang)).join(listSep(lang))
+                  ? profile.injuries.map((i) => i.note[lang]).join(listSep(lang))
                   : t('manager.member.noInjuries')
               }
             />
@@ -78,6 +78,15 @@ export function MemberProfile() {
             <Row label={t('manager.member.daysPerWeek')} value={profile.days_per_week} />
             <Row label={t('manager.member.sleep')} value={profile.sleep_hours} />
           </Card>
+
+          <Button
+            variant="secondary"
+            size="lg"
+            full
+            onClick={() => navigate('/member/profile/edit')}
+          >
+            {t('member.profile.edit')}
+          </Button>
         </>
       ) : null}
 
