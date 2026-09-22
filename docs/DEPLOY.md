@@ -255,6 +255,19 @@ Step 4 is not cosmetic. Every dues figure — what a member owes, what the gym i
 collection rate on the owner dashboard — is computed from these values, so wrong prices do
 not look wrong, they just make every downstream number wrong.
 
+Since Phase 6 the gym can also do step 4 itself, in the app: **Today → Plans and prices**,
+where a manager or the owner can add, edit and delete plans. The script stays because it
+works before anyone has logged in, which is exactly when the first prices get set. Sitting
+with the owner and doing it on their phone is the better version of the same step.
+
+**A price edit is retroactive.** Nothing records what a membership period cost when it was
+sold — `subscriptions` carries a `plan_id`, and both the dues calculation and the owner
+dashboard resolve the price through it at read time. So raising a plan from $30 to $40 also
+changes what last quarter's "collected" and "still not collected" say. That is fine for
+setup, when there is no history to distort, and it is worth knowing before a mid-pilot price
+rise. The fix is to snapshot the price onto the subscription at creation; see
+`app/api/plans.py`'s module docstring.
+
 ### Seeding real content, and setting the manager's password
 
 `scripts/bootstrap_db.sh`, `alembic upgrade head`, and `scripts/seed.py` all run automatically

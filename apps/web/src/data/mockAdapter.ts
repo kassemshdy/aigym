@@ -16,7 +16,6 @@ import {
   currentMemberId,
   dayPlans as seedDayPlans,
   daysSinceVisit,
-  findPlan,
   foodGuesses,
   machines as seedMachines,
   members as seedMembers,
@@ -71,6 +70,7 @@ import type {
   CreateFoodEntryInput,
   CreateMemberInput,
   CreateNutritionLogInput,
+  CreatePlanInput,
   CreateProgramInput,
   CreateStaffInput,
   CreateVideoInput,
@@ -83,10 +83,21 @@ import type {
   StaffPasswordOut,
   StaffRole,
   UpdateExerciseInput,
+  UpdatePlanInput,
   UpdateProgramInput,
   UpdateVideoInput,
   UpdateMyProfileInput,
 } from './types'
+
+// Session-only and mutable, like mockMembers: a plan created or repriced
+// in the demo has to be visible to every other mock read (a member's dues,
+// the renewal length, the owner dashboard), not only to the plans screen.
+// Everything below goes through findMockPlan rather than mocks/data's
+// frozen `plans` export for that reason.
+let mockPlans: ApiPlan[] = plans.map((p) => ({
+  id: p.id, name: p.name, price_usd: p.priceUsd, days: p.days,
+}))
+const findMockPlan = (id: string) => mockPlans.find((p) => p.id === id)
 
 let mockMembers: MockMember[] = seedMembers.map((m) => ({ ...m }))
 // Session-only, mirrors ai_plan_drafts.approve writing MemberProfile.daily_kcal_target
@@ -99,7 +110,7 @@ const newId = () => Math.random().toString(36).slice(2, 10)
 const todayIso = () => new Date().toISOString().slice(0, 10)
 
 function toApiMember(m: MockMember): ApiMember {
-  const plan = findPlan(m.planId)
+  const plan = findMockPlan(m.planId)
   return {
     id: m.id,
     name: m.name,
@@ -203,7 +214,46 @@ export function mockUpdateCheckInStatus(checkInId: string, status: string): ApiC
 }
 
 export function mockListPlans(): ApiPlan[] {
-  return plans.map((p) => ({ id: p.id, name: p.name, price_usd: p.priceUsd, days: p.days }))
+  return [...mockPlans].sort((a, b) => a.price_usd - b.price_usd)
+}
+
+// ---------------------------------------------------------------------
+// Phase 6 stage 7 — the gym's own price list. The delete guard mirrors
+// app/api/plans.py rather than just splicing the array: subscriptions
+// reference plans with ON DELETE RESTRICT, and a demo that lets an owner
+// delete a plan members are on teaches them an action the live gym
+// refuses.
+// ---------------------------------------------------------------------
+
+export function mockCreatePlan(input: CreatePlanInput): ApiPlan {
+  const plan: ApiPlan = {
+    id: newId(),
+    name: input.name,
+    price_usd: input.price_usd,
+    days: input.days,
+  }
+  mockPlans = [...mockPlans, plan]
+  return plan
+}
+
+export function mockUpdatePlan(planId: string, input: UpdatePlanInput): ApiPlan {
+  const existing = findMockPlan(planId)
+  if (!existing) throw new ApiError(404, 'No plan with that id at this gym')
+  const updated: ApiPlan = {
+    ...existing,
+    name: input.name ?? existing.name,
+    price_usd: input.price_usd ?? existing.price_usd,
+    days: input.days ?? existing.days,
+  }
+  mockPlans = mockPlans.map((p) => (p.id === planId ? updated : p))
+  return updated
+}
+
+export function mockDeletePlan(planId: string): void {
+  if (!findMockPlan(planId)) throw new ApiError(404, 'No plan with that id at this gym')
+  const inUse = mockMembers.filter((m) => m.planId === planId).length
+  if (inUse) throw new ApiError(409, `${inUse} membership periods use this plan`)
+  mockPlans = mockPlans.filter((p) => p.id !== planId)
 }
 
 export function mockLapsedMembers(minDays: number): ApiLapsedMember[] {
@@ -222,7 +272,7 @@ export function mockLapsedMembers(minDays: number): ApiLapsedMember[] {
 }
 
 export function mockCreateMember(input: CreateMemberInput): ApiMemberDetail {
-  const plan = plans.find((p) => p.id === input.plan_id)
+  const plan = findMockPlan(input.plan_id)
   const today = todayIso()
   const endsAt = plan
     ? new Date(Date.now() + plan.days * 86_400_000).toISOString().slice(0, 10)
@@ -262,7 +312,7 @@ export function mockRecordPayment(memberId: string, input: RecordPaymentInput): 
   if (idx === -1) throw new Error('Member not found')
   const member = mockMembers[idx]
   const planId = input.plan_id ?? member.planId
-  const plan = plans.find((p) => p.id === planId)
+  const plan = findMockPlan(planId)
   const base = Math.max(new Date(member.endsAt).getTime(), Date.now())
   const newEndsAt = plan
     ? new Date(base + plan.days * 86_400_000).toISOString().slice(0, 10)
@@ -1116,7 +1166,7 @@ export function mockAnalyticsSummary(weeks: number, lapsedAfterDays: number): Ap
       // Plan price, not owedUsd: the server measures a period by what it
       // was worth, and owedUsd answers the different question of what the
       // member owes right now (decision 17).
-      priceUsd: findPlan(m.planId)?.priceUsd ?? 0,
+      priceUsd: findMockPlan(m.planId)?.price_usd ?? 0,
       renewed: m.status === 'paid',
     }))
     .filter((p) => p.dueAt >= previousStart && p.dueAt <= today)

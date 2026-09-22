@@ -129,7 +129,8 @@
       "collected": "Collected, {{weeks}} wks",
       "whoOwes": "Who owes money",
       "seeAll": "See all",
-      "addMember": "Register new member"
+      "addMember": "Register new member",
+      "plans": "Plans and prices"
     },
     "members": {
       "title": "Members",
@@ -177,7 +178,15 @@
       "title": "Plans",
       "price": "Price",
       "duration": "Duration",
-      "days": "{{count}} days"
+      "days": "{{count}} days",
+      "sub": "What you charge, and for how long",
+      "nameEn": "Name in English",
+      "nameAr": "Name in Arabic",
+      "add": "Add a plan",
+      "edit": "Edit",
+      "confirmDelete": "Delete {{name}}?",
+      "inUse": "Members are on this plan, so it stays. Edit it instead, or just stop offering it.",
+      "priceIsRetroactive": "This price is also used for past months when working out what was collected."
     },
     "payments": {
       "title": "Payments",

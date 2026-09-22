@@ -336,6 +336,21 @@ export interface ApiStaff {
  * super_admin explicitly or silently lock the gym owner out. */
 export type StaffRole = 'super_admin' | 'manager' | 'coach'
 
+/** Both languages required, matching app/api/plans.py's BilingualName: a
+ * plan saved with only English renders as a blank name on the Arabic side
+ * of the app rather than failing anywhere visible. */
+export interface CreatePlanInput {
+  name: { ar: string; en: string }
+  price_usd: number
+  days: number
+}
+
+export interface UpdatePlanInput {
+  name?: { ar: string; en: string }
+  price_usd?: number
+  days?: number
+}
+
 export interface CreateStaffInput {
   username: string
   password: string

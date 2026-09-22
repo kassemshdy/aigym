@@ -77,17 +77,26 @@ export function ManagerHome() {
         ) : null}
       </div>
 
-      {insights.data ? (
-        <Link to="/manager/insights">
-          <Card className="flex items-center gap-3 p-4">
-            <Icon name="chart" />
-            <span className="flex-1 font-semibold">{t('insights.title')}</span>
-            <span className="text-muted text-sm">
-              {t('insights.sub', { weeks: INSIGHTS_WEEKS })}
-            </span>
+      {/* Neither screen is in the tab bar — five tabs is already the most
+          a 390px phone holds — and /manager/plans had no link into it at
+          all before this, which made the price list unreachable in the app
+          rather than merely hard to find. */}
+      <div className="grid gap-3 sm:grid-cols-2">
+        {insights.data ? (
+          <Link to="/manager/insights">
+            <Card className="flex min-h-tap items-center gap-3 p-4">
+              <Icon name="chart" />
+              <span className="flex-1 font-semibold">{t('insights.title')}</span>
+            </Card>
+          </Link>
+        ) : null}
+        <Link to="/manager/plans">
+          <Card className="flex min-h-tap items-center gap-3 p-4">
+            <Icon name="money" />
+            <span className="flex-1 font-semibold">{t('manager.home.plans')}</span>
           </Card>
         </Link>
-      ) : null}
+      </div>
 
       <Link
         to="/manager/members/new"

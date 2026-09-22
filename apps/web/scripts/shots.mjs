@@ -22,6 +22,17 @@ const SCREENS = [
   ['manager-add', '/manager/members/new', 'phone'],
   ['manager-lapsed', '/manager/lapsed', 'phone'],
   ['manager-insights', '/manager/insights', 'phone'],
+  ['manager-plans', '/manager/plans', 'phone'],
+  [
+    'manager-plans-edit',
+    '/manager/plans',
+    'phone',
+    // The price form only exists once a plan is open for editing.
+    async (page) => {
+      await page.getByRole('button', { name: /^(Edit|عدّل)$/ }).first().click()
+      await page.waitForTimeout(200)
+    },
+  ],
   ['manager-staff', '/manager/staff', 'phone'],
   [
     'manager-staff-row',

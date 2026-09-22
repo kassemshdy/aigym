@@ -25,12 +25,14 @@ import {
   mockCreateFoodEntry,
   mockCreateMember,
   mockCreateNutritionLog,
+  mockCreatePlan,
   mockCreateProgram,
   mockCreateProgressPhoto,
   mockCreateStaff,
   mockCreateVideo,
   mockCreateWorkoutSession,
   mockDeleteFoodEntry,
+  mockDeletePlan,
   mockDeleteProgressPhoto,
   mockEstimateFoodEntry,
   mockFinishWorkoutSession,
@@ -69,6 +71,7 @@ import {
   mockUpdateCheckInStatus,
   mockUpdateExercise,
   mockUpdateMyProfile,
+  mockUpdatePlan,
   mockUpdateProgram,
   mockUpdateProgressPhoto,
   mockUpdateStaffRole,
@@ -111,6 +114,7 @@ import type {
   CreateFoodEntryInput,
   CreateMemberInput,
   CreateNutritionLogInput,
+  CreatePlanInput,
   CreateProgramInput,
   CreateStaffInput,
   CreateVideoInput,
@@ -126,6 +130,7 @@ import type {
   TokenPair,
   UpdateExerciseInput,
   UpdateMyProfileInput,
+  UpdatePlanInput,
   UpdateProgramInput,
   UpdateVideoInput,
 } from './types'
@@ -157,6 +162,38 @@ export async function updateMyProfile(input: UpdateMyProfileInput): Promise<ApiM
 export async function listPlans(): Promise<ApiPlan[]> {
   if (!API_URL) return mockListPlans()
   return apiFetch('/plans')
+}
+
+// ---------------------------------------------------------------------
+// Phase 6 stage 7 — the gym's own price list. Reading stays open to any
+// signed-in staff (a coach's member card shows a plan name); writing is
+// manager/super_admin only.
+//
+// A price edit is retroactive: nothing snapshots what a membership period
+// cost when it was sold, so the owner dashboard's collected and
+// uncollected figures move with it. See app/api/plans.py's module
+// docstring.
+// ---------------------------------------------------------------------
+
+export async function createPlan(input: CreatePlanInput): Promise<ApiPlan> {
+  if (!API_URL) return mockCreatePlan(input)
+  return apiFetch('/plans', { method: 'POST', body: input, idempotencyKey: newIdempotencyKey() })
+}
+
+export async function updatePlan(planId: string, input: UpdatePlanInput): Promise<ApiPlan> {
+  if (!API_URL) return mockUpdatePlan(planId, input)
+  return apiFetch(`/plans/${planId}`, {
+    method: 'PATCH',
+    body: input,
+    idempotencyKey: newIdempotencyKey(),
+  })
+}
+
+/** 409 when any membership period references it — the gym retires a plan
+ * by not offering it, not by deleting the history it is made of. */
+export async function deletePlan(planId: string): Promise<void> {
+  if (!API_URL) return mockDeletePlan(planId)
+  await apiFetch(`/plans/${planId}`, { method: 'DELETE', idempotencyKey: newIdempotencyKey() })
 }
 
 export async function listTodaysCheckIns(): Promise<ApiCheckIn[]> {
