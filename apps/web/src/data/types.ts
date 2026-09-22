@@ -32,13 +32,34 @@ export interface ApiMember {
   dues: ApiDues | null
 }
 
+/** Mirrors app/schemas/injuries.py's MemberInjury. body_part is a
+ * canonical key the guardrail logic (Phase 5 stage 3) can reason about —
+ * not free text (see docs/DECISIONS.md, decision 30). */
+export type InjuryBodyPart =
+  | 'lower_back'
+  | 'knee_left'
+  | 'knee_right'
+  | 'shoulder_left'
+  | 'shoulder_right'
+  | 'hip'
+  | 'neck'
+  | 'wrist'
+  | 'ankle'
+  | 'other'
+
+export interface ApiMemberInjury {
+  body_part: InjuryBodyPart
+  note: { ar: string; en: string }
+  severity: 'mild' | 'moderate' | 'severe' | null
+}
+
 export interface ApiMemberProfile {
   goal: string
   level: string
   height_cm: number
   weight_kg: number
   body_fat: number | null
-  injuries: unknown[]
+  injuries: ApiMemberInjury[]
   days_per_week: number
   job: string
   sleep_hours: number
@@ -71,10 +92,22 @@ export interface CreateMemberInput {
   height_cm: number
   weight_kg: number
   body_fat: number | null
-  injuries: unknown[]
+  injuries: ApiMemberInjury[]
   days_per_week: number
   job: 'desk' | 'active' | 'shift'
   sleep_hours: number
+}
+
+export interface UpdateMyProfileInput {
+  goal?: 'lose' | 'gain' | 'strength' | 'health'
+  level?: 'new' | 'mid' | 'strong'
+  height_cm?: number
+  weight_kg?: number
+  body_fat?: number | null
+  injuries?: ApiMemberInjury[]
+  days_per_week?: number
+  job?: 'desk' | 'active' | 'shift'
+  sleep_hours?: number
 }
 
 export interface RecordPaymentInput {

@@ -12,9 +12,11 @@ import { useAsync } from '@/data/useAsync'
 import { usd } from '@/lib/format'
 import { waLink } from '@/lib/whatsapp'
 import type { Lang } from '@/i18n'
+import type { ApiMemberInjury } from '@/data/types'
 import { cn } from '@/lib/cn'
+import { InjuryEditor } from '@/features/member/InjuryEditor'
 
-const STEPS = ['step1', 'step2', 'step3', 'step4'] as const
+const STEPS = ['step1', 'step2', 'step3', 'step4', 'step5'] as const
 
 export function ManagerAddMember() {
   const { t, i18n } = useTranslation()
@@ -36,6 +38,9 @@ export function ManagerAddMember() {
     level: 'new' as 'new' | 'mid' | 'strong',
     daysPerWeek: '3' as '2' | '3' | '4' | '5',
     job: 'desk' as 'desk' | 'active' | 'shift',
+    bodyFat: '',
+    sleepHours: '7',
+    injuries: [] as ApiMemberInjury[],
   })
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) =>
     setForm((f) => ({ ...f, [k]: v }))
@@ -55,11 +60,11 @@ export function ManagerAddMember() {
         level: form.level,
         height_cm: Number(form.heightCm) || 0,
         weight_kg: Number(form.weightKg) || 0,
-        body_fat: null,
-        injuries: [],
+        body_fat: form.bodyFat ? Number(form.bodyFat) : null,
+        injuries: form.injuries,
         days_per_week: Number(form.daysPerWeek),
         job: form.job,
-        sleep_hours: 7,
+        sleep_hours: Number(form.sleepHours) || 7,
       })
       setDone(true)
     } catch {
@@ -201,6 +206,36 @@ export function ManagerAddMember() {
                 options={(['desk', 'active', 'shift'] as const).map((v) => ({ value: v, label: t(`job.${v}`) }))}
               />
             </Field>
+          </>
+        )}
+
+        {step === 4 && (
+          <>
+            <Field label={t('manager.member.bodyFat')}>
+              <Input
+                value={form.bodyFat}
+                onChange={(e) => set('bodyFat', e.target.value)}
+                inputMode="numeric"
+                placeholder="18"
+              />
+            </Field>
+            <Field label={t('manager.member.sleep')}>
+              <Input
+                value={form.sleepHours}
+                onChange={(e) => set('sleepHours', e.target.value)}
+                inputMode="numeric"
+                placeholder="7"
+              />
+            </Field>
+            <div>
+              <span className="text-muted mb-1.5 block text-sm font-semibold">
+                {t('manager.member.injuries')}
+              </span>
+              <InjuryEditor
+                injuries={form.injuries}
+                onChange={(injuries) => set('injuries', injuries)}
+              />
+            </div>
             {error ? (
               <p className="bg-ink rounded-xl px-4 py-3 text-sm font-semibold text-white">
                 {t('common.error')}

@@ -94,6 +94,18 @@
     "active": "شغل حركة",
     "shift": "ورديات"
   },
+  "injuryBodyPart": {
+    "lower_back": "أسفل الظهر",
+    "knee_left": "ركبة يسار",
+    "knee_right": "ركبة يمين",
+    "shoulder_left": "كتف يسار",
+    "shoulder_right": "كتف يمين",
+    "hip": "الحوض",
+    "neck": "الرقبة",
+    "wrist": "الرسغ",
+    "ankle": "الكاحل",
+    "other": "غير ذلك"
+  },
   "manager": {
     "login": {
       "title": "دخول الإدارة",
@@ -153,6 +165,7 @@
       "step2": "الاشتراك",
       "step3": "بيانات الجسم",
       "step4": "نمط الحياة",
+      "step5": "الإصابات والنوم",
       "name": "الاسم",
       "phone": "رقم الموبايل",
       "goal": "شو هدفه",
@@ -290,7 +303,25 @@
       "title": "بياناتي",
       "membership": "اشتراكي",
       "endsOn": "بيخلص بـ",
-      "signOut": "خروج"
+      "signOut": "خروج",
+      "edit": "عدّل",
+      "editTitle": "عدّل بياناتي",
+      "save": "احفظ",
+      "saved": "انحفظ",
+      "injuryEditor": {
+        "item": "إصابة {{n}}",
+        "bodyPart": "وين",
+        "note": "ملاحظة",
+        "notePlaceholder": "وصف قصير",
+        "severityLabel": "قديش قوية",
+        "severity": {
+          "none": "مش متأكد",
+          "mild": "خفيفة",
+          "moderate": "متوسطة",
+          "severe": "قوية"
+        },
+        "add": "زيد إصابة"
+      }
     }
   },
   "muscle": {

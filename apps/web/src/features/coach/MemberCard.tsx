@@ -154,9 +154,7 @@ function MemberCardBody({
         {injuries.length > 0 ? (
           <p className="bg-soon-bg text-soon mt-2 rounded-xl px-4 py-3 text-center text-sm font-bold">
             {t('manager.member.injuries')}:{' '}
-            {injuries
-              .map((i) => text(i as Parameters<typeof text>[0], lang))
-              .join(listSep(lang))}
+            {injuries.map((i) => i.note[lang]).join(listSep(lang))}
           </p>
         ) : null}
       </Card>

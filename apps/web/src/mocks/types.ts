@@ -5,6 +5,26 @@ export type Role = 'manager' | 'coach' | 'member'
 /** Derived on the server in Phase 2 from end date + latest payment. Never stored. */
 export type DuesStatus = 'paid' | 'soon' | 'due'
 
+/** Mirrors app/schemas/injuries.py's MemberInjury (Phase 5) — a canonical
+ * body_part key the guardrail logic can reason about, not free text. */
+export type InjuryBodyPart =
+  | 'lower_back'
+  | 'knee_left'
+  | 'knee_right'
+  | 'shoulder_left'
+  | 'shoulder_right'
+  | 'hip'
+  | 'neck'
+  | 'wrist'
+  | 'ankle'
+  | 'other'
+
+export interface MemberInjury {
+  bodyPart: InjuryBodyPart
+  note: { ar: string; en: string }
+  severity: 'mild' | 'moderate' | 'severe' | null
+}
+
 export interface Plan {
   id: string
   name: { ar: string; en: string }
@@ -28,7 +48,7 @@ export interface Member {
   heightCm: number
   weightKg: number
   bodyFat: number | null
-  injuries: Text[]
+  injuries: MemberInjury[]
   daysPerWeek: number
   job: 'desk' | 'active' | 'shift'
   sleepHours: number

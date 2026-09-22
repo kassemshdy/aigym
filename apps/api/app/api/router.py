@@ -8,6 +8,7 @@ from app.api.exercises import router as exercises_router
 from app.api.food_entries import router as food_entries_router
 from app.api.machines import router as machines_router
 from app.api.media import router as media_router
+from app.api.member_profile import router as member_profile_router
 from app.api.members import router as members_router
 from app.api.nutrition import router as nutrition_router
 from app.api.onboarding import router as onboarding_router
@@ -27,6 +28,7 @@ api_router.include_router(onboarding_router)
 api_router.include_router(checkins_router)
 api_router.include_router(plans_router)
 api_router.include_router(members_router)
+api_router.include_router(member_profile_router)
 api_router.include_router(payments_router)
 api_router.include_router(staff_router)
 api_router.include_router(exercises_router)

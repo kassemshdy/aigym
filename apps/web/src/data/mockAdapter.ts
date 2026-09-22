@@ -44,6 +44,7 @@ import type {
   ApiMachine,
   ApiMember,
   ApiMemberDetail,
+  ApiMemberProfile,
   ApiNutritionLog,
   ApiPayment,
   ApiPlan,
@@ -71,6 +72,7 @@ import type {
   UpdateExerciseInput,
   UpdateProgramInput,
   UpdateVideoInput,
+  UpdateMyProfileInput,
 } from './types'
 
 let mockMembers: MockMember[] = seedMembers.map((m) => ({ ...m }))
@@ -108,7 +110,11 @@ function toApiMemberDetail(m: MockMember): ApiMemberDetail {
       height_cm: m.heightCm,
       weight_kg: m.weightKg,
       body_fat: m.bodyFat,
-      injuries: m.injuries,
+      injuries: m.injuries.map((i) => ({
+        body_part: i.bodyPart,
+        note: i.note,
+        severity: i.severity,
+      })),
       days_per_week: m.daysPerWeek,
       job: m.job,
       sleep_hours: m.sleepHours,
@@ -126,6 +132,28 @@ export function mockGetMember(memberId: string): ApiMemberDetail {
   const m = mockMembers.find((x) => x.id === memberId)
   if (!m) throw new Error('Member not found')
   return toApiMemberDetail(m)
+}
+
+export function mockUpdateMyProfile(input: UpdateMyProfileInput): ApiMemberProfile {
+  const idx = mockMembers.findIndex((x) => x.id === currentMemberId)
+  if (idx === -1) throw new Error('Member not found')
+  const existing = mockMembers[idx]
+  const updated: MockMember = {
+    ...existing,
+    goal: input.goal ?? existing.goal,
+    level: input.level ?? existing.level,
+    heightCm: input.height_cm ?? existing.heightCm,
+    weightKg: input.weight_kg ?? existing.weightKg,
+    bodyFat: input.body_fat !== undefined ? input.body_fat : existing.bodyFat,
+    injuries: input.injuries
+      ? input.injuries.map((i) => ({ bodyPart: i.body_part, note: i.note, severity: i.severity }))
+      : existing.injuries,
+    daysPerWeek: input.days_per_week ?? existing.daysPerWeek,
+    job: input.job ?? existing.job,
+    sleepHours: input.sleep_hours ?? existing.sleepHours,
+  }
+  mockMembers = mockMembers.map((x, i) => (i === idx ? updated : x))
+  return toApiMemberDetail(updated).profile as ApiMemberProfile
 }
 
 export function mockListTodaysCheckIns(): ApiCheckIn[] {
@@ -202,7 +230,11 @@ export function mockCreateMember(input: CreateMemberInput): ApiMemberDetail {
     heightCm: input.height_cm,
     weightKg: input.weight_kg,
     bodyFat: input.body_fat,
-    injuries: [],
+    injuries: input.injuries.map((i) => ({
+      bodyPart: i.body_part,
+      note: i.note,
+      severity: i.severity,
+    })),
     daysPerWeek: input.days_per_week,
     job: input.job,
     sleepHours: input.sleep_hours,

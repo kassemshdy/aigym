@@ -62,6 +62,7 @@ import {
   mockReplaceProgramExercises,
   mockUpdateCheckInStatus,
   mockUpdateExercise,
+  mockUpdateMyProfile,
   mockUpdateProgram,
   mockUpdateProgressPhoto,
   mockUpdateVideo,
@@ -80,6 +81,7 @@ import type {
   ApiMachine,
   ApiMember,
   ApiMemberDetail,
+  ApiMemberProfile,
   ApiNutritionLog,
   ApiPayment,
   ApiPlan,
@@ -107,6 +109,7 @@ import type {
   StaffPasswordResetResult,
   TokenPair,
   UpdateExerciseInput,
+  UpdateMyProfileInput,
   UpdateProgramInput,
   UpdateVideoInput,
 } from './types'
@@ -119,6 +122,20 @@ export async function listMembers(): Promise<ApiMember[]> {
 export async function getMember(memberId: string): Promise<ApiMemberDetail> {
   if (!API_URL) return mockGetMember(memberId)
   return apiFetch(`/members/${memberId}`)
+}
+
+/** A member editing their own body/lifestyle profile — decision 28's
+ * /members/me/... pattern, deliberately separate from staff's updateMember
+ * (which also edits name/phone/plan-adjacent fields). Excludes
+ * daily_kcal_target entirely; that's coach/AI-approval-only. */
+export async function updateMyProfile(input: UpdateMyProfileInput): Promise<ApiMemberProfile> {
+  if (!API_URL) return mockUpdateMyProfile(input)
+  return apiFetch('/members/me/profile', {
+    method: 'PATCH',
+    body: input,
+    authAs: 'member',
+    idempotencyKey: newIdempotencyKey(),
+  })
 }
 
 export async function listPlans(): Promise<ApiPlan[]> {

@@ -27,6 +27,7 @@ import { MemberVideoDetail, MemberVideos } from '@/features/member/Videos'
 import { CoachVideos } from '@/features/coach/Videos'
 import { MemberProgress } from '@/features/member/Progress'
 import { MemberProfile } from '@/features/member/Profile'
+import { MemberEditProfile } from '@/features/member/EditProfile'
 
 /** Same shape as RequireStaff below, now that member login is real
  * (decision 13/28) instead of a `state.signedIn` boolean: with no API
@@ -113,6 +114,7 @@ export default function App() {
           <Route path="progress" element={<MemberProgress />} />
           <Route path="photos" element={<MemberPhotos />} />
           <Route path="profile" element={<MemberProfile />} />
+          <Route path="profile/edit" element={<MemberEditProfile />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/manager" replace />} />
