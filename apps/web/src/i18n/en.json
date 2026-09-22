@@ -188,7 +188,7 @@
     },
     "staff": {
       "title": "Staff",
-      "sub": "Coaches who can sign in",
+      "sub": "Who can sign in, and what they can do",
       "list": "Who has access",
       "addCoach": "Add a coach",
       "name": "Name",
@@ -196,7 +196,16 @@
       "tempPassword": "Temporary password",
       "usernameTaken": "That username is already taken",
       "created": "Account ready",
-      "sendCredentials": "Send login details on WhatsApp"
+      "sendCredentials": "Send login details on WhatsApp",
+      "addSomeone": "Add someone",
+      "role": "What they can do",
+      "roleSignsOut": "Changing this signs them out of the app.",
+      "resetPassword": "New password",
+      "remove": "Remove",
+      "confirmRemove": "Remove {{name}} from this gym?",
+      "removeNote": "They lose access here right away. Their account itself stays, so nothing breaks at another gym they work at.",
+      "lastOwner": "A gym needs at least one owner. Make someone else the owner first.",
+      "notAllowed": "You can only do this for a coach. Ask the gym owner."
     }
   },
   "coach": {

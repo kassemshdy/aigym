@@ -62,6 +62,8 @@ import {
   mockLogSet,
   mockRecordPayment,
   mockRejectAiDraft,
+  mockResetStaffPassword,
+  mockRevokeStaffAccess,
   mockReplaceProgramExercises,
   mockSendChatMessage,
   mockUpdateCheckInStatus,
@@ -69,6 +71,7 @@ import {
   mockUpdateMyProfile,
   mockUpdateProgram,
   mockUpdateProgressPhoto,
+  mockUpdateStaffRole,
   mockUpdateVideo,
   mockWhatsappReminder,
 } from './mockAdapter'
@@ -117,7 +120,9 @@ import type {
   LogSetInput,
   RecordPaymentInput,
   ReplaceProgramExercisesInput,
+  StaffPasswordOut,
   StaffPasswordResetResult,
+  StaffRole,
   TokenPair,
   UpdateExerciseInput,
   UpdateMyProfileInput,
@@ -668,6 +673,42 @@ export async function listStaff(): Promise<ApiStaff[]> {
 export async function createStaff(input: CreateStaffInput): Promise<ApiStaff> {
   if (!API_URL) return mockCreateStaff(input)
   return apiFetch('/staff', { method: 'POST', body: input, idempotencyKey: newIdempotencyKey() })
+}
+
+// ---------------------------------------------------------------------
+// Phase 6 stage 5 — changing and revoking access. All three write
+// StaffGymRole and never StaffUser: the account is global, the role is
+// per-gym, so removing someone here cannot reach a gym they also work at.
+// Each one also revokes their refresh tokens server-side, which is why
+// the UI warns that the person will be signed out.
+// ---------------------------------------------------------------------
+
+export async function updateStaffRole(staffId: string, role: StaffRole): Promise<ApiStaff> {
+  if (!API_URL) return mockUpdateStaffRole(staffId, role)
+  return apiFetch(`/staff/${staffId}`, {
+    method: 'PATCH',
+    body: { role },
+    idempotencyKey: newIdempotencyKey(),
+  })
+}
+
+export async function revokeStaffAccess(staffId: string): Promise<void> {
+  if (!API_URL) return mockRevokeStaffAccess(staffId)
+  await apiFetch(`/staff/${staffId}`, {
+    method: 'DELETE',
+    idempotencyKey: newIdempotencyKey(),
+  })
+}
+
+/** Returns the new password in the response so a human sends it over a
+ * wa.me link (decision 26) — deliberately not the WhatsApp Business API
+ * that the unauthenticated self-service reset uses. */
+export async function resetStaffPassword(staffId: string): Promise<StaffPasswordOut> {
+  if (!API_URL) return mockResetStaffPassword(staffId)
+  return apiFetch(`/staff/${staffId}/password/reset`, {
+    method: 'POST',
+    idempotencyKey: newIdempotencyKey(),
+  })
 }
 
 // ---------------------------------------------------------------------

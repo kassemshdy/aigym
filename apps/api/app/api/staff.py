@@ -260,6 +260,10 @@ async def revoke_staff_access(
 class StaffPasswordOut(BaseModel):
     username: str
     password: str
+    #: So the caller can hand the password over on a wa.me link without a
+    #: second round trip. GET /staff deliberately still omits it — this is
+    #: the one moment a phone number is actually needed.
+    phone: str
 
 
 @router.post("/{staff_user_id}/password/reset", response_model=StaffPasswordOut)
@@ -297,4 +301,4 @@ async def reset_password_for_staff(
     password = generate_password()
     user.password_hash = hash_secret(password)
     await _revoke_refresh_tokens(session, staff_user_id)
-    return StaffPasswordOut(username=user.username, password=password)
+    return StaffPasswordOut(username=user.username, password=password, phone=user.phone)

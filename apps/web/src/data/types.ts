@@ -331,12 +331,27 @@ export interface ApiStaff {
   role: string
 }
 
+/** Flat, not a hierarchy — `super_admin` is never implied by `manager`.
+ * Mirrors app/deps.py's require_role, where every call site has to list
+ * super_admin explicitly or silently lock the gym owner out. */
+export type StaffRole = 'super_admin' | 'manager' | 'coach'
+
 export interface CreateStaffInput {
   username: string
   password: string
   name: string
   phone: string
-  role: 'manager' | 'coach' | 'super_admin'
+  role: StaffRole
+}
+
+/** A password this service just minted, handed back so a human can send it
+ * over a wa.me link (decision 26) rather than the WhatsApp Business API. */
+export interface StaffPasswordOut {
+  username: string
+  password: string
+  /** Included so the caller can hand it over on a wa.me link without a
+   * second round trip. GET /staff deliberately omits it. */
+  phone: string
 }
 
 // ---------------------------------------------------------------------

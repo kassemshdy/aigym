@@ -23,6 +23,18 @@ const SCREENS = [
   ['manager-lapsed', '/manager/lapsed', 'phone'],
   ['manager-insights', '/manager/insights', 'phone'],
   ['manager-staff', '/manager/staff', 'phone'],
+  [
+    'manager-staff-row',
+    '/manager/staff',
+    'phone',
+    // The per-person actions only exist once a row is open, so the default
+    // shot never covers them. The seeded name is the same in both
+    // languages, which keeps this prepare fn language-agnostic.
+    async (page) => {
+      await page.getByText('Kassem Shehady').click()
+      await page.waitForTimeout(200)
+    },
+  ],
   ['coach-queue', '/coach', 'ipad'],
   ['coach-checkin', '/coach/check-in', 'ipad'],
   ['coach-card', '/coach/member/m1', 'ipad'],

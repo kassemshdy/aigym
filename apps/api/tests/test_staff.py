@@ -347,6 +347,7 @@ async def test_a_manager_resets_a_coachs_password(client: AsyncClient) -> None:
     assert reset.status_code == 200, reset.text
     new_password = reset.json()["password"]
     assert reset.json()["username"] == "rami"
+    assert reset.json()["phone"].startswith("+961"), "the manager needs it to send the password"
 
     old = await client.post(
         "/auth/staff/login", json={"username": "rami", "password": "hunter22"}

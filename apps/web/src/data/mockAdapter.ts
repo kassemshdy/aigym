@@ -30,6 +30,7 @@ import type {
   Member as MockMember,
   Payment as MockPayment,
 } from '@/mocks/types'
+import { ApiError } from './client'
 import { waLink } from '@/lib/whatsapp'
 import { replyTo } from '@/mocks/agents'
 import type { AgentId } from '@/mocks/types'
@@ -79,6 +80,8 @@ import type {
   LogSetInput,
   ReplaceProgramExercisesInput,
   RecordPaymentInput,
+  StaffPasswordOut,
+  StaffRole,
   UpdateExerciseInput,
   UpdateProgramInput,
   UpdateVideoInput,
@@ -652,7 +655,10 @@ export function mockListNutritionLogs(memberId: string): ApiNutritionLog[] {
 // ---------------------------------------------------------------------
 
 let mockStaff: ApiStaff[] = [
-  { id: 'staff-kassem', username: 'kassem', name: 'Kassem Shehady', role: 'manager' },
+  // super_admin, not manager: onboarding.py grants the gym's first account
+  // that role, and a roster without one cannot demonstrate the floor that
+  // stops a gym being left with nobody who can grant access.
+  { id: 'staff-kassem', username: 'kassem', name: 'Kassem Shehady', role: 'super_admin' },
   ...seedCoaches.map((c) => ({
     id: `staff-${c.id}`,
     username: c.id.replace('c-', ''),
@@ -667,11 +673,56 @@ export function mockListStaff(): ApiStaff[] {
 
 export function mockCreateStaff(input: CreateStaffInput): ApiStaff {
   if (mockStaff.some((s) => s.username === input.username)) {
-    throw new Error('Username already taken')
+    throw new ApiError(409, 'Username already taken')
   }
   const staff: ApiStaff = { id: newId(), username: input.username, name: input.name, role: input.role }
   mockStaff = [...mockStaff, staff]
   return staff
+}
+
+// ---------------------------------------------------------------------
+// Phase 6 stage 5/6 — changing and revoking access. These mirror
+// app/api/staff.py's guards rather than just mutating the array: a demo
+// that lets the owner do something the server refuses teaches the wrong
+// thing, and the screen branches on the 409 either way.
+// ---------------------------------------------------------------------
+
+function mockStaffOr404(staffId: string): ApiStaff {
+  const found = mockStaff.find((s) => s.id === staffId)
+  if (!found) throw new ApiError(404, 'No staff member with that id at this gym')
+  return found
+}
+
+function mockRefuseLastSuperAdmin(staff: ApiStaff, becoming: StaffRole | null): void {
+  if (staff.role !== 'super_admin' || becoming === 'super_admin') return
+  const others = mockStaff.filter((s) => s.id !== staff.id && s.role === 'super_admin')
+  if (others.length === 0) {
+    throw new ApiError(409, 'This gym would be left with no super_admin')
+  }
+}
+
+export function mockUpdateStaffRole(staffId: string, role: StaffRole): ApiStaff {
+  const staff = mockStaffOr404(staffId)
+  mockRefuseLastSuperAdmin(staff, role)
+  const updated = { ...staff, role }
+  mockStaff = mockStaff.map((s) => (s.id === staffId ? updated : s))
+  return updated
+}
+
+export function mockRevokeStaffAccess(staffId: string): void {
+  const staff = mockStaffOr404(staffId)
+  mockRefuseLastSuperAdmin(staff, null)
+  mockStaff = mockStaff.filter((s) => s.id !== staffId)
+}
+
+export function mockResetStaffPassword(staffId: string): StaffPasswordOut {
+  const staff = mockStaffOr404(staffId)
+  // Not crypto — mock mode never authenticates anyone. The real password
+  // comes from app/security/hashing.py's generate_password.
+  const password = Math.random().toString(16).slice(2, 10)
+  // The roster has no phone numbers; the live endpoint reads the real one
+  // off staff_users. A placeholder keeps the wa.me link shape intact.
+  return { username: staff.username, password, phone: '+96170000000' }
 }
 
 // ---------------------------------------------------------------------
