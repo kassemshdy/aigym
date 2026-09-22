@@ -20,6 +20,13 @@ class Gym(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     name: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     slug: Mapped[str] = mapped_column(String, nullable=False, unique=True)
 
+    # An app/storage.py key, served through GET /media/{key} like any other
+    # upload. NULL means the gym has not set one and the client falls back
+    # to the bundled logo. Deliberately not a URL: the same opaque-key,
+    # checked-one-layer-up model every other image in this product uses,
+    # rather than a second way to reference a picture.
+    logo_key: Mapped[str | None] = mapped_column(String, nullable=True)
+
 
 class StaffUser(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     """A person who can log in as staff. Not gym-scoped: one staff account

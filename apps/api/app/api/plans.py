@@ -29,6 +29,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
+from app.api.schemas import BilingualName
 from app.deps import CurrentSession, require_role
 from app.models import Plan, Subscription
 from app.security.jwt import AccessTokenClaims
@@ -36,17 +37,6 @@ from app.security.jwt import AccessTokenClaims
 router = APIRouter(tags=["plans"])
 
 ManagerOrAdmin = Depends(require_role("super_admin", "manager"))
-
-
-class BilingualName(BaseModel):
-    """Both languages required. Looser than the `dict[str, Any]` the
-    exercise and video endpoints take, deliberately: those carry seeded
-    content, while a gym owner types this one — and a plan saved with only
-    English renders as a blank name on the Arabic side of the app rather
-    than failing loudly."""
-
-    ar: Annotated[str, Field(min_length=1, max_length=60)]
-    en: Annotated[str, Field(min_length=1, max_length=60)]
 
 
 class PlanOut(BaseModel):

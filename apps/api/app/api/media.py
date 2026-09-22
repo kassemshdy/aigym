@@ -12,7 +12,7 @@ from sqlalchemy import select
 
 from app import storage
 from app.deps import CurrentClaims, CurrentSession
-from app.models import FoodEntry, ProgressPhoto
+from app.models import FoodEntry, Gym, ProgressPhoto
 
 router = APIRouter(tags=["media"])
 
@@ -37,6 +37,20 @@ async def upload_media(file: UploadFile, _claims: CurrentClaims) -> dict[str, st
 
 @router.get("/media/{key}")
 async def get_media(key: str, session: CurrentSession, claims: CurrentClaims) -> Response:
+    # The gym logo, checked first and by primary key. A logo_key matches
+    # neither of the two tables below, so before Phase 6 this route simply
+    # 404'd on one — and the header renders on every screen of every
+    # surface, which makes it the most-requested key in the app.
+    #
+    # `gyms` has no RLS (decision 16), so this compares against the
+    # caller's own gym explicitly rather than trusting the session scope.
+    # Looking the gym up by id and comparing its logo_key, instead of
+    # searching for the key, is what keeps that comparison exact: there is
+    # no query that could match another gym's row to forget to filter.
+    gym = await session.get(Gym, claims.gym_id)
+    if gym is not None and gym.logo_key is not None and gym.logo_key == key:
+        return await _serve(key)
+
     photo = (
         await session.execute(select(ProgressPhoto).where(ProgressPhoto.photo_key == key))
     ).scalar_one_or_none()
@@ -64,11 +78,19 @@ async def get_media(key: str, session: CurrentSession, claims: CurrentClaims) ->
         if not (owns_it or staff_can_see):
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Not found")
 
+    return await _serve(key)
+
+
+async def _serve(key: str) -> Response:
+    """Read and return, once the caller has been shown to be allowed the
+    key. Both failure modes are 404s rather than 500s: a malformed key
+    should never have been stored, and a well-formed one whose file is
+    missing means the rows and the volume disagree — after a restore, say.
+    Neither is something to show a member a stack trace over."""
     try:
         data = await asyncio.to_thread(storage.read, key)
     except storage.InvalidKey as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Not found") from exc
     if data is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Not found")
-
     return Response(content=data, media_type=storage.content_type_for(key))
