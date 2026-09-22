@@ -162,6 +162,17 @@ export const nutrition: NutritionEntry[] = [
   { memberId: 'm3', date: '2026-09-10', band: 'low', meals: ['قهوة بس'], source: 'coach_asked' },
 ]
 
+/** Mock stand-in for a food photo estimate (Phase 5 stage 8). Real mode
+ * sends the photo to Claude for the same shape (app/api/food_entries.py's
+ * POST /members/me/food-entries/estimate); mock mode has no vision model
+ * to call, so it picks one of these at random instead. */
+export const foodGuesses: { label: { ar: string; en: string }; kcal: number; protein: number; carbs: number; fat: number }[] = [
+  { label: { ar: 'دجاج مشوي مع رز', en: 'Grilled chicken with rice' }, kcal: 620, protein: 45, carbs: 68, fat: 14 },
+  { label: { ar: 'لبنة مع خبز وزيتون', en: 'Labneh with bread and olives' }, kcal: 410, protein: 16, carbs: 44, fat: 19 },
+  { label: { ar: 'سلطة مع تونة', en: 'Salad with tuna' }, kcal: 280, protein: 28, carbs: 12, fat: 13 },
+  { label: { ar: 'منقوشة زعتر', en: 'Zaatar manqoushe' }, kcal: 350, protein: 8, carbs: 46, fat: 15 },
+]
+
 export const videos: Video[] = [
   { id: 'v1', title: { ar: 'بنش برس — الوضعية الصح', en: 'Bench Press — Correct Form' }, provider: 'youtube', externalId: 'gRVjAtPip0Y', seconds: 214, muscle: 'chest', equipment: 'barbell', views: 148 },
   { id: 'v2', title: { ar: 'تفتيح دمبل بدون إصابة', en: 'Dumbbell Fly Without Injury' }, provider: 'youtube', externalId: 'eozdVDA78K0', seconds: 176, muscle: 'chest', equipment: 'dumbbell', views: 96 },

@@ -394,6 +394,7 @@
     "remove": "Remove",
     "g": "g",
     "analyzing": "Reading the photo…",
+    "analyzeError": "Couldn't read the photo — try again or add it manually",
     "estimate": "Food estimate",
     "confirm": "Log it",
     "portion": "Portion",

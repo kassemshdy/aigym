@@ -373,6 +373,18 @@ export interface MediaUploadResult {
   key: string
 }
 
+/** Mirrors app/api/food_entries.py's FoodEstimateOut (Phase 5 stage 8) — a
+ * single best-guess reading of an already-uploaded photo. Never a write;
+ * the member still confirms or corrects it before createFoodEntry runs
+ * (decision 12). */
+export interface ApiFoodEstimate {
+  label: string
+  kcal: number
+  protein: number
+  carbs: number
+  fat: number
+}
+
 // ---------------------------------------------------------------------
 // Phase 4 stage 5 — a member's own progress photos (decision 11). Mirrors
 // app/api/progress_photos.py. Member-scoped writes use claims.subject_id

@@ -31,6 +31,7 @@ import {
   mockCreateWorkoutSession,
   mockDeleteFoodEntry,
   mockDeleteProgressPhoto,
+  mockEstimateFoodEntry,
   mockFinishWorkoutSession,
   mockGetActiveProgram,
   mockGetMember,
@@ -79,6 +80,7 @@ import type {
   ApiCoach,
   ApiExercise,
   ApiFoodEntry,
+  ApiFoodEstimate,
   ApiGymClass,
   ApiLapsedMember,
   ApiMachine,
@@ -377,6 +379,20 @@ export async function uploadFoodPhoto(file: File, dataUrl: string): Promise<stri
   if (!API_URL) return dataUrl
   const result = await uploadMedia(file, 'member')
   return result.key
+}
+
+/** Phase 5 stage 8 — a single best-guess read of an already-uploaded
+ * photo, never a write (decision 12's confirm step is untouched). Food.tsx
+ * uploads the photo first (uploadFoodPhoto) so this has a real photo_key
+ * to send. */
+export async function estimateFoodEntry(photoKey: string, lang: Lang): Promise<ApiFoodEstimate> {
+  if (!API_URL) return mockEstimateFoodEntry(lang)
+  return apiFetch('/members/me/food-entries/estimate', {
+    method: 'POST',
+    body: { photo_key: photoKey, lang },
+    idempotencyKey: newIdempotencyKey(),
+    authAs: 'member',
+  })
 }
 
 // ---------------------------------------------------------------------

@@ -17,6 +17,7 @@ import {
   dayPlans as seedDayPlans,
   daysSinceVisit,
   findPlan,
+  foodGuesses,
   machines as seedMachines,
   members as seedMembers,
   nutrition as seedNutrition,
@@ -44,6 +45,7 @@ import type {
   ApiCoach,
   ApiExercise,
   ApiFoodEntry,
+  ApiFoodEstimate,
   ApiGymClass,
   ApiLapsedMember,
   ApiMachine,
@@ -715,6 +717,14 @@ export function mockCreateFoodEntry(input: CreateFoodEntryInput): ApiFoodEntry {
 
 export function mockDeleteFoodEntry(entryId: string): void {
   mockFoodEntries = mockFoodEntries.filter((f) => f.id !== entryId)
+}
+
+/** Mock branch of estimateFoodEntry — no photo to actually look at, so it
+ * picks one of foodGuesses at random, same behavior Food.tsx's onPhoto()
+ * had inline before Phase 5 stage 8 moved the vision call server-side. */
+export function mockEstimateFoodEntry(lang: Lang): ApiFoodEstimate {
+  const guess = foodGuesses[Math.floor(Math.random() * foodGuesses.length)]
+  return { label: text(guess.label, lang), kcal: guess.kcal, protein: guess.protein, carbs: guess.carbs, fat: guess.fat }
 }
 
 // ---------------------------------------------------------------------

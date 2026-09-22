@@ -10,6 +10,7 @@ import { useStore } from '@/state/store'
 import {
   createFoodEntry,
   deleteFoodEntry,
+  estimateFoodEntry,
   getCurrentMemberId,
   getMember,
   listFoodEntries,
@@ -26,22 +27,11 @@ import { currentMemberId as mockCurrentMemberId } from '@/mocks/data'
 const DEFAULT_DAILY_KCAL = 2100
 const DAILY_PROTEIN = 145
 
-/**
- * Prototype stand-in for the vision call. Phase 5 sends the photo to Claude with the
- * member's usual foods as context and gets the same shape back; the confirm step stays
- * either way, because an estimate the member never checks is a number nobody trusts.
- */
-const GUESSES = [
-  { label: { ar: 'دجاج مشوي مع رز', en: 'Grilled chicken with rice' }, kcal: 620, protein: 45, carbs: 68, fat: 14 },
-  { label: { ar: 'لبنة مع خبز وزيتون', en: 'Labneh with bread and olives' }, kcal: 410, protein: 16, carbs: 44, fat: 19 },
-  { label: { ar: 'سلطة مع تونة', en: 'Salad with tuna' }, kcal: 280, protein: 28, carbs: 12, fat: 13 },
-  { label: { ar: 'منقوشة زعتر', en: 'Zaatar manqoushe' }, kcal: 350, protein: 8, carbs: 46, fat: 15 },
-]
-
 /** Once the member edits the name it is a plain string in their own words.
- * `photoFile` is the original File (for a real upload); `photo` is its
- * FileReader data-URL preview, shown in the confirm card either way and
- * reused as-is for the photo_key in mock mode (see uploadFoodPhoto). */
+ * `photo` is the FileReader data-URL preview, shown in the confirm card.
+ * `photoKey` is set once the photo has been uploaded (see onPhoto) — the
+ * same key the vision estimate already used, reused as-is by confirm()
+ * instead of uploading a second time. */
 type Draft = {
   label: string
   kcal: number
@@ -49,7 +39,7 @@ type Draft = {
   carbs: number
   fat: number
   photo?: string
-  photoFile?: File
+  photoKey?: string
 }
 
 export function MemberFood() {
@@ -63,6 +53,7 @@ export function MemberFood() {
   const dailyKcal = member.data?.profile?.daily_kcal_target ?? DEFAULT_DAILY_KCAL
 
   const [analyzing, setAnalyzing] = useState(false)
+  const [analyzeError, setAnalyzeError] = useState(false)
   const [draft, setDraft] = useState<Draft | null>(null)
   const [portion, setPortion] = useState(1)
   const [saving, setSaving] = useState(false)
@@ -84,18 +75,23 @@ export function MemberFood() {
 
   const onPhoto = (file: File) => {
     const reader = new FileReader()
-    reader.onload = () => {
-      const photo = String(reader.result)
-      setAnalyzing(true)
-      // Stands in for the round trip to the vision model.
-      setTimeout(() => {
-        const guess = GUESSES[Math.floor(Math.random() * GUESSES.length)]
-        setDraft({ ...guess, label: guess.label[lang], photo, photoFile: file })
-        setPortion(1)
-        setAnalyzing(false)
-      }, 1200)
-    }
+    reader.onload = () => void analyze(file, String(reader.result))
     reader.readAsDataURL(file)
+  }
+
+  async function analyze(file: File, photo: string) {
+    setAnalyzing(true)
+    setAnalyzeError(false)
+    try {
+      const photoKey = await uploadFoodPhoto(file, photo)
+      const guess = await estimateFoodEntry(photoKey, lang)
+      setDraft({ ...guess, photo, photoKey })
+      setPortion(1)
+    } catch {
+      setAnalyzeError(true)
+    } finally {
+      setAnalyzing(false)
+    }
   }
 
   const scaled = draft && {
@@ -110,15 +106,12 @@ export function MemberFood() {
     setSaving(true)
     setError(false)
     try {
-      const photoKey = draft.photoFile
-        ? await uploadFoodPhoto(draft.photoFile, draft.photo ?? '')
-        : null
       await createFoodEntry({
         label: draft.label,
         ...scaled,
-        source: draft.photoFile ? 'photo' : 'manual',
-        photo_key: photoKey,
-        estimate: draft.photoFile
+        source: draft.photoKey ? 'photo' : 'manual',
+        photo_key: draft.photoKey ?? null,
+        estimate: draft.photoKey
           ? { kcal: draft.kcal, protein: draft.protein, carbs: draft.carbs, fat: draft.fat }
           : null,
       })
@@ -302,6 +295,12 @@ export function MemberFood() {
             </div>
           </div>
         </Card>
+      ) : null}
+
+      {analyzeError && !draft && !analyzing ? (
+        <p className="bg-ink rounded-xl px-4 py-3 text-sm font-semibold text-white">
+          {t('food.analyzeError')}
+        </p>
       ) : null}
 
       {!draft && !analyzing ? (
