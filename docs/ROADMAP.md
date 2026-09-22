@@ -65,15 +65,41 @@ land — and passes. Coach screens (Queue, member card, session logging) read an
 API; the mock fallback still works with `VITE_API_URL` unset. Member and AI-draft-inbox screens
 stay on mocks (Phases 4–5).
 
-## Phase 4 — Members, content, and self-service
+## Phase 4 — Members, content, and self-service ✅ done, deployed
 
-Member auth (phone + code over WhatsApp — most members have no email), video library CRUD
-for coaches, oEmbed metadata, view tracking, exercise↔video linking, progress and history.
+**Live: https://triple-a.up.railway.app** — member screens now read and write the real API.
 
-Also the member's own data: **food entries** with a small local food table (manqoushe,
-labneh, shawarma — not a US database), **progress photos** with the privacy rules in
-decision 11 (private by default, per-photo sharing, real deletion), and object storage for
-both. Member screens go live.
+Self-service member login (phone + 6-digit WhatsApp code, no staff needed to request one —
+decision 28), alongside the staff-assisted flow Phase 2 already shipped. Every new
+member-facing write is scoped to the signed-in member's own id, never a URL parameter
+(decision 28) — including three existing staff endpoints broadened, not duplicated, to also
+serve a member asking about themselves.
+
+**Video library** — coach-managed catalog (title, muscle group, equipment, a YouTube
+link/id pasted in), view tracking, a member-facing browse-and-watch screen. Video embedding
+stays decision 5's hand-built iframe: no live oEmbed fetch, and no `Exercise`↔`Video` link —
+those were in this phase's original scope but cut (decision 28), since the two catalogs
+turned out to serve different purposes (an exercise's own `video_url` vs. a member browsing
+technique videos on their own).
+
+**The member's own data**: food entries with a confirm-before-logging step (decision 12 —
+the vision estimate itself is still fake, Phase 5's job), and progress photos with the
+privacy rules in decision 11 (private by default, per-photo sharing, real deletion —
+proven by a test that the stored file is actually gone, not just the row). Both go through
+a Railway Volume (decision 28), the same no-new-vendor pattern Postgres already uses on
+this project.
+
+**Booking and calendar** — coaches, the fixed class schedule, and a member's own
+private/intro session bookings (with cancel), reusing models Phase 3 had already seeded;
+no new schema. Today, Progress, and Profile switched from mocks to real member-scoped
+reads to close out the phase.
+
+Verified stage by stage: the full backend test suite (tenancy isolation, cross-member
+isolation, and the RLS-actually-blocks proof ritual for every new table), `npm run verify`,
+and the screenshot suite clean in both languages throughout. Deployed by merging straight
+to `main` once the whole phase was solid, rather than the two-milestone split originally
+planned — Stage 7 turned out to depend on Stage 6's attendance endpoint, so the stages
+weren't cleanly separable after all.
 
 ## Phase 5 — AI
 

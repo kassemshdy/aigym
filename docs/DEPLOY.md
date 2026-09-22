@@ -115,12 +115,14 @@ BASE=https://triple-a.up.railway.app node apps/web/scripts/shots.mjs ./shots
 
 ## What is deployed
 
-The `web` service now serves the real Phase 2 backend for the **manager** surface:
-`VITE_API_URL` is set to the `api` service's domain, so manager screens read and write
-live Postgres data through JWT-authenticated requests, and `/manager/login` gates them —
-the open role switcher no longer applies to manager screens. Coach and member screens are
-still Phase 1 mocks (member sign-in still accepts any code) until Phase 3/4 gives those
-surfaces a backend.
+The `web` service serves the real backend for all three surfaces now: `VITE_API_URL` is
+set to the `api` service's domain, so manager, coach, and member screens all read and
+write live Postgres data through JWT-authenticated requests. `/manager/login` gates staff
+screens (manager and coach share one staff login, decision 21) and `/login` gates member
+screens with a real phone + WhatsApp code (decision 13) — the open role switcher's
+tap-through behavior only applies when `VITE_API_URL` is unset at all (local mock-mode
+development). AI-draft-inbox and the two chat assistants are the one surface still on
+mocks, deliberately — Phase 5's job (decision 10 needs the AI layer to exist first).
 
 Triple A Gym's real content is seeded on the live database. Staff sign in with **username +
 password** (decision 21 — not phone + PIN, which this section described before that changed).
@@ -141,6 +143,7 @@ the current live deployment (commit `05c9dfdc`, `SUCCESS`).
 | API health | `/health` — confirmed 200 in the deploy's own logs |
 | API domain | `api-production-6336.up.railway.app` (Railway-generated, not custom) |
 | Postgres | `postgres:16` image + a persistent volume at `/var/lib/postgresql/data` — **no public TCP proxy**, reachable only over Railway's private network as `postgres.railway.internal` |
+| Media volume | Railway Volume named `media`, mounted on `api` at `/data/media`; `AIGYM_MEDIA_ROOT` set to match (decision 28, Phase 4) |
 
 ### How the two services connect, and why Postgres has no public endpoint
 
@@ -158,6 +161,25 @@ bootstrapping step — `AIGYM_DATABASE_URL` (the `aigym_app` role) and
 values, set directly on the `api` service — not the `.env.example` placeholders, and not
 recorded anywhere outside Railway's own variable store. `AIGYM_CORS_ORIGINS` is
 `["https://triple-a.up.railway.app"]` — the `web` origin only.
+
+### The media volume (Phase 4)
+
+Progress photos and food-entry photos land on a Railway Volume, not S3/R2 (decision 28) —
+provisioned directly against the live `api` service (not just described in code): a volume
+named `media`, mounted at `/data/media`, with `AIGYM_MEDIA_ROOT=/data/media` set to match.
+`app/storage.py` reads and writes under that path; nothing else on the service touches it.
+Single-replica constraint, same one already accepted for Postgres — two `api` replicas
+would each see their own empty mount, not a shared one.
+
+**What is and isn't verified for this piece specifically:** the volume attach and the
+service redeploy that followed both came back `SUCCESS` (confirmed via the Railway MCP
+tools), and the exact same upload/read/delete code path was proven correct end-to-end
+against a local disk mount (`apps/api/tests/test_storage.py`, `test_media.py`,
+`test_food_entries.py`, `test_progress_photos.py`). What has **not** been separately
+confirmed is a real photo upload actually round-tripping through the live Railway mount
+itself — this environment can't reach `*.up.railway.app` to drive that (same restriction
+noted throughout this file), and no member has used the live product yet to exercise it
+naturally. Worth a manual check the first time a real gym member uploads a photo.
 
 ### Seeding real content, and setting the manager's password
 

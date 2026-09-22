@@ -268,8 +268,6 @@
   "member": {
     "today": {
       "title": "Today's workout",
-      "start": "Start",
-      "watch": "Watch video",
       "rest": "Rest day"
     },
     "videos": {
