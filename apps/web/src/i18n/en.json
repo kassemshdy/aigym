@@ -70,7 +70,8 @@
     "pendingSync": "{{count}} waiting to sync",
     "synced": "Everything saved",
     "loading": "Loading…",
-    "error": "Something went wrong"
+    "error": "Something went wrong",
+    "remove": "Remove"
   },
   "status": {
     "paid": "Paid",
@@ -251,6 +252,17 @@
       "rejected": "Rejected",
       "empty": "No new suggestions",
       "notice": "Nothing reaches the member until you approve it"
+    },
+    "videos": {
+      "title": "Video library",
+      "sub": "What members see in their app",
+      "list": "Videos",
+      "add": "Add a video",
+      "videoTitle": "Title",
+      "link": "YouTube link or video ID",
+      "duration": "Duration (seconds)",
+      "muscleGroup": "Muscle group",
+      "equipment": "Equipment"
     }
   },
   "member": {
@@ -332,7 +344,9 @@
     "code": "Code",
     "codeSent": "We sent a code on WhatsApp",
     "enter": "Enter",
-    "demo": "Prototype: any code works"
+    "demo": "Prototype: any code works",
+    "error": "Something went wrong — try again",
+    "errorCode": "Wrong or expired code"
   },
   "food": {
     "title": "My food today",
@@ -384,6 +398,12 @@
     "unshare": "Stop sharing",
     "delete": "Delete"
   },
+  "sharedPhotos": {
+    "title": "Shared photos",
+    "view": "View",
+    "hide": "Hide",
+    "empty": "Nothing shared yet"
+  },
   "calendar": {
     "title": "My calendar",
     "today": "Today",
@@ -394,7 +414,8 @@
     "with": "with",
     "trained": "Trained",
     "book": "Book a private session",
-    "minutes": "{{count}} min"
+    "minutes": "{{count}} min",
+    "cancel": "Cancel booking"
   },
   "book": {
     "title": "Book a session",

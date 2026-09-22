@@ -5,41 +5,73 @@
  * calls the live API or the mock adapter; the shape returned is identical
  * either way (src/data/types.ts).
  */
-import { API_URL, apiFetch, newIdempotencyKey, offlineFetch, setTokens } from './client'
 import {
+  API_URL,
+  apiFetch,
+  clearTokens,
+  newIdempotencyKey,
+  offlineFetch,
+  setTokens,
+  uploadMedia,
+  type AuthAs,
+} from './client'
+import {
+  mockCancelBooking,
+  mockCreateBooking,
   mockCreateCheckIn,
   mockCreateExercise,
+  mockCreateFoodEntry,
   mockCreateMember,
   mockCreateNutritionLog,
   mockCreateProgram,
+  mockCreateProgressPhoto,
   mockCreateStaff,
+  mockCreateVideo,
   mockCreateWorkoutSession,
+  mockDeleteFoodEntry,
+  mockDeleteProgressPhoto,
   mockFinishWorkoutSession,
   mockGetActiveProgram,
   mockGetMember,
   mockGetTodayWorkout,
+  mockGetVideo,
   mockListWorkoutSessions,
   mockGetWorkoutSession,
   mockLapsedMembers,
+  mockListClasses,
+  mockListCoaches,
   mockListExercises,
+  mockListFoodEntries,
   mockListMachines,
   mockListMembers,
+  mockListMyAttendance,
+  mockListMyBookings,
   mockListNutritionLogs,
   mockListPayments,
   mockListPlans,
+  mockListProgressPhotos,
+  mockListSharedPhotos,
   mockListStaff,
   mockListTodaysCheckIns,
+  mockListVideos,
   mockLogSet,
   mockRecordPayment,
   mockReplaceProgramExercises,
   mockUpdateCheckInStatus,
   mockUpdateExercise,
   mockUpdateProgram,
+  mockUpdateProgressPhoto,
+  mockUpdateVideo,
   mockWhatsappReminder,
 } from './mockAdapter'
 import type {
+  ApiAttendanceDay,
+  ApiBooking,
   ApiCheckIn,
+  ApiCoach,
   ApiExercise,
+  ApiFoodEntry,
+  ApiGymClass,
   ApiLapsedMember,
   ApiMachine,
   ApiMember,
@@ -48,15 +80,20 @@ import type {
   ApiPayment,
   ApiPlan,
   ApiProgram,
+  ApiProgressPhoto,
   ApiStaff,
   ApiTodayWorkout,
+  ApiVideo,
   ApiWorkoutSession,
   ApiWorkoutSet,
+  CreateBookingInput,
   CreateExerciseInput,
+  CreateFoodEntryInput,
   CreateMemberInput,
   CreateNutritionLogInput,
   CreateProgramInput,
   CreateStaffInput,
+  CreateVideoInput,
   CreateWorkoutSessionInput,
   FinishWorkoutSessionInput,
   LogSetInput,
@@ -66,6 +103,7 @@ import type {
   TokenPair,
   UpdateExerciseInput,
   UpdateProgramInput,
+  UpdateVideoInput,
 } from './types'
 
 export async function listMembers(): Promise<ApiMember[]> {
@@ -183,6 +221,36 @@ export async function requestStaffPasswordReset(
 export { clearTokens as staffSignOut, getStaffRole, isStaffSignedIn } from './client'
 
 // ---------------------------------------------------------------------
+// Phase 4 — member self-service auth (decision 13, decision 28). Mock
+// mode keeps today's tap-through behavior — see RequireMember in App.tsx
+// — these only do anything real once API_URL is set.
+// ---------------------------------------------------------------------
+
+/** Always resolves — the endpoint itself never reveals whether `phone`
+ * matched a member (see app/api/auth.py's request_own_member_code), so
+ * there's nothing meaningful to branch on here either. */
+export async function requestMemberCode(phone: string): Promise<void> {
+  if (!API_URL) return
+  await apiFetch('/auth/member/code', { method: 'POST', body: { phone } })
+}
+
+export async function memberLogin(phone: string, code: string): Promise<void> {
+  if (!API_URL) return
+  const tokens = await apiFetch<TokenPair>('/auth/member/login', {
+    method: 'POST',
+    body: { phone, code },
+    authAs: 'member',
+  })
+  setTokens(tokens, 'member')
+}
+
+export function memberSignOut() {
+  clearTokens('member')
+}
+
+export { getCurrentMemberId, isMemberSignedIn } from './client'
+
+// ---------------------------------------------------------------------
 // Phase 3 — the floor. Coach and manager share one staff data layer
 // (decision 21); nothing here is manager- or coach-only at the query
 // layer, callers decide what to render.
@@ -213,6 +281,179 @@ export async function updateExercise(
 export async function listMachines(): Promise<ApiMachine[]> {
   if (!API_URL) return mockListMachines()
   return apiFetch('/machines')
+}
+
+// ---------------------------------------------------------------------
+// Phase 4 stage 3 — the video library. Readable by staff and members
+// alike (pass authAs to match the caller), writable by staff only.
+// ---------------------------------------------------------------------
+
+export async function listVideos(authAs: AuthAs = 'staff'): Promise<ApiVideo[]> {
+  if (!API_URL) return mockListVideos()
+  return apiFetch('/videos', { authAs })
+}
+
+export async function getVideo(videoId: string, authAs: AuthAs = 'staff'): Promise<ApiVideo> {
+  if (!API_URL) return mockGetVideo(videoId)
+  return apiFetch(`/videos/${videoId}`, { authAs })
+}
+
+export async function createVideo(input: CreateVideoInput): Promise<ApiVideo> {
+  if (!API_URL) return mockCreateVideo(input)
+  return apiFetch('/videos', { method: 'POST', body: input, idempotencyKey: newIdempotencyKey() })
+}
+
+export async function updateVideo(videoId: string, input: UpdateVideoInput): Promise<ApiVideo> {
+  if (!API_URL) return mockUpdateVideo(videoId, input)
+  return apiFetch(`/videos/${videoId}`, {
+    method: 'PATCH',
+    body: input,
+    idempotencyKey: newIdempotencyKey(),
+  })
+}
+
+// ---------------------------------------------------------------------
+// Phase 4 stage 4 — a member's own food log. All member-scoped (authAs
+// 'member'); the server derives "which member" from the token, never a
+// URL parameter (decision 28).
+// ---------------------------------------------------------------------
+
+export async function listFoodEntries(): Promise<ApiFoodEntry[]> {
+  if (!API_URL) return mockListFoodEntries()
+  return apiFetch('/members/me/food-entries', { authAs: 'member' })
+}
+
+export async function createFoodEntry(input: CreateFoodEntryInput): Promise<ApiFoodEntry> {
+  if (!API_URL) return mockCreateFoodEntry(input)
+  return apiFetch('/members/me/food-entries', {
+    method: 'POST',
+    body: input,
+    idempotencyKey: newIdempotencyKey(),
+    authAs: 'member',
+  })
+}
+
+export async function deleteFoodEntry(entryId: string): Promise<void> {
+  if (!API_URL) return mockDeleteFoodEntry(entryId)
+  await apiFetch(`/members/me/food-entries/${entryId}`, {
+    method: 'DELETE',
+    idempotencyKey: newIdempotencyKey(),
+    authAs: 'member',
+  })
+}
+
+/** `dataUrl` is the already-computed FileReader preview MemberFood.tsx
+ * builds for the confirm-card thumbnail either way; mock mode reuses it
+ * as the food entry's photo_key (there's no real object store to
+ * round-trip through) instead of re-deriving it from `file`. */
+export async function uploadFoodPhoto(file: File, dataUrl: string): Promise<string> {
+  if (!API_URL) return dataUrl
+  const result = await uploadMedia(file, 'member')
+  return result.key
+}
+
+// ---------------------------------------------------------------------
+// Phase 4 stage 5 — a member's own progress photos (decision 11). Member-
+// scoped writes (authAs 'member'); the one staff-facing read below is
+// intentionally separate and stays on the default 'staff' auth.
+// ---------------------------------------------------------------------
+
+export async function listProgressPhotos(): Promise<ApiProgressPhoto[]> {
+  if (!API_URL) return mockListProgressPhotos()
+  return apiFetch('/members/me/progress-photos', { authAs: 'member' })
+}
+
+/** Same reasoning as uploadFoodPhoto: `dataUrl` stands in for a real
+ * storage key in mock mode. */
+export async function uploadProgressPhoto(file: File, dataUrl: string): Promise<string> {
+  if (!API_URL) return dataUrl
+  const result = await uploadMedia(file, 'member')
+  return result.key
+}
+
+export async function createProgressPhoto(photoKey: string): Promise<ApiProgressPhoto> {
+  if (!API_URL) return mockCreateProgressPhoto(photoKey)
+  return apiFetch('/members/me/progress-photos', {
+    method: 'POST',
+    body: { photo_key: photoKey },
+    idempotencyKey: newIdempotencyKey(),
+    authAs: 'member',
+  })
+}
+
+export async function setProgressPhotoShared(
+  photoId: string,
+  sharedWithCoach: boolean,
+): Promise<ApiProgressPhoto> {
+  if (!API_URL) return mockUpdateProgressPhoto(photoId, sharedWithCoach)
+  return apiFetch(`/members/me/progress-photos/${photoId}`, {
+    method: 'PATCH',
+    body: { shared_with_coach: sharedWithCoach },
+    idempotencyKey: newIdempotencyKey(),
+    authAs: 'member',
+  })
+}
+
+export async function deleteProgressPhoto(photoId: string): Promise<void> {
+  if (!API_URL) return mockDeleteProgressPhoto(photoId)
+  await apiFetch(`/members/me/progress-photos/${photoId}`, {
+    method: 'DELETE',
+    idempotencyKey: newIdempotencyKey(),
+    authAs: 'member',
+  })
+}
+
+/** The one staff-facing read of this data — only ever rows the member
+ * explicitly shared (decision 11), enforced server-side. Staff-scoped
+ * (default authAs), unlike everything else in this section. */
+export async function listSharedPhotos(memberId: string): Promise<ApiProgressPhoto[]> {
+  if (!API_URL) return mockListSharedPhotos()
+  return apiFetch(`/members/${memberId}/shared-photos`)
+}
+
+// ---------------------------------------------------------------------
+// Phase 4 stage 6 — coaches, the class schedule, and a member's own
+// bookings/attendance. Coaches/classes are readable by any signed-in
+// role; bookings/attendance are member-scoped (authAs 'member').
+// ---------------------------------------------------------------------
+
+export async function listCoaches(): Promise<ApiCoach[]> {
+  if (!API_URL) return mockListCoaches()
+  return apiFetch('/coaches')
+}
+
+export async function listClasses(): Promise<ApiGymClass[]> {
+  if (!API_URL) return mockListClasses()
+  return apiFetch('/classes')
+}
+
+export async function listMyBookings(): Promise<ApiBooking[]> {
+  if (!API_URL) return mockListMyBookings()
+  return apiFetch('/members/me/bookings', { authAs: 'member' })
+}
+
+export async function createBooking(input: CreateBookingInput): Promise<ApiBooking> {
+  if (!API_URL) return mockCreateBooking(input)
+  return apiFetch('/members/me/bookings', {
+    method: 'POST',
+    body: input,
+    idempotencyKey: newIdempotencyKey(),
+    authAs: 'member',
+  })
+}
+
+export async function cancelBooking(bookingId: string): Promise<ApiBooking> {
+  if (!API_URL) return mockCancelBooking(bookingId)
+  return apiFetch(`/members/me/bookings/${bookingId}`, {
+    method: 'PATCH',
+    idempotencyKey: newIdempotencyKey(),
+    authAs: 'member',
+  })
+}
+
+export async function listMyAttendance(): Promise<ApiAttendanceDay[]> {
+  if (!API_URL) return mockListMyAttendance()
+  return apiFetch('/members/me/attendance', { authAs: 'member' })
 }
 
 export async function getActiveProgram(memberId: string): Promise<ApiProgram | null> {
@@ -266,9 +507,10 @@ export async function getTodayWorkout(memberId: string): Promise<ApiTodayWorkout
 export async function listWorkoutSessions(
   memberId: string,
   limit = 5,
+  authAs: AuthAs = 'staff',
 ): Promise<ApiWorkoutSession[]> {
   if (!API_URL) return mockListWorkoutSessions(memberId, limit)
-  return apiFetch(`/members/${memberId}/workout-sessions?limit=${limit}`)
+  return apiFetch(`/members/${memberId}/workout-sessions?limit=${limit}`, { authAs })
 }
 
 /** Client-mints the session id up front (docs/DECISIONS.md) so the local

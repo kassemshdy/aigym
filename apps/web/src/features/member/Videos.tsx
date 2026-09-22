@@ -6,21 +6,39 @@ import { BackLink } from '@/components/ui/BackLink'
 import { Chip } from '@/components/ui/Badge'
 import { Icon } from '@/components/ui/Icon'
 import { Empty, Page } from '@/components/ui/Page'
-import { findVideo, gym, videos } from '@/mocks/data'
-import type { Video } from '@/mocks/types'
+import { gym } from '@/mocks/data'
+import { getVideo, listVideos } from '@/data/queries'
+import { useAsync } from '@/data/useAsync'
+import type { ApiVideo } from '@/data/types'
 import type { Lang } from '@/i18n'
 
 const MUSCLES = ['chest', 'back', 'legs', 'shoulders', 'core'] as const
 
-const thumb = (v: Video) =>
-  v.provider === 'youtube' ? `https://img.youtube.com/vi/${v.externalId}/mqdefault.jpg` : ''
+const thumb = (v: ApiVideo) =>
+  v.provider === 'youtube' ? `https://img.youtube.com/vi/${v.external_id}/mqdefault.jpg` : ''
 
 export function MemberVideos() {
   const { t, i18n } = useTranslation()
   const lang = i18n.language as Lang
   const [muscle, setMuscle] = useState<'all' | (typeof MUSCLES)[number]>('all')
+  const videos = useAsync(() => listVideos('member'), [])
 
-  const list = videos.filter((v) => muscle === 'all' || v.muscle === muscle)
+  if (videos.loading) {
+    return (
+      <Page title={t('member.videos.title')} sub={t('member.videos.by', { coach: gym.coach[lang] })}>
+        <p className="text-muted p-4 text-sm">{t('common.loading')}</p>
+      </Page>
+    )
+  }
+  if (videos.error || !videos.data) {
+    return (
+      <Page title={t('member.videos.title')} sub={t('member.videos.by', { coach: gym.coach[lang] })}>
+        <Empty>{t('common.error')}</Empty>
+      </Page>
+    )
+  }
+
+  const list = videos.data.filter((v) => muscle === 'all' || v.muscle_group === muscle)
 
   return (
     <Page title={t('member.videos.title')} sub={t('member.videos.by', { coach: gym.coach[lang] })}>
@@ -61,8 +79,9 @@ export function MemberVideos() {
               <div className="p-3">
                 <p className="font-semibold">{v.title[lang]}</p>
                 <p className="text-muted mt-0.5 text-xs">
-                  {t(`muscle.${v.muscle}`)} · {t(`equipment.${v.equipment}`)} ·{' '}
-                  {t('member.videos.views', { count: v.views })}
+                  {t(`muscle.${v.muscle_group}`, v.muscle_group)} ·{' '}
+                  {t(`equipment.${v.equipment}`, v.equipment)} ·{' '}
+                  {t('member.videos.views', { count: v.view_count })}
                 </p>
               </div>
             </Card>
@@ -77,9 +96,24 @@ export function MemberVideoDetail() {
   const { id = '' } = useParams()
   const { t, i18n } = useTranslation()
   const lang = i18n.language as Lang
-  const v = findVideo(id)
+  const video = useAsync(() => getVideo(id, 'member'), [id])
 
-  if (!v) return <Page><Empty>{t('common.none')}</Empty></Page>
+  if (video.loading) {
+    return (
+      <Page>
+        <p className="text-muted p-4 text-sm">{t('common.loading')}</p>
+      </Page>
+    )
+  }
+  if (video.error || !video.data) {
+    return (
+      <Page>
+        <Empty>{t('common.none')}</Empty>
+      </Page>
+    )
+  }
+
+  const v = video.data
 
   return (
     <Page>
@@ -88,7 +122,7 @@ export function MemberVideoDetail() {
         {/* Unlisted embed: zero hosting cost, and the link is the only access control. */}
         <div className="bg-ink aspect-video">
           <iframe
-            src={`https://www.youtube-nocookie.com/embed/${v.externalId}`}
+            src={`https://www.youtube-nocookie.com/embed/${v.external_id}`}
             title={v.title[lang]}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
@@ -98,8 +132,9 @@ export function MemberVideoDetail() {
         <div className="p-4">
           <h1 className="text-lg font-extrabold">{v.title[lang]}</h1>
           <p className="text-muted mt-1 text-sm">
-            {t(`muscle.${v.muscle}`)} · {t(`equipment.${v.equipment}`)} ·{' '}
-            {t('member.videos.views', { count: v.views })}
+            {t(`muscle.${v.muscle_group}`, v.muscle_group)} ·{' '}
+            {t(`equipment.${v.equipment}`, v.equipment)} ·{' '}
+            {t('member.videos.views', { count: v.view_count })}
           </p>
         </div>
       </Card>

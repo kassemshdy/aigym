@@ -4,60 +4,67 @@ import { Card, CardTitle } from '@/components/ui/Card'
 import { buttonClass } from '@/components/ui/Button'
 import { Icon } from '@/components/ui/Icon'
 import { Empty, Page } from '@/components/ui/Page'
-import { currentMemberId, findMember, gym, planForMember } from '@/mocks/data'
+import { currentMemberId as mockCurrentMemberId, gym } from '@/mocks/data'
+import { getCurrentMemberId, getMember, getTodayWorkout } from '@/data/queries'
+import { useAsync } from '@/data/useAsync'
 import { shortDate, text } from '@/lib/format'
 import type { Lang } from '@/i18n'
 
 export function MemberToday() {
   const { t, i18n } = useTranslation()
   const lang = i18n.language as Lang
-  const me = findMember(currentMemberId)
-  const plan = planForMember(currentMemberId)
+  const memberId = getCurrentMemberId() ?? mockCurrentMemberId
+  const member = useAsync(() => getMember(memberId), [memberId])
+  const today = useAsync(() => getTodayWorkout(memberId), [memberId])
 
-  if (!me) return <Page><Empty>{t('common.none')}</Empty></Page>
+  if (member.loading || today.loading) {
+    return (
+      <Page>
+        <p className="text-muted p-4 text-sm">{t('common.loading')}</p>
+      </Page>
+    )
+  }
+  if (member.error || !member.data || today.error || !today.data) {
+    return <Page><Empty>{t('common.none')}</Empty></Page>
+  }
+
+  const m = member.data
+  const workout = today.data
+  const programTitle = workout.program_title ? text(workout.program_title, lang) : null
 
   return (
-    <Page title={t('member.today.title')} sub={plan ? plan.title[lang] : t('member.today.rest')}>
-      {me.status === 'due' ? (
+    <Page title={t('member.today.title')} sub={programTitle ?? t('member.today.rest')}>
+      {m.dues?.status === 'due' ? (
         <p className="bg-due-bg text-due rounded-xl px-4 py-3 text-sm font-bold">
-          {t('status.due')} · {t('manager.member.ends')} {shortDate(me.endsAt, lang)}
+          {t('status.due')} {m.ends_at ? `· ${t('manager.member.ends')} ${shortDate(m.ends_at, lang)}` : null}
         </p>
       ) : null}
 
-      {!plan ? (
+      {workout.exercises.length === 0 ? (
         <Empty>{t('member.today.rest')}</Empty>
       ) : (
         <Card>
-          <CardTitle>{plan.title[lang]}</CardTitle>
+          <CardTitle>{programTitle}</CardTitle>
           <ul>
-            {plan.exercises.map((e) => (
+            {workout.exercises.map((e) => (
               <li
-                key={e.id}
+                key={e.program_exercise_id}
                 className="border-line flex items-center gap-3 border-b px-4 py-3 last:border-0"
               >
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate font-semibold">{e.name[lang]}</span>
+                  <span className="block truncate font-semibold">{text(e.exercise_name, lang)}</span>
                   <span className="text-muted block text-sm">
                     <bdi className="tnum">
                       {e.sets} × {text(e.reps, lang)}
                     </bdi>
-                    {e.lastWeightKg ? (
+                    {e.last_weight_kg ? (
                       <bdi className="tnum">
                         {' · '}
-                        {e.lastWeightKg} {t('common.kg')}
+                        {e.last_weight_kg} {t('common.kg')}
                       </bdi>
                     ) : null}
                   </span>
                 </span>
-                {e.videoId ? (
-                  <Link
-                    to={`/member/videos/${e.videoId}`}
-                    aria-label={t('member.today.watch')}
-                    className="border-line flex size-12 items-center justify-center rounded-xl border"
-                  >
-                    <Icon name="play" />
-                  </Link>
-                ) : null}
               </li>
             ))}
           </ul>

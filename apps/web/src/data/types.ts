@@ -135,6 +135,38 @@ export interface ApiMachine {
   area: string
 }
 
+// ---------------------------------------------------------------------
+// Phase 4 stage 3 — the member video library. Mirrors app/api/videos.py.
+// ---------------------------------------------------------------------
+
+export interface ApiVideo {
+  id: string
+  title: { ar: string; en: string }
+  provider: string
+  external_id: string
+  muscle_group: string
+  equipment: string
+  seconds: number
+  view_count: number
+  active: boolean
+}
+
+export interface CreateVideoInput {
+  title: { ar: string; en: string }
+  provider: string
+  external_id: string
+  muscle_group: string
+  equipment: string
+  seconds: number
+}
+
+export interface UpdateVideoInput {
+  title?: { ar: string; en: string }
+  muscle_group?: string
+  equipment?: string
+  active?: boolean
+}
+
 export interface ApiProgramExercise {
   id: string
   exercise_id: string
@@ -269,4 +301,96 @@ export interface CreateStaffInput {
   name: string
   phone: string
   role: 'manager' | 'coach' | 'super_admin'
+}
+
+// ---------------------------------------------------------------------
+// Phase 4 stage 4 — a member's own food log. Mirrors
+// app/api/food_entries.py. Scoped to the signed-in member on the server
+// (claims.subject_id), never a member id in the URL.
+// ---------------------------------------------------------------------
+
+export interface ApiFoodEntry {
+  id: string
+  at: string
+  label: string
+  kcal: number
+  protein: number
+  carbs: number
+  fat: number
+  source: 'photo' | 'manual' | 'agent'
+  photo_key: string | null
+  estimate: { kcal: number; protein: number; carbs: number; fat: number } | null
+}
+
+export interface CreateFoodEntryInput {
+  label: string
+  kcal: number
+  protein: number
+  carbs: number
+  fat: number
+  source: 'photo' | 'manual' | 'agent'
+  photo_key?: string | null
+  estimate?: { kcal: number; protein: number; carbs: number; fat: number } | null
+}
+
+export interface MediaUploadResult {
+  key: string
+}
+
+// ---------------------------------------------------------------------
+// Phase 4 stage 5 — a member's own progress photos (decision 11). Mirrors
+// app/api/progress_photos.py. Member-scoped writes use claims.subject_id
+// on the server, never a member id in the URL; the one staff-facing read
+// (GET /members/{id}/shared-photos) only ever returns shared_with_coach
+// rows — enforced server-side, not a UI filter.
+// ---------------------------------------------------------------------
+
+export interface ApiProgressPhoto {
+  id: string
+  at: string
+  photo_key: string
+  shared_with_coach: boolean
+}
+
+// ---------------------------------------------------------------------
+// Phase 4 stage 6 — coaches, the fixed class schedule, and a member's own
+// bookings/attendance. Mirrors app/api/booking.py. Coaches and classes
+// are readable by any authenticated caller; bookings and attendance are
+// member-scoped on the server (claims.subject_id), never a URL param.
+// ---------------------------------------------------------------------
+
+export interface ApiCoach {
+  id: string
+  name: { ar: string; en: string }
+  speciality: { ar: string; en: string }
+}
+
+export interface ApiGymClass {
+  id: string
+  title: { ar: string; en: string }
+  coach_id: string
+  /** 0 = Sunday, matching Date.getDay() */
+  weekdays: number[]
+  time: string
+  duration_min: number
+}
+
+export interface ApiBooking {
+  id: string
+  coach_id: string
+  date: string
+  time: string
+  kind: 'private' | 'intro'
+  status: 'booked' | 'cancelled' | 'done'
+}
+
+export interface CreateBookingInput {
+  coach_id: string
+  date: string
+  time: string
+  kind: 'private' | 'intro'
+}
+
+export interface ApiAttendanceDay {
+  date: string
 }

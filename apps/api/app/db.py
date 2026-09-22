@@ -36,14 +36,22 @@ def get_owner_engine() -> AsyncEngine:
 
 @lru_cache
 def get_owner_sessionmaker() -> async_sessionmaker[AsyncSession]:
-    """A second, privileged connection pool for the one class of query the
-    app role structurally cannot make: reading an RLS-protected table before
-    app.gym_id is known. staff_gym_roles is gym-scoped (so a compromised
-    request can't list another gym's staff), but staff login has to ask
-    "which gym(s) does this already-PIN-verified person belong to" — that
-    query has no gym_id to scope by; it's what produces one. Used from
-    exactly one place (app/api/auth.py's staff login) after the caller's PIN
-    has already been checked; never for member/business data.
+    """A second, privileged connection pool for one class of query the app
+    role structurally cannot make: resolving *which gym* before app.gym_id
+    is known. Two legitimate call sites in app/api/auth.py, both the same
+    shape — "identify the tenant, then immediately scope into
+    tenant_session and stop using this connection":
+
+    - Staff login: "which gym(s) does this password-verified person belong
+      to" — staff_gym_roles is gym-scoped, so that query has no gym_id to
+      scope by; it's what produces one.
+    - Member self-service login-code request (decision 28): "which gym does
+      this phone number belong to" — members is gym-scoped the same way,
+      and a member dialing in from their own phone has no gym_id to offer
+      either.
+
+    Never used to read or write actual business data — only identity
+    resolution, immediately followed by a normal RLS-scoped tenant_session.
     """
     return async_sessionmaker(get_owner_engine(), expire_on_commit=False)
 

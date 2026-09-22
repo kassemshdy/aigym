@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.deps import CurrentSession, require_role
+from app.deps import CurrentClaims, CurrentSession, require_role
 from app.domain.dues import DuesStatus, compute_dues
 from app.domain.whatsapp import wa_link
 from app.models import Attendance, Member, MemberProfile, Payment, Plan, Subscription
@@ -136,7 +136,18 @@ async def lapsed_members(
 
 
 @router.get("/members/{member_id}", response_model=MemberDetailOut)
-async def get_member(member_id: uuid.UUID, session: CurrentSession) -> MemberDetailOut:
+async def get_member(
+    member_id: uuid.UUID, session: CurrentSession, claims: CurrentClaims
+) -> MemberDetailOut:
+    """Powers manager/coach member-detail screens and, since Phase 4 stage
+    7, a member's own MemberProfile/MemberProgress screens — decision 2's
+    "broaden, don't duplicate" pattern. A member caller must be asking
+    about themselves; the 404 below covers both a member id that doesn't
+    exist and one that isn't the caller's own (decision 28), which look
+    identical here by design."""
+    if claims.subject_type == "member" and claims.subject_id != member_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Member not found")
+
     member = await session.get(Member, member_id)
     if member is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Member not found")
@@ -206,7 +217,7 @@ async def create_member(
     )
     await session.flush()
 
-    return await get_member(member.id, session)
+    return await get_member(member.id, session, claims)
 
 
 class UpdateMemberRequest(BaseModel):
@@ -229,7 +240,7 @@ async def update_member(
     member_id: uuid.UUID,
     body: UpdateMemberRequest,
     session: CurrentSession,
-    _claims: AccessTokenClaims = ManagerOrCoach,
+    claims: AccessTokenClaims = ManagerOrCoach,
 ) -> MemberDetailOut:
     member = await session.get(Member, member_id)
     if member is None:
@@ -251,7 +262,7 @@ async def update_member(
                 setattr(profile, field, value)
 
     await session.flush()
-    return await get_member(member_id, session)
+    return await get_member(member_id, session, claims)
 
 
 class RecordPaymentRequest(BaseModel):
@@ -298,17 +309,17 @@ async def record_payment(
         )
     )
     await session.flush()
-    return await get_member(member_id, session)
+    return await get_member(member_id, session, claims)
 
 
 @router.get("/members/{member_id}/whatsapp-reminder")
 async def whatsapp_reminder(
-    member_id: uuid.UUID, session: CurrentSession, lang: str = "ar"
+    member_id: uuid.UUID, session: CurrentSession, claims: CurrentClaims, lang: str = "ar"
 ) -> dict[str, str]:
     member = await session.get(Member, member_id)
     if member is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Member not found")
-    detail = await get_member(member_id, session)
+    detail = await get_member(member_id, session, claims)
     owed = detail.dues.owed_usd if detail.dues else 0.0
     name = member.name if lang == "ar" else member.name_en
     message = (

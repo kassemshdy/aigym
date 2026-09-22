@@ -7,8 +7,12 @@
  * for.
  */
 import {
+  attendance as seedAttendance,
+  bookings as seedBookings,
   checkIns as seedCheckIns,
+  classes as seedClasses,
   coaches as seedCoaches,
+  currentMemberId,
   dayPlans as seedDayPlans,
   daysSinceVisit,
   findPlan,
@@ -17,6 +21,7 @@ import {
   nutrition as seedNutrition,
   payments as seedPayments,
   plans,
+  videos as seedVideos,
 } from '@/mocks/data'
 import type {
   CheckIn as MockCheckIn,
@@ -26,8 +31,13 @@ import type {
 import { waLink } from '@/lib/whatsapp'
 import type { Text } from '@/lib/format'
 import type {
+  ApiAttendanceDay,
+  ApiBooking,
   ApiCheckIn,
+  ApiCoach,
   ApiExercise,
+  ApiFoodEntry,
+  ApiGymClass,
   ApiLapsedMember,
   ApiMachine,
   ApiMember,
@@ -36,15 +46,20 @@ import type {
   ApiPayment,
   ApiPlan,
   ApiProgram,
+  ApiProgressPhoto,
   ApiStaff,
   ApiTodayWorkout,
+  ApiVideo,
   ApiWorkoutSession,
   ApiWorkoutSet,
+  CreateBookingInput,
   CreateExerciseInput,
+  CreateFoodEntryInput,
   CreateMemberInput,
   CreateNutritionLogInput,
   CreateProgramInput,
   CreateStaffInput,
+  CreateVideoInput,
   CreateWorkoutSessionInput,
   FinishWorkoutSessionInput,
   LogSetInput,
@@ -52,6 +67,7 @@ import type {
   RecordPaymentInput,
   UpdateExerciseInput,
   UpdateProgramInput,
+  UpdateVideoInput,
 } from './types'
 
 let mockMembers: MockMember[] = seedMembers.map((m) => ({ ...m }))
@@ -336,6 +352,60 @@ export function mockListMachines(): ApiMachine[] {
   return seedMachines.map((m) => ({ id: m.id, name: toBilingual(m.name), area: m.area }))
 }
 
+let mockVideos: ApiVideo[] = seedVideos.map((v) => ({
+  id: v.id,
+  title: v.title,
+  provider: v.provider,
+  external_id: v.externalId,
+  muscle_group: v.muscle,
+  equipment: v.equipment,
+  seconds: v.seconds,
+  view_count: v.views,
+  active: true,
+}))
+
+export function mockListVideos(): ApiVideo[] {
+  return mockVideos.filter((v) => v.active)
+}
+
+export function mockGetVideo(videoId: string): ApiVideo {
+  const existing = mockVideos.find((v) => v.id === videoId)
+  if (!existing) throw new Error('Video not found')
+  const updated: ApiVideo = { ...existing, view_count: existing.view_count + 1 }
+  mockVideos = mockVideos.map((v) => (v.id === videoId ? updated : v))
+  return updated
+}
+
+export function mockCreateVideo(input: CreateVideoInput): ApiVideo {
+  const video: ApiVideo = {
+    id: newId(),
+    title: input.title,
+    provider: input.provider,
+    external_id: input.external_id,
+    muscle_group: input.muscle_group,
+    equipment: input.equipment,
+    seconds: input.seconds,
+    view_count: 0,
+    active: true,
+  }
+  mockVideos = [...mockVideos, video]
+  return video
+}
+
+export function mockUpdateVideo(videoId: string, input: UpdateVideoInput): ApiVideo {
+  const existing = mockVideos.find((v) => v.id === videoId)
+  if (!existing) throw new Error('Video not found')
+  const updated: ApiVideo = {
+    ...existing,
+    title: input.title ?? existing.title,
+    muscle_group: input.muscle_group ?? existing.muscle_group,
+    equipment: input.equipment ?? existing.equipment,
+    active: input.active ?? existing.active,
+  }
+  mockVideos = mockVideos.map((v) => (v.id === videoId ? updated : v))
+  return updated
+}
+
 export function mockGetActiveProgram(memberId: string): ApiProgram | null {
   return mockPrograms.find((p) => p.member_id === memberId && p.archived_at === null) ?? null
 }
@@ -553,4 +623,149 @@ export function mockCreateStaff(input: CreateStaffInput): ApiStaff {
   const staff: ApiStaff = { id: newId(), username: input.username, name: input.name, role: input.role }
   mockStaff = [...mockStaff, staff]
   return staff
+}
+
+// ---------------------------------------------------------------------
+// Phase 4 stage 4 — a member's own food log. Seeded with one entry so the
+// screen isn't empty on first load, matching the old state.food seed.
+// photo_key holds the raw data URL in mock mode (there's no real object
+// store to round-trip through) — real API mode never sees that shape,
+// since app/api/food_entries.py only ever hands back opaque storage keys.
+// ---------------------------------------------------------------------
+
+let mockFoodEntries: ApiFoodEntry[] = [
+  {
+    id: 'food-seed-1',
+    at: new Date().toISOString(),
+    label: 'Eggs with bread',
+    kcal: 340,
+    protein: 22,
+    carbs: 34,
+    fat: 12,
+    source: 'manual',
+    photo_key: null,
+    estimate: null,
+  },
+]
+
+export function mockListFoodEntries(): ApiFoodEntry[] {
+  return mockFoodEntries
+}
+
+export function mockCreateFoodEntry(input: CreateFoodEntryInput): ApiFoodEntry {
+  const entry: ApiFoodEntry = {
+    id: newId(),
+    at: new Date().toISOString(),
+    label: input.label,
+    kcal: input.kcal,
+    protein: input.protein,
+    carbs: input.carbs,
+    fat: input.fat,
+    source: input.source,
+    photo_key: input.photo_key ?? null,
+    estimate: input.estimate ?? null,
+  }
+  mockFoodEntries = [...mockFoodEntries, entry]
+  return entry
+}
+
+export function mockDeleteFoodEntry(entryId: string): void {
+  mockFoodEntries = mockFoodEntries.filter((f) => f.id !== entryId)
+}
+
+// ---------------------------------------------------------------------
+// Phase 4 stage 5 — a member's own progress photos (decision 11). No
+// per-member scoping in mock mode (there's only ever one signed-in
+// member), matching mockFoodEntries. photo_key holds the raw data URL,
+// same reasoning as mockCreateFoodEntry.
+// ---------------------------------------------------------------------
+
+let mockProgressPhotos: ApiProgressPhoto[] = []
+
+export function mockListProgressPhotos(): ApiProgressPhoto[] {
+  return mockProgressPhotos
+}
+
+export function mockCreateProgressPhoto(photoKey: string): ApiProgressPhoto {
+  const photo: ApiProgressPhoto = {
+    id: newId(),
+    at: new Date().toISOString(),
+    photo_key: photoKey,
+    shared_with_coach: false,
+  }
+  mockProgressPhotos = [photo, ...mockProgressPhotos]
+  return photo
+}
+
+export function mockUpdateProgressPhoto(photoId: string, sharedWithCoach: boolean): ApiProgressPhoto {
+  const existing = mockProgressPhotos.find((p) => p.id === photoId)
+  if (!existing) throw new Error('Progress photo not found')
+  const updated: ApiProgressPhoto = { ...existing, shared_with_coach: sharedWithCoach }
+  mockProgressPhotos = mockProgressPhotos.map((p) => (p.id === photoId ? updated : p))
+  return updated
+}
+
+export function mockDeleteProgressPhoto(photoId: string): void {
+  mockProgressPhotos = mockProgressPhotos.filter((p) => p.id !== photoId)
+}
+
+export function mockListSharedPhotos(): ApiProgressPhoto[] {
+  return mockProgressPhotos.filter((p) => p.shared_with_coach)
+}
+
+// ---------------------------------------------------------------------
+// Phase 4 stage 6 — coaches, the class schedule, and a member's own
+// bookings/attendance. Coaches and classes are read straight from the
+// seed data (no mutation ever touches them in mock mode, staff or
+// member); bookings are seeded from mocks/data's `bookings`, filtered to
+// currentMemberId — mock mode only ever represents the one signed-in
+// member, same reasoning as mockFoodEntries/mockProgressPhotos.
+// ---------------------------------------------------------------------
+
+export function mockListCoaches(): ApiCoach[] {
+  return seedCoaches.map((c) => ({ id: c.id, name: toBilingual(c.name), speciality: toBilingual(c.speciality) }))
+}
+
+export function mockListClasses(): ApiGymClass[] {
+  return seedClasses.map((c) => ({
+    id: c.id,
+    title: toBilingual(c.title),
+    coach_id: c.coachId,
+    weekdays: c.weekdays,
+    time: c.time,
+    duration_min: c.durationMin,
+  }))
+}
+
+let mockBookings: ApiBooking[] = seedBookings
+  .filter((b) => b.memberId === currentMemberId)
+  .map((b) => ({ id: b.id, coach_id: b.coachId, date: b.date, time: b.time, kind: b.kind, status: b.status }))
+
+export function mockListMyBookings(): ApiBooking[] {
+  return mockBookings
+}
+
+export function mockCreateBooking(input: CreateBookingInput): ApiBooking {
+  const booking: ApiBooking = {
+    id: newId(),
+    coach_id: input.coach_id,
+    date: input.date,
+    time: input.time,
+    kind: input.kind,
+    status: 'booked',
+  }
+  mockBookings = [...mockBookings, booking]
+  return booking
+}
+
+export function mockCancelBooking(bookingId: string): ApiBooking {
+  const existing = mockBookings.find((b) => b.id === bookingId)
+  if (!existing) throw new Error('Booking not found')
+  const updated: ApiBooking = { ...existing, status: 'cancelled' }
+  mockBookings = mockBookings.map((b) => (b.id === bookingId ? updated : b))
+  return updated
+}
+
+export function mockListMyAttendance(): ApiAttendanceDay[] {
+  return seedAttendance.filter((a) => a.memberId === currentMemberId).map((a) => ({ date: a.date }))
 }

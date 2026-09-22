@@ -5,8 +5,8 @@ import { Card, CardTitle } from '@/components/ui/Card'
 import { buttonClass } from '@/components/ui/Button'
 import { Icon } from '@/components/ui/Icon'
 import { Empty, Page } from '@/components/ui/Page'
-import { attendance, classes, currentMemberId, findCoach } from '@/mocks/data'
-import { useStore } from '@/state/store'
+import { cancelBooking, listClasses, listCoaches, listMyAttendance, listMyBookings } from '@/data/queries'
+import { useAsync } from '@/data/useAsync'
 import { addDays, dayLabel, isoDay, nextDays, weekdayShort } from '@/lib/dates'
 import { text } from '@/lib/format'
 import type { Lang } from '@/i18n'
@@ -15,7 +15,10 @@ import { cn } from '@/lib/cn'
 export function MemberCalendar() {
   const { t, i18n } = useTranslation()
   const lang = i18n.language as Lang
-  const { state } = useStore()
+  const coaches = useAsync(listCoaches, [])
+  const classes = useAsync(listClasses, [])
+  const bookings = useAsync(listMyBookings, [])
+  const attendance = useAsync(listMyAttendance, [])
 
   // Anchor "now" once per mount — reading the clock during render is non-deterministic.
   const [anchor] = useState(() => new Date())
@@ -32,14 +35,40 @@ export function MemberCalendar() {
       ?.scrollIntoView({ inline: 'center', block: 'nearest' })
   }, [])
 
+  if (coaches.loading || classes.loading || bookings.loading || attendance.loading) {
+    return (
+      <Page title={t('calendar.title')}>
+        <p className="text-muted p-4 text-sm">{t('common.loading')}</p>
+      </Page>
+    )
+  }
+  if (
+    coaches.error || !coaches.data ||
+    classes.error || !classes.data ||
+    bookings.error || !bookings.data ||
+    attendance.error || !attendance.data
+  ) {
+    return (
+      <Page title={t('calendar.title')}>
+        <Empty>{t('common.error')}</Empty>
+      </Page>
+    )
+  }
+
+  const coachList = coaches.data
+  const classList = classes.data
+  const bookingList = bookings.data
+  const attendanceList = attendance.data
+
+  const findCoach = (coachId: string) => coachList.find((c) => c.id === coachId)
+  const attendedDates = new Set(attendanceList.map((a) => a.date))
+
   const day = days.find((d) => isoDay(d) === selected) ?? anchor
   const dow = day.getDay()
 
-  const dayClasses = classes.filter((c) => c.weekdays.includes(dow))
-  const dayBookings = state.bookings.filter(
-    (b) => b.memberId === currentMemberId && b.date === selected && b.status !== 'cancelled',
-  )
-  const trained = attendance.some((a) => a.memberId === currentMemberId && a.date === selected)
+  const dayClasses = classList.filter((c) => c.weekdays.includes(dow))
+  const dayBookings = bookingList.filter((b) => b.date === selected && b.status !== 'cancelled')
+  const trained = attendedDates.has(selected)
   const past = selected < today
 
   return (
@@ -49,7 +78,7 @@ export function MemberCalendar() {
         {days.map((d) => {
           const key = isoDay(d)
           const active = key === selected
-          const wasThere = attendance.some((a) => a.memberId === currentMemberId && a.date === key)
+          const wasThere = attendedDates.has(key)
           return (
             <button
               key={key}
@@ -89,7 +118,7 @@ export function MemberCalendar() {
         <Card>
           <CardTitle>{t('calendar.private')}</CardTitle>
           {dayBookings.map((b) => {
-            const coach = findCoach(b.coachId)
+            const coach = findCoach(b.coach_id)
             return (
               <div key={b.id} className="border-line flex items-center gap-3 border-b px-4 py-3 last:border-0">
                 <span className="bg-brand text-chrome flex size-11 shrink-0 items-center justify-center rounded-xl">
@@ -104,6 +133,16 @@ export function MemberCalendar() {
                   </span>
                 </span>
                 <span className="tnum font-bold" dir="ltr">{b.time}</span>
+                {!past ? (
+                  <button
+                    type="button"
+                    onClick={() => void cancelBooking(b.id).then(() => bookings.reload())}
+                    aria-label={t('calendar.cancel')}
+                    className="text-muted flex size-11 shrink-0 items-center justify-center"
+                  >
+                    <Icon name="close" size={18} />
+                  </button>
+                ) : null}
               </div>
             )
           })}
@@ -114,7 +153,7 @@ export function MemberCalendar() {
         <Card>
           <CardTitle>{t('calendar.class')}</CardTitle>
           {dayClasses.map((c) => {
-            const coach = findCoach(c.coachId)
+            const coach = findCoach(c.coach_id)
             return (
               <div key={c.id} className="border-line flex items-center gap-3 border-b px-4 py-3 last:border-0">
                 <span className="bg-canvas text-ink flex size-11 shrink-0 items-center justify-center rounded-xl">
@@ -124,7 +163,7 @@ export function MemberCalendar() {
                   <span className="block font-semibold">{text(c.title, lang)}</span>
                   <span className="text-muted block text-sm">
                     {t('calendar.with')} {coach ? text(coach.name, lang) : ''} ·{' '}
-                    {t('calendar.minutes', { count: c.durationMin })}
+                    {t('calendar.minutes', { count: c.duration_min })}
                   </span>
                 </span>
                 <span className="tnum font-bold" dir="ltr">{c.time}</span>

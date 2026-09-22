@@ -18,7 +18,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.programs import _active_program
-from app.deps import CurrentSession, require_role
+from app.deps import CurrentClaims, CurrentSession, require_role
 from app.domain.workout import ProgramExerciseRow, resolve_today_workout
 from app.models import (
     CheckIn,
@@ -190,13 +190,20 @@ async def log_set(
 async def list_workout_sessions(
     member_id: uuid.UUID,
     session: CurrentSession,
+    claims: CurrentClaims,
     limit: int = 10,
 ) -> list[WorkoutSessionOut]:
     """Finished sessions only, most recent first — powers the coach's "last
-    workout" summary (CoachMemberCard). RLS already scopes this to the
-    caller's gym; the 404 below is for a member id that doesn't exist at
-    all, not a cross-gym one (those look identical from here, by design).
+    workout" summary (CoachMemberCard) and, since Phase 4 stage 6, a
+    member's own session count. RLS already scopes this to the caller's
+    gym; the 404 below is for a member id that doesn't exist at all, or —
+    for a member caller — one that isn't their own (decision 28: a member
+    token must never read another member's data by changing the id in
+    the URL, and those two cases look identical from here, by design).
     """
+    if claims.subject_type == "member" and claims.subject_id != member_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Member not found")
+
     member = await session.get(Member, member_id)
     if member is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Member not found")
@@ -229,7 +236,18 @@ class TodayWorkoutOut(BaseModel):
 
 
 @router.get("/members/{member_id}/today-workout", response_model=TodayWorkoutOut)
-async def get_today_workout(member_id: uuid.UUID, session: CurrentSession) -> TodayWorkoutOut:
+async def get_today_workout(
+    member_id: uuid.UUID, session: CurrentSession, claims: CurrentClaims
+) -> TodayWorkoutOut:
+    """Powers CoachMemberCard's "today's workout" and, since Phase 4 stage
+    7, a member's own MemberToday screen — decision 2's "broaden, don't
+    duplicate" pattern. A member caller must be asking about themselves;
+    the 404 below covers both a member id that doesn't exist and one that
+    isn't the caller's own (decision 28), which look identical here by
+    design."""
+    if claims.subject_type == "member" and claims.subject_id != member_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Member not found")
+
     member = await session.get(Member, member_id)
     if member is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Member not found")

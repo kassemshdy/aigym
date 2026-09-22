@@ -248,6 +248,72 @@ async def request_member_code(
     return MemberCodeResponse(wa_link=wa_link(member.phone, message))
 
 
+class MemberCodeSelfRequest(BaseModel):
+    phone: str
+
+
+class MemberCodeSelfResponse(BaseModel):
+    sent: bool
+
+
+@router.post("/member/code", response_model=MemberCodeSelfResponse)
+async def request_own_member_code(body: MemberCodeSelfRequest) -> MemberCodeSelfResponse:
+    """Self-service: a member requests their own login code from their own
+    phone, with no staff present to hand off the wa_link the endpoint above
+    returns. Delivery goes over the WhatsApp Business API instead
+    (decision 20's exception to decision 4, now used for a second reason
+    that's really the same reason: nobody is there to tap send).
+
+    The response never reveals whether `phone` matched a member, whether a
+    code was actually created, or whether delivery succeeded — always
+    `sent: true`. Distinguishing any of those turns this into a phone
+    number enumeration endpoint. See db.py's get_owner_sessionmaker for how
+    the gym is resolved before app.gym_id is known (decision 28).
+    """
+    async with get_owner_sessionmaker()() as owner_session:
+        member = (
+            (await owner_session.execute(select(Member).where(Member.phone == body.phone)))
+            .scalars()
+            .first()
+        )
+
+    if member is None:
+        return MemberCodeSelfResponse(sent=True)
+
+    settings = get_settings()
+    async with tenant_session(member.gym_id) as session:
+        recent_count = (
+            await session.execute(
+                select(func.count())
+                .select_from(MemberLoginCode)
+                .where(
+                    MemberLoginCode.phone == body.phone,
+                    MemberLoginCode.created_at > datetime.now(UTC) - timedelta(hours=1),
+                )
+            )
+        ).scalar_one()
+        if recent_count >= settings.member_code_rate_limit_per_hour:
+            return MemberCodeSelfResponse(sent=True)
+
+        code = _generate_code()
+        session.add(
+            MemberLoginCode(
+                gym_id=member.gym_id,
+                member_id=member.id,
+                phone=member.phone,
+                code_hash=hash_secret(code),
+                expires_at=datetime.now(UTC) + timedelta(minutes=settings.member_code_ttl_minutes),
+            )
+        )
+        phone = member.phone
+        ttl = settings.member_code_ttl_minutes
+
+    await send_whatsapp_text(
+        to=phone, body=f"Your AIGym login code is {code}. It expires in {ttl} minutes."
+    )
+    return MemberCodeSelfResponse(sent=True)
+
+
 class MemberLoginRequest(BaseModel):
     phone: str
     code: str

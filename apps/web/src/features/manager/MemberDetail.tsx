@@ -15,6 +15,7 @@ import { useAsync } from '@/data/useAsync'
 import { listSep, shortDate, text, usd } from '@/lib/format'
 import { cn } from '@/lib/cn'
 import type { Lang } from '@/i18n'
+import { SharedPhotos } from '@/features/photos/SharedPhotos'
 
 export function ManagerMemberDetail() {
   const { id = '' } = useParams()
@@ -197,6 +198,8 @@ export function ManagerMemberDetail() {
           ))
         )}
       </Card>
+
+      <SharedPhotos memberId={id} />
     </Page>
   )
 }

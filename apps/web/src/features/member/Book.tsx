@@ -5,10 +5,9 @@ import { Card, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { BackLink } from '@/components/ui/BackLink'
 import { Icon } from '@/components/ui/Icon'
-import { Page } from '@/components/ui/Page'
-import { coaches, currentMemberId } from '@/mocks/data'
-import type { BookingKind } from '@/mocks/types'
-import { useStore } from '@/state/store'
+import { Empty, Page } from '@/components/ui/Page'
+import { createBooking, listCoaches, listMyBookings } from '@/data/queries'
+import { useAsync } from '@/data/useAsync'
 import { addDays, dayLabel, isoDay, nextDays, weekdayShort } from '@/lib/dates'
 import { text } from '@/lib/format'
 import type { Lang } from '@/i18n'
@@ -20,19 +19,39 @@ export function MemberBook() {
   const { t, i18n } = useTranslation()
   const lang = i18n.language as Lang
   const navigate = useNavigate()
-  const { state, actions } = useStore()
+  const coaches = useAsync(listCoaches, [])
+  const bookings = useAsync(listMyBookings, [])
 
   const [anchor] = useState(() => new Date())
-  const [coachId, setCoachId] = useState(coaches[0].id)
+  const [coachId, setCoachId] = useState<string | null>(null)
   const [date, setDate] = useState(() => isoDay(addDays(anchor, 1)))
   const [time, setTime] = useState('18:00')
-  // The first session with the gym is free; after that a private session is paid.
-  const alreadyBooked = state.bookings.some((b) => b.memberId === currentMemberId)
-  const [kind, setKind] = useState<BookingKind>(alreadyBooked ? 'private' : 'intro')
+  const [kind, setKind] = useState<'intro' | 'private' | null>(null)
+  const [saving, setSaving] = useState(false)
   const [done, setDone] = useState(false)
 
   const days = useMemo(() => nextDays(14, anchor), [anchor])
-  const coach = coaches.find((c) => c.id === coachId)
+
+  if (coaches.loading || bookings.loading) {
+    return (
+      <Page>
+        <p className="text-muted p-4 text-sm">{t('common.loading')}</p>
+      </Page>
+    )
+  }
+  if (coaches.error || !coaches.data || bookings.error || !bookings.data) {
+    return (
+      <Page>
+        <Empty>{t('common.error')}</Empty>
+      </Page>
+    )
+  }
+
+  const pickedCoachId = coachId ?? coaches.data[0]?.id ?? null
+  const coach = coaches.data.find((c) => c.id === pickedCoachId)
+  // The first session with the gym is free; after that a private session is paid.
+  const alreadyBooked = bookings.data.length > 0
+  const pickedKind = kind ?? (alreadyBooked ? 'private' : 'intro')
 
   if (done) {
     return (
@@ -64,23 +83,23 @@ export function MemberBook() {
       <Card>
         <CardTitle>{t('book.pickCoach')}</CardTitle>
         <div className="space-y-2 p-4">
-          {coaches.map((c) => (
+          {coaches.data.map((c) => (
             <button
               key={c.id}
               type="button"
               onClick={() => setCoachId(c.id)}
               className={cn(
                 'min-h-tap-lg flex w-full items-center gap-3 rounded-xl px-4 text-start',
-                coachId === c.id ? 'bg-ink text-white' : 'border border-line bg-surface',
+                pickedCoachId === c.id ? 'bg-ink text-white' : 'border border-line bg-surface',
               )}
             >
               <span className="min-w-0 flex-1">
                 <span className="block font-bold">{text(c.name, lang)}</span>
-                <span className={cn('block text-xs', coachId === c.id ? 'text-white/70' : 'text-muted')}>
+                <span className={cn('block text-xs', pickedCoachId === c.id ? 'text-white/70' : 'text-muted')}>
                   {text(c.speciality, lang)}
                 </span>
               </span>
-              {coachId === c.id ? <Icon name="check" size={18} /> : null}
+              {pickedCoachId === c.id ? <Icon name="check" size={18} /> : null}
             </button>
           ))}
         </div>
@@ -134,21 +153,21 @@ export function MemberBook() {
       <Card>
         <CardTitle>{t('book.kind')}</CardTitle>
         <div className="grid grid-cols-2 gap-2 p-4">
-          {(['intro', 'private'] as BookingKind[]).map((k) => (
+          {(['intro', 'private'] as const).map((k) => (
             <button
               key={k}
               type="button"
               onClick={() => setKind(k)}
               className={cn(
                 'min-h-tap-lg rounded-xl px-3 text-sm font-bold',
-                kind === k ? 'bg-ink text-white' : 'border border-line bg-surface',
+                pickedKind === k ? 'bg-ink text-white' : 'border border-line bg-surface',
               )}
             >
               {k === 'intro' ? t('calendar.intro') : t('calendar.private')}
             </button>
           ))}
         </div>
-        {kind === 'intro' ? (
+        {pickedKind === 'intro' ? (
           <p className="text-muted px-4 pb-4 text-xs">{t('book.introNote')}</p>
         ) : null}
       </Card>
@@ -157,9 +176,13 @@ export function MemberBook() {
         variant="brand"
         full
         size="lg"
+        disabled={saving || !pickedCoachId}
         onClick={() => {
-          actions.book({ memberId: currentMemberId, coachId, date, time, kind })
-          setDone(true)
+          if (!pickedCoachId) return
+          setSaving(true)
+          void createBooking({ coach_id: pickedCoachId, date, time, kind: pickedKind })
+            .then(() => setDone(true))
+            .finally(() => setSaving(false))
         }}
       >
         {t('book.confirm')}

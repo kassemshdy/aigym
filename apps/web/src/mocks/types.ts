@@ -122,17 +122,6 @@ export interface FoodEntry {
   photo?: string
 }
 
-export interface ProgressPhoto {
-  id: string
-  at: string
-  url: string
-  /**
-   * Progress photos are private to the member. The coach sees one only when the
-   * member shares that specific photo. Default is always false.
-   */
-  sharedWithCoach: boolean
-}
-
 export type AgentId = 'nutrition' | 'training'
 
 export interface ChatMessage {
