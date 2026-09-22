@@ -20,7 +20,7 @@ ship the same way as any other code change, rather than needing a manual
 import asyncio
 import uuid
 from datetime import UTC, date, datetime, timedelta
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -86,7 +86,7 @@ class MemberSeed(NamedTuple):
     height_cm: int
     weight_kg: int
     body_fat: int
-    injuries: list[dict[str, str]]
+    injuries: list[dict[str, Any]]
     days_per_week: int
     job: str
     sleep_hours: int
@@ -102,7 +102,8 @@ MEMBER_ROWS = [
     MemberSeed(
         "m1", "رامي حداد", "Rami Haddad", "+96170123456", "p1",
         "2025-11-02", "2026-09-08", "lose", "mid", 178, 92, 26,
-        [{"ar": "أسفل الظهر", "en": "Lower back"}],
+        [{"body_part": "lower_back", "note": {"ar": "أسفل الظهر", "en": "Lower back"},
+          "severity": None}],
         3, "desk", 6, [98, 97, 96, 95, 94, 93, 92],
     ),
     MemberSeed(
@@ -118,13 +119,15 @@ MEMBER_ROWS = [
     MemberSeed(
         "m4", "مايا شمعون", "Maya Chamoun", "+96103445566", "p1",
         "2026-08-01", "2026-09-01", "health", "new", 170, 68, 29,
-        [{"ar": "ركبة يمين", "en": "Right knee"}],
+        [{"body_part": "knee_right", "note": {"ar": "ركبة يمين", "en": "Right knee"},
+          "severity": None}],
         2, "shift", 5, [69, 69, 69, 68, 68, 68, 68],
     ),
     MemberSeed(
         "m5", "علي حمدان", "Ali Hamdan", "+96181220034", "pt",
         "2026-05-20", "2026-09-20", "strength", "strong", 175, 84, 16,
-        [{"ar": "كتف يسار", "en": "Left shoulder"}],
+        [{"body_part": "shoulder_left", "note": {"ar": "كتف يسار", "en": "Left shoulder"},
+          "severity": None}],
         5, "active", 7, [82, 82, 83, 83, 83, 84, 84],
     ),
     MemberSeed(

@@ -11,6 +11,7 @@ from app.deps import CurrentClaims, CurrentSession, require_role
 from app.domain.dues import DuesStatus, compute_dues
 from app.domain.whatsapp import wa_link
 from app.models import Attendance, Member, MemberProfile, Payment, Plan, Subscription
+from app.schemas.injuries import MemberInjury
 from app.security.jwt import AccessTokenClaims
 
 router = APIRouter(tags=["members"])
@@ -59,11 +60,12 @@ class MemberProfileOut(BaseModel):
     height_cm: int
     weight_kg: float
     body_fat: float | None
-    injuries: list[Any]
+    injuries: list[MemberInjury]
     days_per_week: int
     job: str
     sleep_hours: float
     weight_trend: list[float]
+    daily_kcal_target: int | None
 
 
 class MemberDetailOut(MemberOut):
@@ -160,6 +162,7 @@ async def get_member(
             body_fat=float(profile.body_fat) if profile.body_fat is not None else None,
             injuries=profile.injuries, days_per_week=profile.days_per_week, job=profile.job,
             sleep_hours=float(profile.sleep_hours), weight_trend=profile.weight_trend,
+            daily_kcal_target=profile.daily_kcal_target,
         )
         if profile is not None
         else None
@@ -177,7 +180,7 @@ class CreateMemberRequest(BaseModel):
     height_cm: int
     weight_kg: float
     body_fat: float | None = None
-    injuries: list[Any] = []
+    injuries: list[MemberInjury] = []
     days_per_week: int
     job: str
     sleep_hours: float
@@ -205,7 +208,8 @@ async def create_member(
         MemberProfile(
             member_id=member.id, gym_id=claims.gym_id, goal=body.goal, level=body.level,
             height_cm=body.height_cm, weight_kg=body.weight_kg, body_fat=body.body_fat,
-            injuries=body.injuries, days_per_week=body.days_per_week, job=body.job,
+            injuries=[i.model_dump() for i in body.injuries],
+            days_per_week=body.days_per_week, job=body.job,
             sleep_hours=body.sleep_hours, weight_trend=[],
         )
     )
@@ -229,7 +233,7 @@ class UpdateMemberRequest(BaseModel):
     height_cm: int | None = None
     weight_kg: float | None = None
     body_fat: float | None = None
-    injuries: list[Any] | None = None
+    injuries: list[MemberInjury] | None = None
     days_per_week: int | None = None
     job: str | None = None
     sleep_hours: float | None = None
@@ -255,11 +259,13 @@ async def update_member(
     if profile is not None:
         for field in (
             "goal", "level", "height_cm", "weight_kg", "body_fat",
-            "injuries", "days_per_week", "job", "sleep_hours",
+            "days_per_week", "job", "sleep_hours",
         ):
             value = getattr(body, field)
             if value is not None:
                 setattr(profile, field, value)
+        if body.injuries is not None:
+            profile.injuries = [i.model_dump() for i in body.injuries]
 
     await session.flush()
     return await get_member(member_id, session, claims)

@@ -4,6 +4,7 @@ Alembic's env.py imports this package before autogenerating; a model that
 isn't imported here is invisible to `alembic revision --autogenerate`.
 """
 
+from app.models.ai import AiPlanDraft
 from app.models.auth import MemberLoginCode, RefreshToken
 from app.models.content import FoodEntry, ProgressPhoto, Video
 from app.models.floor import Attendance, Booking, CheckIn, Coach, GymClass, Machine
@@ -21,6 +22,7 @@ from app.models.training import (
 )
 
 __all__ = [
+    "AiPlanDraft",
     "Attendance",
     "Booking",
     "CheckIn",
