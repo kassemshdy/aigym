@@ -16,6 +16,7 @@ import {
   type AuthAs,
 } from './client'
 import {
+  mockApproveAiDraft,
   mockCancelBooking,
   mockCreateBooking,
   mockCreateCheckIn,
@@ -38,6 +39,7 @@ import {
   mockListWorkoutSessions,
   mockGetWorkoutSession,
   mockLapsedMembers,
+  mockListAiDrafts,
   mockListClasses,
   mockListCoaches,
   mockListExercises,
@@ -56,6 +58,7 @@ import {
   mockListVideos,
   mockLogSet,
   mockRecordPayment,
+  mockRejectAiDraft,
   mockReplaceProgramExercises,
   mockUpdateCheckInStatus,
   mockUpdateExercise,
@@ -65,6 +68,7 @@ import {
   mockWhatsappReminder,
 } from './mockAdapter'
 import type {
+  ApiAiDraft,
   ApiAttendanceDay,
   ApiBooking,
   ApiCheckIn,
@@ -95,6 +99,7 @@ import type {
   CreateStaffInput,
   CreateVideoInput,
   CreateWorkoutSessionInput,
+  ApproveAiDraftInput,
   FinishWorkoutSessionInput,
   LogSetInput,
   RecordPaymentInput,
@@ -603,4 +608,35 @@ export async function listStaff(): Promise<ApiStaff[]> {
 export async function createStaff(input: CreateStaffInput): Promise<ApiStaff> {
   if (!API_URL) return mockCreateStaff(input)
   return apiFetch('/staff', { method: 'POST', body: input, idempotencyKey: newIdempotencyKey() })
+}
+
+// ---------------------------------------------------------------------
+// Phase 5 — the coach's AI draft inbox (decision 10). Nothing an assistant
+// or a coach's "generate" action proposes reaches a member's program or
+// calorie target until approved here.
+// ---------------------------------------------------------------------
+
+export async function listAiDrafts(): Promise<ApiAiDraft[]> {
+  if (!API_URL) return mockListAiDrafts()
+  return apiFetch('/ai-drafts')
+}
+
+export async function approveAiDraft(
+  draftId: string,
+  edits?: ApproveAiDraftInput,
+): Promise<ApiAiDraft> {
+  if (!API_URL) return mockApproveAiDraft(draftId, edits)
+  return apiFetch(`/ai-drafts/${draftId}/approve`, {
+    method: 'POST',
+    body: edits ?? {},
+    idempotencyKey: newIdempotencyKey(),
+  })
+}
+
+export async function rejectAiDraft(draftId: string): Promise<ApiAiDraft> {
+  if (!API_URL) return mockRejectAiDraft(draftId)
+  return apiFetch(`/ai-drafts/${draftId}/reject`, {
+    method: 'POST',
+    idempotencyKey: newIdempotencyKey(),
+  })
 }

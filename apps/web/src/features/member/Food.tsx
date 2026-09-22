@@ -7,15 +7,23 @@ import { Stepper } from '@/components/ui/Stepper'
 import { Icon } from '@/components/ui/Icon'
 import { Empty, Page } from '@/components/ui/Page'
 import { useStore } from '@/state/store'
-import { createFoodEntry, deleteFoodEntry, listFoodEntries, uploadFoodPhoto } from '@/data/queries'
+import {
+  createFoodEntry,
+  deleteFoodEntry,
+  getCurrentMemberId,
+  getMember,
+  listFoodEntries,
+  uploadFoodPhoto,
+} from '@/data/queries'
 import { useAsync } from '@/data/useAsync'
 import { useMediaUrl } from '@/data/useMediaUrl'
 import type { ApiFoodEntry } from '@/data/types'
 import { hhmm } from '@/lib/format'
 import type { Lang } from '@/i18n'
 import { cn } from '@/lib/cn'
+import { currentMemberId as mockCurrentMemberId } from '@/mocks/data'
 
-const DAILY_KCAL = 2100
+const DEFAULT_DAILY_KCAL = 2100
 const DAILY_PROTEIN = 145
 
 /**
@@ -50,6 +58,9 @@ export function MemberFood() {
   const { state, actions } = useStore()
   const fileRef = useRef<HTMLInputElement>(null)
   const entries = useAsync(listFoodEntries, [])
+  const memberId = getCurrentMemberId() ?? mockCurrentMemberId
+  const member = useAsync(() => getMember(memberId), [memberId])
+  const dailyKcal = member.data?.profile?.daily_kcal_target ?? DEFAULT_DAILY_KCAL
 
   const [analyzing, setAnalyzing] = useState(false)
   const [draft, setDraft] = useState<Draft | null>(null)
@@ -135,18 +146,18 @@ export function MemberFood() {
               <span className="text-muted text-base"> {t('food.kcal')}</span>
             </p>
             <p className="text-muted text-sm">
-              {t('food.target')} <span className="tnum">{DAILY_KCAL}</span>
+              {t('food.target')} <span className="tnum">{dailyKcal}</span>
             </p>
           </div>
           <p className="tnum text-paid text-lg font-bold">
-            {Math.max(0, DAILY_KCAL - totals.kcal)} {t('food.left')}
+            {Math.max(0, dailyKcal - totals.kcal)} {t('food.left')}
           </p>
         </div>
 
         <div className="bg-line mt-3 h-2 overflow-hidden rounded-full">
           <div
             className="bg-ink h-full rounded-full"
-            style={{ width: `${Math.min(100, (totals.kcal / DAILY_KCAL) * 100)}%` }}
+            style={{ width: `${Math.min(100, (totals.kcal / dailyKcal) * 100)}%` }}
           />
         </div>
 

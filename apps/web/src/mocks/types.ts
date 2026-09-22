@@ -105,6 +105,9 @@ export interface AiDraft {
   reason: { ar: string; en: string }
   status: 'pending' | 'approved' | 'rejected'
   createdAt: string
+  /** The machine-actionable proposal a coach's approve applies — mirrors
+   * app/domain/ai_drafts.py's payload shapes. Absent for kind:'tip'. */
+  payload?: { type: 'calorie_target_update'; daily_kcal_target: number }
 }
 
 export type FoodSource = 'photo' | 'manual' | 'agent'

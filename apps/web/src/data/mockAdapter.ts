@@ -7,6 +7,7 @@
  * for.
  */
 import {
+  aiDrafts as seedAiDrafts,
   attendance as seedAttendance,
   bookings as seedBookings,
   checkIns as seedCheckIns,
@@ -31,6 +32,7 @@ import type {
 import { waLink } from '@/lib/whatsapp'
 import type { Text } from '@/lib/format'
 import type {
+  ApiAiDraft,
   ApiAttendanceDay,
   ApiBooking,
   ApiCheckIn,
@@ -61,6 +63,7 @@ import type {
   CreateStaffInput,
   CreateVideoInput,
   CreateWorkoutSessionInput,
+  ApproveAiDraftInput,
   FinishWorkoutSessionInput,
   LogSetInput,
   ReplaceProgramExercisesInput,
@@ -71,6 +74,9 @@ import type {
 } from './types'
 
 let mockMembers: MockMember[] = seedMembers.map((m) => ({ ...m }))
+// Session-only, mirrors ai_plan_drafts.approve writing MemberProfile.daily_kcal_target
+// on the real backend — a coach can only ever set it by approving a draft.
+const mockDailyKcalTargets = new Map<string, number>()
 let mockPayments: MockPayment[] = seedPayments.map((p) => ({ ...p }))
 let mockCheckIns: MockCheckIn[] = seedCheckIns.map((c) => ({ ...c }))
 
@@ -107,6 +113,7 @@ function toApiMemberDetail(m: MockMember): ApiMemberDetail {
       job: m.job,
       sleep_hours: m.sleepHours,
       weight_trend: m.weightTrend,
+      daily_kcal_target: mockDailyKcalTargets.get(m.id) ?? null,
     },
   }
 }
@@ -768,4 +775,63 @@ export function mockCancelBooking(bookingId: string): ApiBooking {
 
 export function mockListMyAttendance(): ApiAttendanceDay[] {
   return seedAttendance.filter((a) => a.memberId === currentMemberId).map((a) => ({ date: a.date }))
+}
+
+let mockAiDrafts: ApiAiDraft[] = seedAiDrafts.map((d) => ({
+  id: d.id,
+  member_id: d.memberId,
+  created_by:
+    d.kind === 'plan' ? 'coach_plan' : d.kind === 'nutrition' ? 'coach_nutrition' : 'coach_recommendation',
+  kind: d.kind,
+  headline: d.headline,
+  body: d.body,
+  reason: d.reason,
+  payload: d.payload ?? null,
+  status: d.status,
+  decided_at: null,
+  original: null,
+}))
+
+export function mockListAiDrafts(): ApiAiDraft[] {
+  return mockAiDrafts
+}
+
+function mockDecideAiDraft(
+  draftId: string,
+  status: 'approved' | 'rejected',
+  edits?: ApproveAiDraftInput,
+): ApiAiDraft {
+  const existing = mockAiDrafts.find((d) => d.id === draftId)
+  if (!existing) throw new Error('Draft not found')
+  if (existing.status !== 'pending') throw new Error('Draft already decided')
+
+  const edited = edits ? Object.values(edits).some((v) => v !== undefined) : false
+  const original =
+    edited && !existing.original ? { headline: existing.headline, body: existing.body } : existing.original
+
+  const updated: ApiAiDraft = {
+    ...existing,
+    headline: edits?.headline ?? existing.headline,
+    body: edits?.body ?? existing.body,
+    reason: edits?.reason ?? existing.reason,
+    payload: edits?.payload ?? existing.payload,
+    status,
+    decided_at: new Date().toISOString(),
+    original,
+  }
+
+  if (status === 'approved' && updated.payload?.type === 'calorie_target_update') {
+    mockDailyKcalTargets.set(updated.member_id, updated.payload.daily_kcal_target as number)
+  }
+
+  mockAiDrafts = mockAiDrafts.map((d) => (d.id === draftId ? updated : d))
+  return updated
+}
+
+export function mockApproveAiDraft(draftId: string, edits?: ApproveAiDraftInput): ApiAiDraft {
+  return mockDecideAiDraft(draftId, 'approved', edits)
+}
+
+export function mockRejectAiDraft(draftId: string): ApiAiDraft {
+  return mockDecideAiDraft(draftId, 'rejected')
 }

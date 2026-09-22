@@ -251,7 +251,10 @@
       "approved": "Approved",
       "rejected": "Rejected",
       "empty": "No new suggestions",
-      "notice": "Nothing reaches the member until you approve it"
+      "notice": "Nothing reaches the member until you approve it",
+      "edit": "Edit before approving",
+      "editPlaceholder": "Edit the suggestion",
+      "editedNotice": "Edited from the original suggestion"
     },
     "videos": {
       "title": "Video library",

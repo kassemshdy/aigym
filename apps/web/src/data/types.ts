@@ -43,6 +43,9 @@ export interface ApiMemberProfile {
   job: string
   sleep_hours: number
   weight_trend: number[]
+  /** Set only by an approved ai_plan_drafts row (kind='nutrition') — null
+   * until then. See app/models/people.py. */
+  daily_kcal_target: number | null
 }
 
 export interface ApiMemberDetail extends ApiMember {
@@ -393,4 +396,35 @@ export interface CreateBookingInput {
 
 export interface ApiAttendanceDay {
   date: string
+}
+
+// ---------------------------------------------------------------------
+// Phase 5 — the AI layer. Mirrors app/api/ai_drafts.py. Decision 10: an
+// assistant or a coach's "generate" action never touches a member's
+// program or calorie target directly — it writes a pending row here, and
+// nothing is applied until a coach approves it.
+// ---------------------------------------------------------------------
+
+export type AiDraftKind = 'plan' | 'nutrition' | 'tip'
+export type AiDraftStatus = 'pending' | 'approved' | 'rejected'
+
+export interface ApiAiDraft {
+  id: string
+  member_id: string
+  created_by: string
+  kind: AiDraftKind
+  headline: { ar: string; en: string }
+  body: { ar: string; en: string }
+  reason: { ar: string; en: string }
+  payload: Record<string, unknown> | null
+  status: AiDraftStatus
+  decided_at: string | null
+  original: { headline: { ar: string; en: string }; body: { ar: string; en: string } } | null
+}
+
+export interface ApproveAiDraftInput {
+  headline?: { ar: string; en: string }
+  body?: { ar: string; en: string }
+  reason?: { ar: string; en: string }
+  payload?: Record<string, unknown>
 }

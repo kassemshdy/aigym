@@ -182,6 +182,7 @@ export const aiDrafts: AiDraft[] = [
   },
   {
     id: 'a2', memberId: 'm4', kind: 'nutrition', status: 'pending', createdAt: '2026-09-10',
+    payload: { type: 'calorie_target_update', daily_kcal_target: 1700 },
     headline: { ar: 'هدف بروتين ١٠٥ غ باليوم', en: 'Protein target 105 g/day' },
     body: {
       ar: 'توزيع البروتين على ٣ وجبات، والتركيز على وجبة بعد التمرين مباشرة. ما في داعي لعدّ كل شي — بس الوجبات الثلاث.',
