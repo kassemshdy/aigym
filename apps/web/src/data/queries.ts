@@ -60,6 +60,7 @@ import {
   mockRecordPayment,
   mockRejectAiDraft,
   mockReplaceProgramExercises,
+  mockSendChatMessage,
   mockUpdateCheckInStatus,
   mockUpdateExercise,
   mockUpdateMyProfile,
@@ -68,10 +69,12 @@ import {
   mockUpdateVideo,
   mockWhatsappReminder,
 } from './mockAdapter'
+import type { Lang } from '@/i18n'
 import type {
   ApiAiDraft,
   ApiAttendanceDay,
   ApiBooking,
+  ApiChatReply,
   ApiCheckIn,
   ApiCoach,
   ApiExercise,
@@ -92,6 +95,8 @@ import type {
   ApiVideo,
   ApiWorkoutSession,
   ApiWorkoutSet,
+  ChatAgent,
+  ChatTurnInput,
   CreateBookingInput,
   CreateExerciseInput,
   CreateFoodEntryInput,
@@ -654,6 +659,27 @@ export async function rejectAiDraft(draftId: string): Promise<ApiAiDraft> {
   if (!API_URL) return mockRejectAiDraft(draftId)
   return apiFetch(`/ai-drafts/${draftId}/reject`, {
     method: 'POST',
+    idempotencyKey: newIdempotencyKey(),
+  })
+}
+
+// ---------------------------------------------------------------------
+// Phase 5 stage 7 — the member chat assistants. The only place `fetch`
+// (via apiFetch) reaches Claude; mocks/agents.ts's replyTo() stays the
+// mock branch, unchanged.
+// ---------------------------------------------------------------------
+
+export async function sendChatMessage(
+  agent: ChatAgent,
+  message: string,
+  history: ChatTurnInput[],
+  lang: Lang,
+): Promise<ApiChatReply> {
+  if (!API_URL) return mockSendChatMessage(agent, message, lang)
+  return apiFetch(`/members/me/chat/${agent}`, {
+    method: 'POST',
+    body: { text: message, history, lang },
+    authAs: 'member',
     idempotencyKey: newIdempotencyKey(),
   })
 }

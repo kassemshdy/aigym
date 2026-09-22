@@ -30,11 +30,16 @@ import type {
   Payment as MockPayment,
 } from '@/mocks/types'
 import { waLink } from '@/lib/whatsapp'
+import { replyTo } from '@/mocks/agents'
+import type { AgentId } from '@/mocks/types'
+import { text } from '@/lib/format'
 import type { Text } from '@/lib/format'
+import type { Lang } from '@/i18n'
 import type {
   ApiAiDraft,
   ApiAttendanceDay,
   ApiBooking,
+  ApiChatReply,
   ApiCheckIn,
   ApiCoach,
   ApiExercise,
@@ -866,4 +871,27 @@ export function mockApproveAiDraft(draftId: string, edits?: ApproveAiDraftInput)
 
 export function mockRejectAiDraft(draftId: string): ApiAiDraft {
   return mockDecideAiDraft(draftId, 'rejected')
+}
+
+/** The mock branch of sendChatMessage — calls the existing replyTo()
+ * unchanged, so mock-mode chat behavior is bit-for-bit identical to
+ * before Phase 5 stage 7 closed the `fetch`-in-a-feature-file boundary
+ * violation mocks/agents.ts's replyTo() used to be called through
+ * directly. */
+export function mockSendChatMessage(agent: AgentId, message: string, lang: Lang): ApiChatReply {
+  const reply = replyTo(agent, message, lang)
+  return {
+    text: reply.body,
+    food: reply.food
+      ? {
+          label: text(reply.food.label, lang),
+          kcal: reply.food.kcal,
+          protein: reply.food.protein,
+          carbs: reply.food.carbs,
+          fat: reply.food.fat,
+        }
+      : null,
+    draft: Boolean(reply.draft),
+    referred: false,
+  }
 }

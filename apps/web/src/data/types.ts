@@ -461,3 +461,33 @@ export interface ApproveAiDraftInput {
   reason?: { ar: string; en: string }
   payload?: Record<string, unknown>
 }
+
+// ---------------------------------------------------------------------
+// Phase 5 stage 7 — the member chat assistants. Mirrors app/api/chat.py.
+// No server-side chat-history table (decision 29): the client resends
+// enough turn history for a stateless per-turn call.
+// ---------------------------------------------------------------------
+
+export type ChatAgent = 'nutrition' | 'training'
+
+export interface ChatTurnInput {
+  role: 'user' | 'assistant'
+  text: string
+}
+
+export interface ApiFoodProposal {
+  label: string
+  kcal: number
+  protein: number
+  carbs: number
+  fat: number
+}
+
+export interface ApiChatReply {
+  text: string
+  food: ApiFoodProposal | null
+  /** Collapsed to a bool on the wire — the draft's own content lives in
+   * the coach's inbox (ApiAiDraft), not here. */
+  draft: boolean
+  referred: boolean
+}

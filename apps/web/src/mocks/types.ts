@@ -153,7 +153,7 @@ export interface ChatMessage {
   text: string
   at: string
   /** Set when the reply had a side effect worth showing in the transcript. */
-  note?: 'food_logged' | 'draft_sent'
+  note?: 'food_logged' | 'draft_sent' | 'referred'
 }
 
 export interface Coach {

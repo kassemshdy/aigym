@@ -1,7 +1,9 @@
 """Composes already-fetched rows into the two-part system prompt the chat
 assistants send Claude (app/api/chat.py, stage 7) — pure, no HTTP/
-SQLAlchemy/Anthropic-client awareness, same convention as dues.py/
-workout.py/guardrails.py. The fetching half (app/ai/gather.py) is
+SQLAlchemy/Anthropic-client-instance awareness, same convention as
+dues.py/workout.py/guardrails.py (it imports anthropic's TextBlockParam
+type only, for the request shape this function's whole job is to build —
+no client, no network call). The fetching half (app/ai/gather.py) is
 deliberately impure and lives outside this module.
 
 Two blocks, split at a cache_control breakpoint, per the claude-api
@@ -24,15 +26,10 @@ design (docs/DECISIONS.md, decision 29).
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TypedDict
+
+from anthropic.types import TextBlockParam
 
 from app.schemas.injuries import MemberInjury
-
-
-class TextBlock(TypedDict, total=False):
-    type: str
-    text: str
-    cache_control: dict[str, str]
 
 
 @dataclass(frozen=True)
@@ -151,7 +148,7 @@ def build_system_prompt(
     profile: MemberContextRow,
     recent_sessions: list[RecentSessionRow],
     today_food: list[FoodEntryRow],
-) -> list[TextBlock]:
+) -> list[TextBlockParam]:
     stable_text = f"{persona_instructions}\n\n{_format_catalog(exercises, videos, lang)}"
     volatile_text = _format_member_data(profile, recent_sessions, today_food, lang)
     return [
