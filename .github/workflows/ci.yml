@@ -2,7 +2,13 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # `develop` is here because it is where the work actually happens: this
+    # project merges develop -> main directly (AGENTS.md's branching table)
+    # rather than through pull requests, so a trigger list of main +
+    # pull_request would mean the suite first runs at the moment of deploy.
+    # The local loop is deliberately kept to ruff + mypy for speed, which
+    # only works if every push is checked here.
+    branches: [main, develop]
   pull_request:
 
 jobs:

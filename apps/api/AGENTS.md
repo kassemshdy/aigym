@@ -51,10 +51,14 @@ uv run alembic upgrade head
 uv run python scripts/seed.py             # optional — Triple A Gym's real content
 
 uv run uvicorn app.main:app --reload      # http://localhost:8000
-uv run pytest -q                          # everything except the isolation suite's own job
-uv run ruff check .
+uv run ruff check .                       # the local loop is these two
 uv run mypy app scripts
+uv run pytest -q tests/test_thing.py      # one file, when you just wrote it
 ```
+
+`uv run pytest` with no arguments is CI's job, not the local loop's — see the root
+`AGENTS.md`'s "Where tests run". Postgres is not running by default in a fresh sandbox:
+`service postgresql start`.
 
 Local Postgres, not Docker: Docker Hub is unreachable from some sandboxes but
 `apt-get install postgresql-16` always is — see `.agents/skills/setup-dev`.

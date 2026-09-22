@@ -111,6 +111,30 @@ when" stays answerable from the log.
 `claude/gym-management-app-3wvw97` is an old session branch, four commits behind and fully
 merged. Ignore it; it is kept only because deleting someone's branch is not ours to do.
 
+## Where tests run
+
+**The full test suite runs in CI, not in the local loop.** CI fires on every push to
+`develop` and `main` (`.github/workflows/ci.yml`), so pushing is how a change gets
+verified end to end — the whole suite, the isolation suite in its own job, and the web
+build and budget.
+
+Locally, per change:
+
+```bash
+cd apps/api && uv run ruff check . && uv run mypy app scripts   # seconds
+cd apps/web && npm run typecheck && npm run lint                # seconds
+```
+
+Run a *specific* test file when you have just written it or are working against a
+failure — committing a test that was never executed is worse than no test, because it
+turns one CI round trip into two. Do not run `uv run pytest` with no arguments; that is
+what CI is for. `npm run verify` and `node scripts/shots.mjs` are still worth running by
+hand after layout work, since a wrong `dir` or an overflow is not something CI can show
+you a picture of.
+
+The local Postgres a targeted test needs is not running by default: `service postgresql
+start`.
+
 ## Deploy
 
 Live at **https://triple-a.up.railway.app** (Railway project `aigym`, service

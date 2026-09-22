@@ -607,3 +607,47 @@ async def test_rls_blocks_cross_gym_select_on_ai_plan_drafts(two_gyms: TwoGyms) 
     assert await _select_as_gym(AiPlanDraft, draft_id, two_gyms.b.gym_id) is not None, (
         "gym B could not read its own ai_plan_drafts row — fixture or policy is broken"
     )
+
+
+# --------------------------------------------------------------------------
+# Phase 6 stage 5 — changing and revoking staff access. staff_gym_roles is
+# the RLS-protected half of the staff model (staff_users is deliberately
+# not), so these endpoints are exactly where a scoping mistake would let
+# one gym reach into another's payroll.
+# --------------------------------------------------------------------------
+
+
+async def test_staff_writes_404_for_the_other_gyms_person(
+    client: AsyncClient, two_gyms: TwoGyms
+) -> None:
+    """404 rather than 403 throughout: a 403 would confirm the id names a
+    real person, which is itself a cross-gym leak."""
+    created = await client.post(
+        "/staff",
+        headers=_idem(two_gyms.b.headers),
+        json={
+            "username": _next_username(), "password": "hunter22", "name": "Theirs",
+            "phone": _next_phone(), "role": "coach",
+        },
+    )
+    assert created.status_code == 201, created.text
+    theirs = created.json()["id"]
+
+    assert (
+        await client.patch(
+            f"/staff/{theirs}", headers=_idem(two_gyms.a.headers), json={"role": "manager"}
+        )
+    ).status_code == 404
+    assert (
+        await client.delete(f"/staff/{theirs}", headers=_idem(two_gyms.a.headers))
+    ).status_code == 404
+    assert (
+        await client.post(
+            f"/staff/{theirs}/password/reset", headers=_idem(two_gyms.a.headers)
+        )
+    ).status_code == 404
+
+    # And the role row itself is untouched — a 404 that still deleted
+    # something would be the worst of both.
+    listed_b = await client.get("/staff", headers=two_gyms.b.headers)
+    assert theirs in {row["id"] for row in listed_b.json()}

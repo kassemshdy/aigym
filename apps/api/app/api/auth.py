@@ -12,7 +12,7 @@ from app.deps import CurrentClaims, CurrentSession, require_role
 from app.domain.whatsapp import wa_link
 from app.integrations.whatsapp_business import send_whatsapp_text
 from app.models import Member, MemberLoginCode, RefreshToken, StaffGymRole, StaffUser
-from app.security.hashing import hash_secret, verify_secret
+from app.security.hashing import generate_password, hash_secret, verify_secret
 from app.security.jwt import (
     AccessTokenClaims,
     InvalidTokenError,
@@ -120,12 +120,6 @@ class StaffPasswordResetResponse(BaseModel):
     sent: bool
 
 
-def _generate_password() -> str:
-    # 8 hex chars ~ 32 bits of entropy — short enough to type off a phone
-    # screen, long enough that this isn't just a renamed 4-digit PIN.
-    return secrets.token_hex(4)
-
-
 @router.post("/staff/password/reset", response_model=StaffPasswordResetResponse)
 async def reset_staff_password(body: StaffPasswordResetRequest) -> StaffPasswordResetResponse:
     """Self-service password reset, delivered over the WhatsApp Business
@@ -160,7 +154,7 @@ async def reset_staff_password(body: StaffPasswordResetRequest) -> StaffPassword
                 "Password was reset recently — try again shortly",
             )
 
-        new_password = _generate_password()
+        new_password = generate_password()
         staff.password_hash = hash_secret(new_password)
         staff.password_reset_at = now
         phone = staff.phone
