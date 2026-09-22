@@ -34,7 +34,9 @@ src/
 │   └── AppShell.tsx  header (sync badge reads OfflineProvider), language toggle, role
 │                      switcher, bottom tabs
 └── features/
-    ├── manager/      Home, Members, MemberDetail, AddMember, Plans, Payments, Login
+    ├── manager/      Home, Members, MemberDetail, AddMember, Plans, Payments, Lapsed,
+    │                 Staff, Login, Insights (the owner dashboard — the numbers the GTM
+    │                 guarantee is settled on, served by GET /analytics/summary)
     ├── coach/        Queue, CheckIn, MemberCard, Session, AiDrafts (the approval inbox —
     │                 decision 10), GenerateAiButton (asks for a draft — decision 31)
     ├── programs/     ProgramEditor — plan assign/edit, shared by manager and coach,

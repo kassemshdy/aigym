@@ -22,7 +22,7 @@
     "manager": {
       "stats": {
         "title": "Your dashboard",
-        "body": "Who came in today, who owes money, whose plan is ending soon, and what you've collected this month."
+        "body": "Who came in today, who owes money, whose plan is ending soon, and what you've collected over the last three months."
       },
       "add": {
         "title": "Register a member",
@@ -126,7 +126,7 @@
       "cameToday": "Came today",
       "owes": "Owe money",
       "endingSoon": "Ending soon",
-      "collected": "Collected this month",
+      "collected": "Collected, {{weeks}} wks",
       "whoOwes": "Who owes money",
       "seeAll": "See all",
       "addMember": "Register new member"
@@ -494,5 +494,24 @@
     "muscleGroup": "Muscle group",
     "videoUrl": "Video link",
     "saved": "Saved"
+  },
+  "insights": {
+    "title": "The numbers",
+    "sub": "Last {{weeks}} weeks",
+    "collectionTitle": "Renewals paid on time",
+    "collectionNote": "{{onTime}} of {{due}} renewals were paid within a week of coming due",
+    "nothingDue": "No renewal came due in this period",
+    "previously": "Before: {{value}}",
+    "noComparison": "No earlier period yet",
+    "moneyTitle": "Money",
+    "collected": "Collected",
+    "uncollected": "Still not collected",
+    "trendTitle": "Collected each week",
+    "trendNote": "One point per week, oldest first, over {{weeks}} weeks",
+    "membersTitle": "Members",
+    "active": "Members now",
+    "newMembers": "New members",
+    "missing": "Away {{days}}+ days",
+    "seeMissing": "See who is missing"
   }
 }

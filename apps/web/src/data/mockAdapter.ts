@@ -39,8 +39,10 @@ import type { Lang } from '@/i18n'
 import type {
   AiDraftKind,
   ApiAiDraft,
+  ApiAnalyticsSummary,
   ApiAttendanceDay,
   ApiBooking,
+  ApiCollectionWindow,
   ApiChatReply,
   ApiCheckIn,
   ApiCoach,
@@ -981,5 +983,125 @@ export function mockSendChatMessage(agent: AgentId, message: string, lang: Lang)
       : null,
     draft: Boolean(reply.draft),
     referred: false,
+  }
+}
+
+// ---------------------------------------------------------------------
+// Phase 6 — the owner dashboard (app/api/analytics.py).
+//
+// Mock mode has no subscription history: a member carries one `endsAt` and
+// a status, not the renewal chain the real endpoint walks. So this
+// approximates rather than mirrors — a period that has already ended counts
+// as fallen due, and a member the seed still marks `paid` counts as having
+// renewed it. The bucketing and the null-vs-zero rate do match the server
+// exactly, since those are what the screen branches on.
+//
+// Derived from the seed rather than frozen as a literal, so registering a
+// member in the demo moves the numbers the way the live screen would.
+// ---------------------------------------------------------------------
+
+const DAY_MS = 86_400_000
+
+/** Midnight UTC for a bare `YYYY-MM-DD`, so comparisons never drift by a
+ * timezone offset the way `new Date(iso)` arithmetic can. */
+const dayMs = (iso: string) => Date.parse(`${iso}T00:00:00Z`)
+
+const todayMs = () => {
+  const now = new Date()
+  return Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())
+}
+
+/** The Monday of each of the last `weeks` weeks, oldest first — the same
+ * series week_starts() produces in app/domain/analytics.py. JS counts
+ * Sunday as 0, hence the shift. */
+function mockWeekStarts(weeks: number): number[] {
+  const today = todayMs()
+  const monday = today - ((new Date(today).getUTCDay() + 6) % 7) * DAY_MS
+  return Array.from({ length: weeks }, (_, i) => monday - (weeks - 1 - i) * 7 * DAY_MS)
+}
+
+type DuePeriod = { dueAt: number; priceUsd: number; renewed: boolean }
+
+function mockCollectionStats(periods: DuePeriod[]): ApiCollectionWindow {
+  const onTime = periods.filter((p) => p.renewed)
+  return {
+    due_count: periods.length,
+    on_time_count: onTime.length,
+    on_time_rate: periods.length
+      ? Math.round((onTime.length / periods.length) * 10_000) / 10_000
+      : null,
+    collected_usd: onTime.reduce((sum, p) => sum + p.priceUsd, 0),
+    uncollected_usd: periods
+      .filter((p) => !p.renewed)
+      .reduce((sum, p) => sum + p.priceUsd, 0),
+  }
+}
+
+/** Each member's most recent attendance on or before `cutoff`, or null. */
+function mockLastVisitBefore(memberId: string, cutoff: number): number | null {
+  const days = seedAttendance
+    .filter((a) => a.memberId === memberId)
+    .map((a) => dayMs(a.date))
+    .filter((d) => d <= cutoff)
+  return days.length ? Math.max(...days) : null
+}
+
+function mockLapsedCount(members: MockMember[], asOf: number, minDays: number): number {
+  return members.filter((m) => {
+    const last = mockLastVisitBefore(m.id, asOf)
+    return last === null || (asOf - last) / DAY_MS >= minDays
+  }).length
+}
+
+export function mockAnalyticsSummary(weeks: number, lapsedAfterDays: number): ApiAnalyticsSummary {
+  const span = weeks * 7 * DAY_MS
+  const today = todayMs()
+  const windowStart = today - span
+  const previousStart = windowStart - span
+
+  const periods: DuePeriod[] = mockMembers
+    .map((m) => ({
+      dueAt: dayMs(m.endsAt),
+      // Plan price, not owedUsd: the server measures a period by what it
+      // was worth, and owedUsd answers the different question of what the
+      // member owes right now (decision 17).
+      priceUsd: findPlan(m.planId)?.priceUsd ?? 0,
+      renewed: m.status === 'paid',
+    }))
+    .filter((p) => p.dueAt >= previousStart && p.dueAt <= today)
+
+  const current = periods.filter((p) => p.dueAt >= windowStart)
+  const starts = mockWeekStarts(weeks)
+
+  return {
+    weeks,
+    window_start: new Date(windowStart).toISOString().slice(0, 10),
+    previous_start: new Date(previousStart).toISOString().slice(0, 10),
+    collection: mockCollectionStats(current),
+    collection_previous: mockCollectionStats(periods.filter((p) => p.dueAt < windowStart)),
+    lapsed_now: mockLapsedCount(mockMembers, today, lapsedAfterDays),
+    // Only members who had already joined — measuring today's roster
+    // against a date before they existed would invent churn.
+    lapsed_at_window_start: mockLapsedCount(
+      mockMembers.filter((m) => dayMs(m.joinedAt) < windowStart),
+      windowStart,
+      lapsedAfterDays,
+    ),
+    new_members: mockMembers.filter((m) => dayMs(m.joinedAt) >= windowStart).length,
+    new_members_previous: mockMembers.filter(
+      (m) => dayMs(m.joinedAt) >= previousStart && dayMs(m.joinedAt) < windowStart,
+    ).length,
+    active_members: mockMembers.length,
+    series: starts.map((start, i) => {
+      const next = starts[i + 1] ?? Infinity
+      const stats = mockCollectionStats(
+        current.filter((p) => p.dueAt >= start && p.dueAt < next),
+      )
+      return {
+        week_start: new Date(start).toISOString().slice(0, 10),
+        on_time_rate: stats.on_time_rate,
+        collected_usd: stats.collected_usd,
+      }
+    }),
   }
 }

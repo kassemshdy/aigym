@@ -503,3 +503,44 @@ export interface ApiChatReply {
   draft: boolean
   referred: boolean
 }
+
+// ---------------------------------------------------------------------
+// Phase 6 — the owner dashboard. Mirrors app/api/analytics.py. Every
+// figure carries its preceding equal-length window because the GTM
+// guarantee is a before/after claim ("recovers more in missed dues than
+// we charge in the first 90 days") — one number on its own settles
+// nothing.
+// ---------------------------------------------------------------------
+
+export interface ApiCollectionWindow {
+  due_count: number
+  on_time_count: number
+  /** null, not 0, when nothing fell due in the window. "No renewals were
+   * due" and "every renewal was missed" are different facts, and the
+   * screen has to be able to tell them apart. */
+  on_time_rate: number | null
+  collected_usd: number
+  uncollected_usd: number
+}
+
+export interface ApiAnalyticsWeek {
+  /** The Monday the week starts on, oldest first across the series. */
+  week_start: string
+  on_time_rate: number | null
+  collected_usd: number
+}
+
+export interface ApiAnalyticsSummary {
+  weeks: number
+  window_start: string
+  previous_start: string
+  collection: ApiCollectionWindow
+  collection_previous: ApiCollectionWindow
+  lapsed_now: number
+  lapsed_at_window_start: number
+  new_members: number
+  new_members_previous: number
+  active_members: number
+  /** Pre-bucketed by the server so the client does no date arithmetic. */
+  series: ApiAnalyticsWeek[]
+}

@@ -21,6 +21,7 @@ const SCREENS = [
   ],
   ['manager-add', '/manager/members/new', 'phone'],
   ['manager-lapsed', '/manager/lapsed', 'phone'],
+  ['manager-insights', '/manager/insights', 'phone'],
   ['manager-staff', '/manager/staff', 'phone'],
   ['coach-queue', '/coach', 'ipad'],
   ['coach-checkin', '/coach/check-in', 'ipad'],

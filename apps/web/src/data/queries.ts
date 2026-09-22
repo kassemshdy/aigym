@@ -16,6 +16,7 @@ import {
   type AuthAs,
 } from './client'
 import {
+  mockAnalyticsSummary,
   mockApproveAiDraft,
   mockCancelBooking,
   mockCreateBooking,
@@ -75,6 +76,7 @@ import type { Lang } from '@/i18n'
 import type {
   AiDraftKind,
   ApiAiDraft,
+  ApiAnalyticsSummary,
   ApiAttendanceDay,
   ApiBooking,
   ApiChatReply,
@@ -638,6 +640,24 @@ export async function createNutritionLog(
 export async function listNutritionLogs(memberId: string): Promise<ApiNutritionLog[]> {
   if (!API_URL) return mockListNutritionLogs(memberId)
   return apiFetch(`/members/${memberId}/nutrition-logs`)
+}
+
+// ---------------------------------------------------------------------
+// Phase 6 — the owner dashboard. Manager/super_admin only server-side; a
+// coach's token gets a 403 here, which is why the manager Home screen
+// treats this read as optional rather than fatal.
+// ---------------------------------------------------------------------
+
+/** `lapsedAfterDays` reaches mock mode only — the live endpoint holds its
+ * own LAPSED_AFTER_DAYS (14) so the dashboard and GET /members/lapsed can
+ * never disagree, and the caller passes the frontend constant that mirrors
+ * it so both modes show the same figure. */
+export async function getAnalyticsSummary(
+  weeks: number,
+  lapsedAfterDays: number,
+): Promise<ApiAnalyticsSummary> {
+  if (!API_URL) return mockAnalyticsSummary(weeks, lapsedAfterDays)
+  return apiFetch(`/analytics/summary?weeks=${weeks}`)
 }
 
 export async function listStaff(): Promise<ApiStaff[]> {

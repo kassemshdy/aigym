@@ -19,6 +19,7 @@ import { MemberChat, MemberChatPicker } from '@/features/member/Chat'
 import { MemberPhotos } from '@/features/member/Photos'
 import { MemberCalendar } from '@/features/member/Calendar'
 import { MemberBook } from '@/features/member/Book'
+import { ManagerInsights } from '@/features/manager/Insights'
 import { ManagerLapsed } from '@/features/manager/Lapsed'
 import { ManagerStaff } from '@/features/manager/Staff'
 import { StaffLogin } from '@/features/manager/Login'
@@ -72,6 +73,7 @@ export default function App() {
           <Route path="members/new" element={<ManagerAddMember />} />
           <Route path="members/:id" element={<ManagerMemberDetail />} />
           <Route path="lapsed" element={<ManagerLapsed />} />
+          <Route path="insights" element={<ManagerInsights />} />
           <Route path="plans" element={<ManagerPlans />} />
           <Route path="payments" element={<ManagerPayments />} />
           <Route path="staff" element={<ManagerStaff />} />

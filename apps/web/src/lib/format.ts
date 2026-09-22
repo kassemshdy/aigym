@@ -15,6 +15,11 @@ export const listSep = (lang: Lang) => (lang === 'ar' ? '، ' : ', ')
 /** USD only — one currency, no rate, no conversion. See docs/DECISIONS.md. */
 export const usd = (n: number) => `$${n.toLocaleString('en-US')}`
 
+/** A 0–1 rate as a whole percent. Latin digits in both languages, same as
+ * `usd` and every other number in the app — mixing Arabic-Indic digits in
+ * would make the `tnum` alignment the tables rely on meaningless. */
+export const pct = (rate: number) => `${Math.round(rate * 100)}%`
+
 export const shortDate = (iso: string, lang: Lang) =>
   new Date(iso).toLocaleDateString(lang === 'ar' ? 'ar-LB' : 'en-GB', {
     day: 'numeric',
