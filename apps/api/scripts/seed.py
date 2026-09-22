@@ -17,12 +17,13 @@ ship the same way as any other code change, rather than needing a manual
 `railway ssh` run after every merge. See docs/DEPLOY.md.
 """
 
+import argparse
 import asyncio
 import uuid
 from datetime import UTC, date, datetime, timedelta
 from typing import Any, NamedTuple
 
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.models import (
@@ -319,7 +320,177 @@ ATTENDANCE_PATTERN: dict[str, tuple[list[int], int]] = {
 }
 
 
-async def seed(session: AsyncSession) -> None:
+async def _put_if_absent(session: AsyncSession, row: Any) -> None:
+    """Insert a fixed-id row only when it isn't there yet. Never updates —
+    see _seed_live's docstring for why re-asserting seed values against a
+    live gym is the dangerous half."""
+    if await session.get(type(row), row.id) is None:
+        session.add(row)
+
+
+async def _seed_owner_account(session: AsyncSession) -> None:
+    """The gym owner's staff account and its super_admin role. Shared by
+    both paths: a live gym needs it as much as a demo one does."""
+    staff_id = uid("staff", "kassem")
+    staff = await session.get(StaffUser, staff_id)
+    if staff is None:
+        staff = StaffUser(id=staff_id, password_hash=None)
+        session.add(staff)
+
+    # Identity fields are reasserted every run, not just on first creation —
+    # a row from before decision 21 (username + password) landed got its
+    # username auto-backfilled from its phone digits by that migration,
+    # not this friendly value, so this is what actually fixes it up.
+    # password_hash is deliberately excluded: never overwrite a real
+    # credential someone already set. Setting these BEFORE the flush below
+    # matters — flushing a freshly constructed row before its NOT NULL
+    # columns are set fails the INSERT outright.
+    staff.username = "kassem"
+    staff.phone = "+96170622211"
+    staff.name = "Kassem Shehady"
+
+    # Fills the gap left by a staff row that has never had a password set
+    # (fresh row, or one from before scripts/set_staff_password.py ran) — never
+    # touches an already-chosen password, so this is a one-time bootstrap,
+    # not a reset.
+    settings = get_settings()
+    if staff.password_hash is None and settings.seed_manager_password:
+        staff.password_hash = hash_secret(settings.seed_manager_password)
+
+    await session.flush()  # staff_gym_roles.staff_user_id references staff above
+
+    # super_admin, not manager: decision 21 restricts POST /staff (creating
+    # more staff accounts) to super_admin, and the gym owner has to be able
+    # to create Karim's and Abed's accounts.
+    await _put_if_absent(
+        session,
+        StaffGymRole(
+            id=uid("role", "kassem-manager"),
+            gym_id=GYM_ID,
+            staff_user_id=staff.id,
+            role="super_admin",
+        ),
+    )
+
+
+async def _remove_demo_people(session: AsyncSession) -> None:
+    """Clear the invented members a previous demo seed may have left on
+    this database — Rami Haddad and friends are sales-demo fixtures, and on
+    a real gym's database they would sit in the member list, the dues
+    totals, the lapsed list and every analytics figure derived from them.
+
+    members.id cascades, so their subscriptions, payments, attendance,
+    sessions and drafts go with them. Only these fixed seed ids are touched;
+    a real member the front desk registered is never matched.
+    """
+    demo_ids = [uid("member", m.mock_id) for m in MEMBER_ROWS]
+    await session.execute(delete(Member).where(Member.id.in_(demo_ids)))
+    await session.flush()
+
+
+async def _seed_live(session: AsyncSession) -> None:
+    """The production path: bootstrap a gym's configuration without ever
+    destroying or overwriting anything. Two rules, both the opposite of what
+    the demo path below does:
+
+    **Never delete the gym.** gyms.id cascades to every gym-scoped table, so
+    the demo path's delete-and-repave would take every real member, payment
+    and logged set with it — on every single deploy, since this runs as the
+    api service's Pre-Deploy Command.
+
+    **Insert if absent, never update.** Plans, exercises and machines become
+    the gym's own data the moment they open the app: prices get corrected
+    (scripts/set_gym_plans.py), exercises get renamed. Re-asserting seed
+    values each deploy would silently undo that, and for plan prices it
+    would quietly corrupt every dues figure derived from them — which is
+    the number the whole product is sold on.
+    """
+    await _put_if_absent(
+        session,
+        Gym(
+            id=GYM_ID,
+            name={"ar": "نادي تريبل إي — عرمون", "en": "Triple A Gym — Aaramoun"},
+            slug="triple-a",
+        ),
+    )
+    await session.flush()
+
+    for mock_id, name, price, days in PLAN_ROWS:
+        await _put_if_absent(
+            session, Plan(id=uid("plan", mock_id), gym_id=GYM_ID, name=name,
+                          price_usd=price, days=days)
+        )
+    coach_ids: dict[str, uuid.UUID] = {}
+    for mock_id, name, speciality in COACH_ROWS:
+        cid = uid("coach", mock_id)
+        coach_ids[mock_id] = cid
+        await _put_if_absent(
+            session, Coach(id=cid, gym_id=GYM_ID, name=name, speciality=speciality)
+        )
+    for mock_id, name, area in MACHINE_ROWS:
+        await _put_if_absent(
+            session, Machine(id=uid("machine", mock_id), gym_id=GYM_ID, name=name, area=area)
+        )
+    for mock_id, name, muscle_group in EXERCISE_ROWS:
+        await _put_if_absent(
+            session,
+            Exercise(id=uid("exercise", mock_id), gym_id=GYM_ID, name=name,
+                     muscle_group=muscle_group, active=True),
+        )
+    await session.flush()  # classes.coach_id references the coaches just added
+
+    for mock_id, title, coach_mock_id, weekdays, time, duration in CLASS_ROWS:
+        await _put_if_absent(
+            session,
+            GymClass(id=uid("class", mock_id), gym_id=GYM_ID, title=title,
+                     coach_id=coach_ids[coach_mock_id], weekdays=weekdays,
+                     time=time, duration_min=duration),
+        )
+
+    await _seed_owner_account(session)
+    await _remove_demo_people(session)
+    await session.commit()
+
+
+class RealDataPresent(RuntimeError):
+    """The demo path was pointed at a database with real members on it."""
+
+
+async def _refuse_if_real_data(session: AsyncSession) -> None:
+    """The demo path below deletes the gym, and gyms.id cascades to every
+    gym-scoped table. This is the stop that does not depend on AIGYM_ENV
+    being set correctly: if there is a member here that this seed did not
+    invent, the repave would destroy somebody's gym, so it refuses.
+
+    A wrong env var, a mistyped flag, or a hand-run of this script against
+    the production database are all the same accident, and all of them end
+    here rather than in a restore-from-backup.
+    """
+    demo_ids = {uid("member", m.mock_id) for m in MEMBER_ROWS}
+    rows = (
+        await session.execute(select(Member.id, Member.name_en).where(Member.gym_id == GYM_ID))
+    ).all()
+    real = [name for member_id, name in rows if member_id not in demo_ids]
+    if real:
+        shown = ", ".join(real[:5]) + (f", and {len(real) - 5} more" if len(real) > 5 else "")
+        raise RealDataPresent(
+            f"Refusing to repave: {len(real)} member(s) on this database were not created "
+            f"by the demo seed ({shown}). Deleting the gym cascades to every member, "
+            f"payment and logged set. Run with --no-demo to bootstrap configuration "
+            f"without touching real data."
+        )
+
+
+async def seed(session: AsyncSession, *, demo: bool = True) -> None:
+    """`demo=False` bootstraps a real gym and leaves its data alone; the
+    default repaves the database to match mocks/data.ts exactly, which is
+    what a development or screenshot run wants."""
+    if not demo:
+        await _seed_live(session)
+        return
+
+    await _refuse_if_real_data(session)
+
     # Deleting the gym cascades to everything gym-scoped, including this
     # seed's own staff_gym_roles row — but staff_users itself is NOT
     # gym-scoped (decision: a staff account can hold roles at more than one
@@ -487,45 +658,7 @@ async def seed(session: AsyncSession) -> None:
                     )
                 )
 
-    staff_id = uid("staff", "kassem")
-    staff = await session.get(StaffUser, staff_id)
-    if staff is None:
-        staff = StaffUser(id=staff_id, password_hash=None)
-        session.add(staff)
-
-    # Identity fields are reasserted every run, not just on first creation —
-    # a row from before decision 21 (username + password) landed got its
-    # username auto-backfilled from its phone digits by that migration,
-    # not this friendly value, so this is what actually fixes it up.
-    # password_hash is deliberately excluded: never overwrite a real
-    # credential someone already set. Setting these BEFORE the flush below
-    # matters — flushing a freshly constructed row before its NOT NULL
-    # columns are set fails the INSERT outright.
-    staff.username = "kassem"
-    staff.phone = "+96170622211"
-    staff.name = "Kassem Shehady"
-
-    # Fills the gap left by a staff row that has never had a password set
-    # (fresh row, or one from before scripts/set_staff_password.py ran) — never
-    # touches an already-chosen password, so this is a one-time bootstrap,
-    # not a reset.
-    settings = get_settings()
-    if staff.password_hash is None and settings.seed_manager_password:
-        staff.password_hash = hash_secret(settings.seed_manager_password)
-
-    await session.flush()  # staff_gym_roles.staff_user_id references staff above
-
-    # super_admin, not manager: decision 21 restricts POST /staff (creating
-    # more staff accounts) to super_admin, and the gym owner has to be able
-    # to create Karim's and Abed's accounts.
-    session.add(
-        StaffGymRole(
-            id=uid("role", "kassem-manager"),
-            gym_id=GYM_ID,
-            staff_user_id=staff.id,
-            role="super_admin",
-        )
-    )
+    await _seed_owner_account(session)
 
     # Seeded directly, bypassing the LLM entirely — so /coach/ai isn't empty
     # on the live gym before any real chat or coach-generated draft exists.
@@ -543,13 +676,29 @@ async def seed(session: AsyncSession) -> None:
 
 
 async def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
+        "--demo", dest="demo", action="store_true",
+        help="repave the database with the full sales-demo dataset",
+    )
+    group.add_argument(
+        "--no-demo", dest="demo", action="store_false",
+        help="bootstrap configuration only, and leave real data alone",
+    )
+    # Production defaults to the safe path. A real gym's database must never
+    # be repaved by a deploy, and AIGYM_ENV is what tells us it is one.
+    parser.set_defaults(demo=not get_settings().is_production)
+    args = parser.parse_args()
+
     settings = get_settings()
     engine = create_async_engine(settings.database_url_migrations)
     sessionmaker = async_sessionmaker(engine, expire_on_commit=False)
     async with sessionmaker() as session:
-        await seed(session)
+        await seed(session, demo=args.demo)
     await engine.dispose()
-    print(f"Seeded gym {GYM_ID} (Triple A Gym — Aaramoun)")
+    mode = "demo dataset" if args.demo else "configuration only, real data untouched"
+    print(f"Seeded gym {GYM_ID} (Triple A Gym — Aaramoun) — {mode}")
 
 
 if __name__ == "__main__":
