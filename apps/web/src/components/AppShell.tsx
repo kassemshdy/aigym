@@ -1,12 +1,13 @@
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Icon, type IconName } from './ui/Icon'
-import { gym } from '@/mocks/data'
 import type { Lang } from '@/i18n'
 import { cn } from '@/lib/cn'
 import { API_URL, isStaffSignedIn } from '@/data/client'
 import { staffSignOut } from '@/data/queries'
 import { useOffline } from '@/offline/OfflineProvider'
+import { useGym } from '@/gym/GymProvider'
+import { useMediaUrl } from '@/data/useMediaUrl'
 import { useTour } from '@/help/TourProvider'
 import type { TourRole } from '@/help/tourSteps'
 
@@ -46,6 +47,10 @@ export function AppShell() {
   const showStaffSignOut = (role === 'manager' || role === 'coach') && !!API_URL && isStaffSignedIn()
   const isStaffRole = role === 'manager' || role === 'coach'
   const { offline, pendingCount } = useOffline()
+  const { gym } = useGym()
+  // Whichever principal is signed in — GET /media/{key} authenticates both,
+  // and a member on their own screens has no staff token to send.
+  const logoUrl = useMediaUrl(gym?.logo_key ?? null, role === 'member' ? 'member' : 'staff')
   const { start } = useTour()
   // Pending work always wins over the plain offline marker: "3 waiting to
   // sync" is what tells a coach their sets are safe, which matters more
@@ -64,15 +69,21 @@ export function AppShell() {
       <header className="bg-chrome flex-none">
         <div className="flex min-h-16 items-center justify-between gap-3 px-4">
           <div className="flex min-w-0 items-center gap-3">
+            {/* The gym's own logo once it has set one, the bundled one
+                until then — never a gap, and never a broken image while
+                the blob is still being fetched. The yellow-on-black chrome
+                around it stays fixed: branding here is name and logo, not
+                colour (that collides with the payment-state reservation
+                and the #f9e54c contrast guarantee). */}
             <img
-              src="/logo.png"
+              src={logoUrl ?? '/logo.png'}
               alt=""
               width={36}
               height={36}
-              className="size-9 shrink-0 rounded-lg"
+              className="size-9 shrink-0 rounded-lg object-cover"
             />
             <div className="min-w-0">
-              <p className="truncate text-sm font-bold text-white">{gym.name[lang]}</p>
+              <p className="truncate text-sm font-bold text-white">{gym ? gym.name[lang] : t('common.appName')}</p>
               <p className="text-brand text-xs font-semibold">{t(`role.${role}`)}</p>
             </div>
           </div>

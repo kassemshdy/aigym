@@ -6,7 +6,6 @@ import { StatusBadge } from '@/components/ui/Badge'
 import { Avatar } from '@/components/ui/Avatar'
 import { Icon } from '@/components/ui/Icon'
 import { Empty, Page } from '@/components/ui/Page'
-import { gym } from '@/mocks/data'
 import {
   getAnalyticsSummary,
   listLapsedMembers,
@@ -17,6 +16,7 @@ import { useAsync } from '@/data/useAsync'
 import { usd } from '@/lib/format'
 import { waLink } from '@/lib/whatsapp'
 import type { Lang } from '@/i18n'
+import { useGymName } from '@/gym/GymProvider'
 import { useTourAutostart } from '@/help/TourProvider'
 import { INSIGHTS_WEEKS } from './Insights'
 import { LAPSED_AFTER_DAYS } from './Lapsed'
@@ -39,6 +39,7 @@ function Tile({ n, label, tone }: { n: string; label: string; tone?: 'due' | 'so
 export function ManagerHome() {
   const { t, i18n } = useTranslation()
   const lang = i18n.language as Lang
+  const gymName = useGymName(lang)
   useTourAutostart('manager')
 
   const members = useAsync(listMembers, [])
@@ -51,17 +52,17 @@ export function ManagerHome() {
   const insights = useAsync(() => getAnalyticsSummary(INSIGHTS_WEEKS, LAPSED_AFTER_DAYS), [])
 
   if (members.loading || checkIns.loading || lapsed.loading || insights.loading) {
-    return <Page title={t('manager.home.title')} sub={gym.name[lang]}><Empty>{t('common.loading')}</Empty></Page>
+    return <Page title={t('manager.home.title')} sub={gymName}><Empty>{t('common.loading')}</Empty></Page>
   }
   if (!members.data || !checkIns.data || !lapsed.data) {
-    return <Page title={t('manager.home.title')} sub={gym.name[lang]}><Empty>{t('common.error')}</Empty></Page>
+    return <Page title={t('manager.home.title')} sub={gymName}><Empty>{t('common.error')}</Empty></Page>
   }
 
   const owing = members.data.filter((m) => m.dues?.status === 'due')
   const ending = members.data.filter((m) => m.dues?.status === 'soon')
 
   return (
-    <Page title={t('manager.home.title')} sub={gym.name[lang]}>
+    <Page title={t('manager.home.title')} sub={gymName}>
       <div data-tour="manager-stats" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Tile n={String(checkIns.data.length)} label={t('manager.home.cameToday')} />
         <Tile n={String(owing.length)} label={t('manager.home.owes')} tone="due" />
@@ -94,6 +95,12 @@ export function ManagerHome() {
           <Card className="flex min-h-tap items-center gap-3 p-4">
             <Icon name="money" />
             <span className="flex-1 font-semibold">{t('manager.home.plans')}</span>
+          </Card>
+        </Link>
+        <Link to="/manager/settings">
+          <Card className="flex min-h-tap items-center gap-3 p-4">
+            <Icon name="user" />
+            <span className="flex-1 font-semibold">{t('manager.settings.title')}</span>
           </Card>
         </Link>
       </div>
@@ -130,7 +137,7 @@ export function ManagerHome() {
                 <a
                   href={waLink(
                     m.phone,
-                    t('whatsapp.dues', { name, gym: gym.name[lang], amount: m.dues?.owed_usd ?? 0 }),
+                    t('whatsapp.dues', { name, gym: gymName, amount: m.dues?.owed_usd ?? 0 }),
                   )}
                   target="_blank"
                   rel="noreferrer"

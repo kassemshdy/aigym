@@ -13,6 +13,7 @@ import {
   checkIns as seedCheckIns,
   classes as seedClasses,
   coaches as seedCoaches,
+  gym as seedGym,
   currentMemberId,
   dayPlans as seedDayPlans,
   daysSinceVisit,
@@ -49,6 +50,7 @@ import type {
   ApiExercise,
   ApiFoodEntry,
   ApiFoodEstimate,
+  ApiGym,
   ApiGymClass,
   ApiLapsedMember,
   ApiMachine,
@@ -83,6 +85,7 @@ import type {
   StaffPasswordOut,
   StaffRole,
   UpdateExerciseInput,
+  UpdateGymInput,
   UpdatePlanInput,
   UpdateProgramInput,
   UpdateVideoInput,
@@ -211,6 +214,36 @@ export function mockUpdateCheckInStatus(checkInId: string, status: string): ApiC
   const updated: MockCheckIn = { ...mockCheckIns[idx], status: status as MockCheckIn['status'] }
   mockCheckIns = mockCheckIns.map((c, i) => (i === idx ? updated : c))
   return { id: updated.id, member_id: updated.memberId, at: updated.at, status: updated.status }
+}
+
+// ---------------------------------------------------------------------
+// Phase 6 stage 9 — the gym's own name and logo. Session-only like every
+// other mock mutation. mocks/data's `gym` const is the seed for this and
+// is no longer read anywhere else in the app: every screen goes through
+// GymProvider, so the demo and the live gym differ only in where the name
+// came from.
+// ---------------------------------------------------------------------
+
+let mockGym: ApiGym = {
+  id: 'gym-mock',
+  name: seedGym.name,
+  slug: 'triple-a',
+  // Mock mode has no object store; the bundled logo stands in, and
+  // useMediaUrl passes a non-key path straight through to <img src>.
+  logo_key: null,
+}
+
+export function mockGetGym(): ApiGym {
+  return mockGym
+}
+
+export function mockUpdateGym(input: UpdateGymInput): ApiGym {
+  mockGym = {
+    ...mockGym,
+    name: input.name ?? mockGym.name,
+    logo_key: 'logo_key' in input ? input.logo_key ?? null : mockGym.logo_key,
+  }
+  return mockGym
 }
 
 export function mockListPlans(): ApiPlan[] {

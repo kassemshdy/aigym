@@ -29,14 +29,21 @@ src/
 │   ├── db.ts            hand-rolled IndexedDB wrapper, one object store
 │   ├── outbox.ts        enqueue/listPending/replay — one ordered queue, oldest-first
 │   └── OfflineProvider.tsx  tracks connectivity + pending count, replays on reconnect
+├── gym/
+│   └── GymProvider.tsx  the gym's own name and logo, fetched once from GET /gyms/me and
+│                      read by every screen through useGym()/useGymName(). Nothing may
+│                      import the `gym` const from `src/mocks/data` — that const is now
+│                      only the mock adapter's seed, and importing it elsewhere is how
+│                      this product was hard-coded to one tenant
 ├── components/
 │   ├── ui/           the design system — check here before writing a component
-│   └── AppShell.tsx  header (sync badge reads OfflineProvider), language toggle, role
-│                      switcher, bottom tabs
+│   └── AppShell.tsx  header (gym name + logo, sync badge reads OfflineProvider), language
+│                      toggle, role switcher, bottom tabs
 └── features/
     ├── manager/      Home, Members, MemberDetail, AddMember, Plans, Payments, Lapsed,
-    │                 Staff, Login, Insights (the owner dashboard — the numbers the GTM
-    │                 guarantee is settled on, served by GET /analytics/summary)
+    │                 Staff, Login, Settings (the gym's own name and logo), Insights
+    │                 (the owner dashboard — the numbers the GTM guarantee is settled on,
+    │                 served by GET /analytics/summary)
     ├── coach/        Queue, CheckIn, MemberCard, Session, AiDrafts (the approval inbox —
     │                 decision 10), GenerateAiButton (asks for a draft — decision 31)
     ├── programs/     ProgramEditor — plan assign/edit, shared by manager and coach,

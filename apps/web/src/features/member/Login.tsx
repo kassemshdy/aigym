@@ -4,10 +4,8 @@ import { useTranslation } from 'react-i18next'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Field, Input } from '@/components/ui/Field'
-import { gym } from '@/mocks/data'
 import { memberLogin, requestMemberCode } from '@/data/queries'
 import { API_URL, ApiError } from '@/data/client'
-import type { Lang } from '@/i18n'
 
 /**
  * Phone + code, no email: most gym members here do not use email, and a password is one
@@ -16,8 +14,7 @@ import type { Lang } from '@/i18n'
  * being unset, same as staff.
  */
 export function MemberLogin() {
-  const { t, i18n } = useTranslation()
-  const lang = i18n.language as Lang
+  const { t } = useTranslation()
   const navigate = useNavigate()
 
   const [phone, setPhone] = useState('')
@@ -68,7 +65,7 @@ export function MemberLogin() {
             height={96}
             className="mx-auto size-24 rounded-2xl"
           />
-          <h1 className="mt-4 text-2xl font-extrabold text-white">{gym.name[lang]}</h1>
+          <h1 className="mt-4 text-2xl font-extrabold text-white">{t('common.appName')}</h1>
           <p className="mt-1 text-sm text-white/60">{t('login.sub')}</p>
         </div>
 

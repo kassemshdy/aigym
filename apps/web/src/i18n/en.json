@@ -71,7 +71,8 @@
     "synced": "Everything saved",
     "loading": "Loading…",
     "error": "Something went wrong",
-    "remove": "Remove"
+    "remove": "Remove",
+    "appName": "AIGym"
   },
   "status": {
     "paid": "Paid",
@@ -215,6 +216,16 @@
       "removeNote": "They lose access here right away. Their account itself stays, so nothing breaks at another gym they work at.",
       "lastOwner": "A gym needs at least one owner. Make someone else the owner first.",
       "notAllowed": "You can only do this for a coach. Ask the gym owner."
+    },
+    "settings": {
+      "title": "Your gym",
+      "sub": "The name and logo members see",
+      "name": "Gym name",
+      "logo": "Logo",
+      "chooseLogo": "Choose a logo",
+      "removeLogo": "Remove logo",
+      "logoNote": "A square picture works best. It sits on the black bar at the top of every screen.",
+      "saved": "Saved"
     }
   },
   "coach": {
@@ -312,7 +323,7 @@
     },
     "videos": {
       "title": "Coach videos",
-      "by": "Recorded by {{coach}}",
+      "by": "Recorded at {{gym}}",
       "views": "{{count}} views",
       "filterMuscle": "Muscle",
       "filterEquipment": "Equipment"

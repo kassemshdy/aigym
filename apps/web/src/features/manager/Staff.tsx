@@ -16,10 +16,10 @@ import {
 } from '@/data/queries'
 import { useAsync } from '@/data/useAsync'
 import { ApiError } from '@/data/client'
-import { gym } from '@/mocks/data'
 import { waLink } from '@/lib/whatsapp'
 import type { ApiStaff, StaffRole } from '@/data/types'
 import type { Lang } from '@/i18n'
+import { useGymName } from '@/gym/GymProvider'
 import { HelpTip } from '@/help/HelpTip'
 
 interface Credentials {
@@ -49,6 +49,7 @@ function canActOn(viewer: StaffRole, target: ApiStaff): boolean {
 export function ManagerStaff() {
   const { t, i18n } = useTranslation()
   const lang = i18n.language as Lang
+  const gymName = useGymName(lang)
   const staff = useAsync(listStaff, [])
 
   // Mock mode has no login, so no token and no role. The prototype shows
@@ -292,7 +293,7 @@ export function ManagerStaff() {
               credentials.phone,
               t('whatsapp.staffCredentials', {
                 name: credentials.name,
-                gym: gym.name[lang],
+                gym: gymName,
                 username: credentials.username,
                 password: credentials.password,
                 link: `${window.location.origin}/staff/login`,

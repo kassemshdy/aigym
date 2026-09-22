@@ -6,9 +6,9 @@ import { Icon } from '@/components/ui/Icon'
 import { Empty, Page } from '@/components/ui/Page'
 import { listLapsedMembers } from '@/data/queries'
 import { useAsync } from '@/data/useAsync'
-import { gym } from '@/mocks/data'
 import { waLink } from '@/lib/whatsapp'
 import type { Lang } from '@/i18n'
+import { useGymName } from '@/gym/GymProvider'
 
 /** A member who has not shown up in two weeks is the one worth a message —
  * the GTM number this phase exists to make measurable against a live gym,
@@ -18,6 +18,7 @@ export const LAPSED_AFTER_DAYS = 14
 export function ManagerLapsed() {
   const { t, i18n } = useTranslation()
   const lang = i18n.language as Lang
+  const gymName = useGymName(lang)
   const { data, loading, error } = useAsync(() => listLapsedMembers(LAPSED_AFTER_DAYS), [])
 
   if (loading) return <Page title={t('lapsed.title')} sub={t('lapsed.sub')}><Empty>{t('common.loading')}</Empty></Page>
@@ -47,7 +48,7 @@ export function ManagerLapsed() {
                 <a
                   href={waLink(
                     m.phone,
-                    t('whatsapp.missYou', { name, gym: gym.name[lang], days: days ?? 0 }),
+                    t('whatsapp.missYou', { name, gym: gymName, days: days ?? 0 }),
                   )}
                   target="_blank"
                   rel="noreferrer"

@@ -6,15 +6,17 @@ import { StatusBadge } from '@/components/ui/Badge'
 import { Avatar } from '@/components/ui/Avatar'
 import { Row } from '@/components/ui/Field'
 import { Empty, Page } from '@/components/ui/Page'
-import { currentMemberId as mockCurrentMemberId, gym } from '@/mocks/data'
+import { currentMemberId as mockCurrentMemberId } from '@/mocks/data'
 import { getCurrentMemberId, getMember, memberSignOut } from '@/data/queries'
 import { useAsync } from '@/data/useAsync'
 import { listSep, shortDate, usd } from '@/lib/format'
 import type { Lang } from '@/i18n'
+import { useGymName } from '@/gym/GymProvider'
 
 export function MemberProfile() {
   const { t, i18n } = useTranslation()
   const lang = i18n.language as Lang
+  const gymName = useGymName(lang)
   const navigate = useNavigate()
   const memberId = getCurrentMemberId() ?? mockCurrentMemberId
   const member = useAsync(() => getMember(memberId), [memberId])
@@ -39,7 +41,7 @@ export function MemberProfile() {
           <Avatar name={name} size="lg" />
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-lg font-extrabold">{name}</h1>
-            <p className="text-muted text-sm">{gym.name[lang]}</p>
+            <p className="text-muted text-sm">{gymName}</p>
           </div>
           {m.dues ? <StatusBadge status={m.dues.status} big /> : null}
         </div>

@@ -33,6 +33,7 @@ const SCREENS = [
       await page.waitForTimeout(200)
     },
   ],
+  ['manager-settings', '/manager/settings', 'phone'],
   ['manager-staff', '/manager/staff', 'phone'],
   [
     'manager-staff-row',

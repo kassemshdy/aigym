@@ -336,6 +336,28 @@ export interface ApiStaff {
  * super_admin explicitly or silently lock the gym owner out. */
 export type StaffRole = 'super_admin' | 'manager' | 'coach'
 
+// ---------------------------------------------------------------------
+// Phase 6 stage 8/9 — the gym's own identity. Mirrors app/api/gyms.py.
+// Branding only: that response deliberately carries no billing fields,
+// and widening it is a failing test on the server side.
+// ---------------------------------------------------------------------
+
+export interface ApiGym {
+  id: string
+  name: { ar: string; en: string }
+  slug: string
+  /** null until the gym uploads one; the client falls back to the bundled
+   * logo rather than showing a gap. */
+  logo_key: string | null
+}
+
+export interface UpdateGymInput {
+  name?: { ar: string; en: string }
+  /** Explicit null clears the logo. The server reads which fields were
+   * present, so omitting this leaves the logo alone. */
+  logo_key?: string | null
+}
+
 /** Both languages required, matching app/api/plans.py's BilingualName: a
  * plan saved with only English renders as a blank name on the Arabic side
  * of the app rather than failing anywhere visible. */

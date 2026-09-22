@@ -6,12 +6,12 @@ import { Button, buttonClass } from '@/components/ui/Button'
 import { Field, Input, Segmented } from '@/components/ui/Field'
 import { Icon } from '@/components/ui/Icon'
 import { Empty, Page } from '@/components/ui/Page'
-import { gym } from '@/mocks/data'
 import { createMember, listPlans } from '@/data/queries'
 import { useAsync } from '@/data/useAsync'
 import { usd } from '@/lib/format'
 import { waLink } from '@/lib/whatsapp'
 import type { Lang } from '@/i18n'
+import { useGymName } from '@/gym/GymProvider'
 import type { ApiMemberInjury } from '@/data/types'
 import { cn } from '@/lib/cn'
 import { InjuryEditor } from '@/features/member/InjuryEditor'
@@ -21,6 +21,7 @@ const STEPS = ['step1', 'step2', 'step3', 'step4', 'step5'] as const
 export function ManagerAddMember() {
   const { t, i18n } = useTranslation()
   const lang = i18n.language as Lang
+  const gymName = useGymName(lang)
   const navigate = useNavigate()
   const plans = useAsync(listPlans, [])
 
@@ -86,7 +87,7 @@ export function ManagerAddMember() {
           <a
             href={waLink(
               form.phone,
-              t('whatsapp.welcome', { name: form.name, gym: gym.name[lang] }),
+              t('whatsapp.welcome', { name: form.name, gym: gymName }),
             )}
             target="_blank"
             rel="noreferrer"

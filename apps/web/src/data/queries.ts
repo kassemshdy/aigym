@@ -38,6 +38,7 @@ import {
   mockFinishWorkoutSession,
   mockGenerateAiDraft,
   mockGetActiveProgram,
+  mockGetGym,
   mockGetMember,
   mockGetTodayWorkout,
   mockGetVideo,
@@ -70,6 +71,7 @@ import {
   mockSendChatMessage,
   mockUpdateCheckInStatus,
   mockUpdateExercise,
+  mockUpdateGym,
   mockUpdateMyProfile,
   mockUpdatePlan,
   mockUpdateProgram,
@@ -91,6 +93,7 @@ import type {
   ApiExercise,
   ApiFoodEntry,
   ApiFoodEstimate,
+  ApiGym,
   ApiGymClass,
   ApiLapsedMember,
   ApiMachine,
@@ -129,6 +132,7 @@ import type {
   StaffRole,
   TokenPair,
   UpdateExerciseInput,
+  UpdateGymInput,
   UpdateMyProfileInput,
   UpdatePlanInput,
   UpdateProgramInput,
@@ -157,6 +161,35 @@ export async function updateMyProfile(input: UpdateMyProfileInput): Promise<ApiM
     authAs: 'member',
     idempotencyKey: newIdempotencyKey(),
   })
+}
+
+// ---------------------------------------------------------------------
+// Phase 6 stage 9 — the gym's own identity, read once by GymProvider and
+// shared by every screen. Readable by anyone signed in (members see the
+// name and logo in the header too); writable by manager/super_admin.
+// ---------------------------------------------------------------------
+
+export async function getGym(authAs: AuthAs = 'staff'): Promise<ApiGym> {
+  if (!API_URL) return mockGetGym()
+  return apiFetch('/gyms/me', { authAs })
+}
+
+export async function updateGym(input: UpdateGymInput): Promise<ApiGym> {
+  if (!API_URL) return mockUpdateGym(input)
+  return apiFetch('/gyms/me', {
+    method: 'PATCH',
+    body: input,
+    idempotencyKey: newIdempotencyKey(),
+  })
+}
+
+/** Same two-step as a food or progress photo: upload for a key, then
+ * reference it. `dataUrl` stands in for the key in mock mode, where there
+ * is no object store to round-trip through. */
+export async function uploadGymLogo(file: File, dataUrl: string): Promise<string> {
+  if (!API_URL) return dataUrl
+  const result = await uploadMedia(file, 'staff')
+  return result.key
 }
 
 export async function listPlans(): Promise<ApiPlan[]> {
