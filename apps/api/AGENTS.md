@@ -1,7 +1,9 @@
 # apps/api — FastAPI service
 
 FastAPI + SQLAlchemy 2.0 (async, `psycopg`) + Alembic + Postgres 16, managed with `uv`.
-Backs every surface — manager, coach, member — plus the Phase 5 AI layer under `app/ai/`.
+Backs every surface — manager, coach, member — plus the Phase 5 AI layer under `app/ai/`
+and the Phase 6 selling surface (owner analytics, staff permissions, plan CRUD, branding,
+member import, operator billing).
 
 ## Layout
 
@@ -18,11 +20,19 @@ app/
 │                     models/__init__.py or Alembic autogenerate will not see it
 ├── domain/           business logic with no HTTP or SQLAlchemy-session awareness:
 │                     dues.py (derived status), workout.py (today's-workout resolution,
-│                     also derived), whatsapp.py (wa.me links)
+│                     also derived), whatsapp.py (wa.me links), analytics.py (the numbers
+│                     the sales guarantee is settled on — decision 35), csv_import.py
+│                     (a notebook export, normalized — decision 37), guardrails.py,
+│                     ai_context.py, evals.py
 ├── security/         jwt.py (encode/decode), hashing.py (bcrypt for PINs and codes)
-├── api/              route modules — auth.py, onboarding.py, staff.py, members.py,
-│                     payments.py, plans.py, checkins.py, exercises.py, machines.py,
-│                     programs.py, sessions.py, nutrition.py — aggregated in router.py
+├── api/              route modules, aggregated in router.py — auth.py, onboarding.py
+│                     (creating a gym AND its billing: operator-only, gated by
+│                     X-Onboarding-Secret and never by a role, decision 36), gyms.py
+│                     (/gyms/me — branding only, never billing), staff.py, members.py,
+│                     member_import.py, payments.py, plans.py, analytics.py, checkins.py,
+│                     exercises.py, machines.py, programs.py, sessions.py, nutrition.py,
+│                     media.py, chat.py, ai_drafts.py; schemas.py holds request models
+│                     shared by more than one of them
 └── middleware/        idempotency.py — the Idempotency-Key contract
 
 alembic/versions/      migrations, in order: schema → RLS policies → auth tables →
@@ -31,8 +41,13 @@ alembic/versions/      migrations, in order: schema → RLS policies → auth ta
                         before adding one.
 scripts/
 ├── bootstrap_db.sh     creates the local/CI database and the aigym_app role
-└── seed.py             loads Triple A Gym's real content — mirrors
-                         apps/web/src/mocks/data.ts member-for-member
+├── seed.py             loads Triple A Gym's real content — mirrors
+│                        apps/web/src/mocks/data.ts member-for-member. Refuses the
+│                        destructive path when the gym has real members; --no-demo is the
+│                        default in production
+├── set_staff_password.py   operator-run password reset
+├── set_gym_plans.py        the gym's real prices, before anyone has logged in
+└── set_gym_billing.py      what a gym pays us — tracked, never processed (decision 38)
 
 tests/
 ├── conftest.py             clean_db fixture (TRUNCATE via the owner role) + httpx client
@@ -51,13 +66,31 @@ uv run alembic upgrade head
 uv run python scripts/seed.py             # optional — Triple A Gym's real content
 
 uv run uvicorn app.main:app --reload      # http://localhost:8000
-uv run pytest -q                          # everything except the isolation suite's own job
-uv run ruff check .
+uv run ruff check .                       # the local loop is these two
 uv run mypy app scripts
+uv run pytest -q tests/test_thing.py      # one file, when you just wrote it
 ```
+
+`uv run pytest` with no arguments is CI's job, not the local loop's — see the root
+`AGENTS.md`'s "Where tests run". Postgres is not running by default in a fresh sandbox:
+`service postgresql start`.
 
 Local Postgres, not Docker: Docker Hub is unreachable from some sandboxes but
 `apt-get install postgresql-16` always is — see `.agents/skills/setup-dev`.
+
+## Three tables deliberately sit outside RLS, and one of them now carries billing
+
+`gyms`, `staff_users` and `member_login_codes` are decision 16's documented exceptions —
+each is looked up *before* a request knows which gym it belongs to. That makes them the
+only places in this codebase where a missing `WHERE` clause is a cross-tenant bug rather
+than a no-op, so every query against them filters by hand and there is a test for it.
+
+Since Phase 6 `gyms` also holds what **we** charge the gym (`billing_status`,
+`monthly_usd`, `paid_through`, `billing_notes`). There is no RLS to lean on and no role
+that helps — `super_admin` means owner of one gym (decision 36) — so the only wall is
+which fields the staff-facing response models select. `tests/test_billing.py` walks the
+whole OpenAPI schema on every CI run to keep that true. If you add a field to any response
+model that touches a gym, that test is what will tell you.
 
 ## Row-Level Security is the load-bearing wall — read `.agents/skills/tenancy-rules`
 

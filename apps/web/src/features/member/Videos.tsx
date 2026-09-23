@@ -6,11 +6,11 @@ import { BackLink } from '@/components/ui/BackLink'
 import { Chip } from '@/components/ui/Badge'
 import { Icon } from '@/components/ui/Icon'
 import { Empty, Page } from '@/components/ui/Page'
-import { gym } from '@/mocks/data'
 import { getVideo, listVideos } from '@/data/queries'
 import { useAsync } from '@/data/useAsync'
 import type { ApiVideo } from '@/data/types'
 import type { Lang } from '@/i18n'
+import { useGymName } from '@/gym/GymProvider'
 
 const MUSCLES = ['chest', 'back', 'legs', 'shoulders', 'core'] as const
 
@@ -20,19 +20,20 @@ const thumb = (v: ApiVideo) =>
 export function MemberVideos() {
   const { t, i18n } = useTranslation()
   const lang = i18n.language as Lang
+  const gymName = useGymName(lang)
   const [muscle, setMuscle] = useState<'all' | (typeof MUSCLES)[number]>('all')
   const videos = useAsync(() => listVideos('member'), [])
 
   if (videos.loading) {
     return (
-      <Page title={t('member.videos.title')} sub={t('member.videos.by', { coach: gym.coach[lang] })}>
+      <Page title={t('member.videos.title')} sub={t('member.videos.by', { gym: gymName })}>
         <p className="text-muted p-4 text-sm">{t('common.loading')}</p>
       </Page>
     )
   }
   if (videos.error || !videos.data) {
     return (
-      <Page title={t('member.videos.title')} sub={t('member.videos.by', { coach: gym.coach[lang] })}>
+      <Page title={t('member.videos.title')} sub={t('member.videos.by', { gym: gymName })}>
         <Empty>{t('common.error')}</Empty>
       </Page>
     )
@@ -41,7 +42,7 @@ export function MemberVideos() {
   const list = videos.data.filter((v) => muscle === 'all' || v.muscle_group === muscle)
 
   return (
-    <Page title={t('member.videos.title')} sub={t('member.videos.by', { coach: gym.coach[lang] })}>
+    <Page title={t('member.videos.title')} sub={t('member.videos.by', { gym: gymName })}>
       <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
         <Chip active={muscle === 'all'} onClick={() => setMuscle('all')}>
           {t('common.all')}

@@ -1,8 +1,8 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
-from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint
+from sqlalchemy import Date, DateTime, ForeignKey, Numeric, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -19,6 +19,35 @@ class Gym(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 
     name: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     slug: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+
+    # An app/storage.py key, served through GET /media/{key} like any other
+    # upload. NULL means the gym has not set one and the client falls back
+    # to the bundled logo. Deliberately not a URL: the same opaque-key,
+    # checked-one-layer-up model every other image in this product uses,
+    # rather than a second way to reference a picture.
+    logo_key: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    # ---------------------------------------------------------------- billing
+    # What *we* charge this gym, which is not the gym's own data and must
+    # never reach it. There is no RLS on this table to lean on and no role
+    # that helps: app/api/onboarding.py grants super_admin to every gym's
+    # first account, so the owner would pass any role check on their own
+    # billing row. The boundary is therefore the response models — GymOut
+    # (app/api/gyms.py) selects branding only, and tests/test_billing.py
+    # walks the whole OpenAPI schema to prove no staff-facing model ever
+    # grew one of these fields.
+    #
+    # Tracked, not processed (decision 3's carried open question): Stripe
+    # does not serve Lebanese businesses, so money changes hands out of
+    # band and this records what was agreed and what has been paid.
+    billing_status: Mapped[str] = mapped_column(String, nullable=False, server_default="trial")
+    #: NULL until a price is agreed. USD only, like every other amount here.
+    monthly_usd: Mapped[float | None] = mapped_column(
+        Numeric(8, 2, asdecimal=False), nullable=True
+    )
+    #: The last day this gym is paid up to. NULL means never invoiced.
+    paid_through: Mapped[date | None] = mapped_column(Date, nullable=True)
+    billing_notes: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
 class StaffUser(Base, UUIDPrimaryKeyMixin, TimestampMixin):

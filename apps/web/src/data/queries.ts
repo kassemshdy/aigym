@@ -11,11 +11,13 @@ import {
   clearTokens,
   newIdempotencyKey,
   offlineFetch,
+  postFile,
   setTokens,
   uploadMedia,
   type AuthAs,
 } from './client'
 import {
+  mockAnalyticsSummary,
   mockApproveAiDraft,
   mockCancelBooking,
   mockCreateBooking,
@@ -24,17 +26,20 @@ import {
   mockCreateFoodEntry,
   mockCreateMember,
   mockCreateNutritionLog,
+  mockCreatePlan,
   mockCreateProgram,
   mockCreateProgressPhoto,
   mockCreateStaff,
   mockCreateVideo,
   mockCreateWorkoutSession,
   mockDeleteFoodEntry,
+  mockDeletePlan,
   mockDeleteProgressPhoto,
   mockEstimateFoodEntry,
   mockFinishWorkoutSession,
   mockGenerateAiDraft,
   mockGetActiveProgram,
+  mockGetGym,
   mockGetMember,
   mockGetTodayWorkout,
   mockGetVideo,
@@ -58,16 +63,23 @@ import {
   mockListStaff,
   mockListTodaysCheckIns,
   mockListVideos,
+  mockPreviewMemberImport,
+  mockCommitMemberImport,
   mockLogSet,
   mockRecordPayment,
   mockRejectAiDraft,
+  mockResetStaffPassword,
+  mockRevokeStaffAccess,
   mockReplaceProgramExercises,
   mockSendChatMessage,
   mockUpdateCheckInStatus,
   mockUpdateExercise,
+  mockUpdateGym,
   mockUpdateMyProfile,
+  mockUpdatePlan,
   mockUpdateProgram,
   mockUpdateProgressPhoto,
+  mockUpdateStaffRole,
   mockUpdateVideo,
   mockWhatsappReminder,
 } from './mockAdapter'
@@ -75,6 +87,7 @@ import type { Lang } from '@/i18n'
 import type {
   AiDraftKind,
   ApiAiDraft,
+  ApiAnalyticsSummary,
   ApiAttendanceDay,
   ApiBooking,
   ApiChatReply,
@@ -83,7 +96,9 @@ import type {
   ApiExercise,
   ApiFoodEntry,
   ApiFoodEstimate,
+  ApiGym,
   ApiGymClass,
+  ApiImportPreview,
   ApiLapsedMember,
   ApiMachine,
   ApiMember,
@@ -106,7 +121,9 @@ import type {
   CreateFoodEntryInput,
   CreateMemberInput,
   CreateNutritionLogInput,
+  CreatePlanInput,
   CreateProgramInput,
+  CommitImportRow,
   CreateStaffInput,
   CreateVideoInput,
   CreateWorkoutSessionInput,
@@ -115,10 +132,14 @@ import type {
   LogSetInput,
   RecordPaymentInput,
   ReplaceProgramExercisesInput,
+  StaffPasswordOut,
   StaffPasswordResetResult,
+  StaffRole,
   TokenPair,
   UpdateExerciseInput,
+  UpdateGymInput,
   UpdateMyProfileInput,
+  UpdatePlanInput,
   UpdateProgramInput,
   UpdateVideoInput,
 } from './types'
@@ -147,9 +168,98 @@ export async function updateMyProfile(input: UpdateMyProfileInput): Promise<ApiM
   })
 }
 
+// ---------------------------------------------------------------------
+// Phase 6 stage 9 — the gym's own identity, read once by GymProvider and
+// shared by every screen. Readable by anyone signed in (members see the
+// name and logo in the header too); writable by manager/super_admin.
+// ---------------------------------------------------------------------
+
+export async function getGym(authAs: AuthAs = 'staff'): Promise<ApiGym> {
+  if (!API_URL) return mockGetGym()
+  return apiFetch('/gyms/me', { authAs })
+}
+
+export async function updateGym(input: UpdateGymInput): Promise<ApiGym> {
+  if (!API_URL) return mockUpdateGym(input)
+  return apiFetch('/gyms/me', {
+    method: 'PATCH',
+    body: input,
+    idempotencyKey: newIdempotencyKey(),
+  })
+}
+
+/** Same two-step as a food or progress photo: upload for a key, then
+ * reference it. `dataUrl` stands in for the key in mock mode, where there
+ * is no object store to round-trip through. */
+export async function uploadGymLogo(file: File, dataUrl: string): Promise<string> {
+  if (!API_URL) return dataUrl
+  const result = await uploadMedia(file, 'staff')
+  return result.key
+}
+
 export async function listPlans(): Promise<ApiPlan[]> {
   if (!API_URL) return mockListPlans()
   return apiFetch('/plans')
+}
+
+// ---------------------------------------------------------------------
+// Phase 6 stage 7 — the gym's own price list. Reading stays open to any
+// signed-in staff (a coach's member card shows a plan name); writing is
+// manager/super_admin only.
+//
+// A price edit is retroactive: nothing snapshots what a membership period
+// cost when it was sold, so the owner dashboard's collected and
+// uncollected figures move with it. See app/api/plans.py's module
+// docstring.
+// ---------------------------------------------------------------------
+
+export async function createPlan(input: CreatePlanInput): Promise<ApiPlan> {
+  if (!API_URL) return mockCreatePlan(input)
+  return apiFetch('/plans', { method: 'POST', body: input, idempotencyKey: newIdempotencyKey() })
+}
+
+export async function updatePlan(planId: string, input: UpdatePlanInput): Promise<ApiPlan> {
+  if (!API_URL) return mockUpdatePlan(planId, input)
+  return apiFetch(`/plans/${planId}`, {
+    method: 'PATCH',
+    body: input,
+    idempotencyKey: newIdempotencyKey(),
+  })
+}
+
+/** 409 when any membership period references it — the gym retires a plan
+ * by not offering it, not by deleting the history it is made of. */
+export async function deletePlan(planId: string): Promise<void> {
+  if (!API_URL) return mockDeletePlan(planId)
+  await apiFetch(`/plans/${planId}`, { method: 'DELETE', idempotencyKey: newIdempotencyKey() })
+}
+
+// ---------------------------------------------------------------------
+// Phase 6 stage 10/11 — importing a gym's existing members. The file is
+// parsed on the server (app/domain/csv_import.py) so there is exactly one
+// implementation of the rules; the preview and the commit call the same
+// one, and nothing here re-derives a phone number or a date.
+// ---------------------------------------------------------------------
+
+export async function previewMemberImport(
+  file: File,
+  defaultPlanId: string | null,
+): Promise<ApiImportPreview> {
+  if (!API_URL) return mockPreviewMemberImport(defaultPlanId)
+  const query = defaultPlanId ? `?default_plan_id=${defaultPlanId}` : ''
+  return postFile(`/members/import/preview${query}`, file)
+}
+
+/** All or nothing: one bad row and the server keeps none of them. */
+export async function commitMemberImport(
+  rows: CommitImportRow[],
+): Promise<{ imported: number }> {
+  if (!API_URL) return mockCommitMemberImport(rows)
+  return apiFetch('/members/import', {
+    method: 'POST',
+    body: { rows },
+    idempotencyKey: newIdempotencyKey(),
+  })
 }
 
 export async function listTodaysCheckIns(): Promise<ApiCheckIn[]> {
@@ -640,6 +750,24 @@ export async function listNutritionLogs(memberId: string): Promise<ApiNutritionL
   return apiFetch(`/members/${memberId}/nutrition-logs`)
 }
 
+// ---------------------------------------------------------------------
+// Phase 6 — the owner dashboard. Manager/super_admin only server-side; a
+// coach's token gets a 403 here, which is why the manager Home screen
+// treats this read as optional rather than fatal.
+// ---------------------------------------------------------------------
+
+/** `lapsedAfterDays` reaches mock mode only — the live endpoint holds its
+ * own LAPSED_AFTER_DAYS (14) so the dashboard and GET /members/lapsed can
+ * never disagree, and the caller passes the frontend constant that mirrors
+ * it so both modes show the same figure. */
+export async function getAnalyticsSummary(
+  weeks: number,
+  lapsedAfterDays: number,
+): Promise<ApiAnalyticsSummary> {
+  if (!API_URL) return mockAnalyticsSummary(weeks, lapsedAfterDays)
+  return apiFetch(`/analytics/summary?weeks=${weeks}`)
+}
+
 export async function listStaff(): Promise<ApiStaff[]> {
   if (!API_URL) return mockListStaff()
   return apiFetch('/staff')
@@ -648,6 +776,42 @@ export async function listStaff(): Promise<ApiStaff[]> {
 export async function createStaff(input: CreateStaffInput): Promise<ApiStaff> {
   if (!API_URL) return mockCreateStaff(input)
   return apiFetch('/staff', { method: 'POST', body: input, idempotencyKey: newIdempotencyKey() })
+}
+
+// ---------------------------------------------------------------------
+// Phase 6 stage 5 — changing and revoking access. All three write
+// StaffGymRole and never StaffUser: the account is global, the role is
+// per-gym, so removing someone here cannot reach a gym they also work at.
+// Each one also revokes their refresh tokens server-side, which is why
+// the UI warns that the person will be signed out.
+// ---------------------------------------------------------------------
+
+export async function updateStaffRole(staffId: string, role: StaffRole): Promise<ApiStaff> {
+  if (!API_URL) return mockUpdateStaffRole(staffId, role)
+  return apiFetch(`/staff/${staffId}`, {
+    method: 'PATCH',
+    body: { role },
+    idempotencyKey: newIdempotencyKey(),
+  })
+}
+
+export async function revokeStaffAccess(staffId: string): Promise<void> {
+  if (!API_URL) return mockRevokeStaffAccess(staffId)
+  await apiFetch(`/staff/${staffId}`, {
+    method: 'DELETE',
+    idempotencyKey: newIdempotencyKey(),
+  })
+}
+
+/** Returns the new password in the response so a human sends it over a
+ * wa.me link (decision 26) — deliberately not the WhatsApp Business API
+ * that the unauthenticated self-service reset uses. */
+export async function resetStaffPassword(staffId: string): Promise<StaffPasswordOut> {
+  if (!API_URL) return mockResetStaffPassword(staffId)
+  return apiFetch(`/staff/${staffId}/password/reset`, {
+    method: 'POST',
+    idempotencyKey: newIdempotencyKey(),
+  })
 }
 
 // ---------------------------------------------------------------------

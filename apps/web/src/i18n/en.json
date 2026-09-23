@@ -22,7 +22,7 @@
     "manager": {
       "stats": {
         "title": "Your dashboard",
-        "body": "Who came in today, who owes money, whose plan is ending soon, and what you've collected this month."
+        "body": "Who came in today, who owes money, whose plan is ending soon, and what you've collected over the last three months."
       },
       "add": {
         "title": "Register a member",
@@ -71,7 +71,8 @@
     "synced": "Everything saved",
     "loading": "Loading…",
     "error": "Something went wrong",
-    "remove": "Remove"
+    "remove": "Remove",
+    "appName": "AIGym"
   },
   "status": {
     "paid": "Paid",
@@ -126,10 +127,12 @@
       "cameToday": "Came today",
       "owes": "Owe money",
       "endingSoon": "Ending soon",
-      "collected": "Collected this month",
+      "collected": "Collected, {{weeks}} wks",
       "whoOwes": "Who owes money",
       "seeAll": "See all",
-      "addMember": "Register new member"
+      "addMember": "Register new member",
+      "plans": "Plans and prices",
+      "import": "Bring in members"
     },
     "members": {
       "title": "Members",
@@ -177,7 +180,15 @@
       "title": "Plans",
       "price": "Price",
       "duration": "Duration",
-      "days": "{{count}} days"
+      "days": "{{count}} days",
+      "sub": "What you charge, and for how long",
+      "nameEn": "Name in English",
+      "nameAr": "Name in Arabic",
+      "add": "Add a plan",
+      "edit": "Edit",
+      "confirmDelete": "Delete {{name}}?",
+      "inUse": "Members are on this plan, so it stays. Edit it instead, or just stop offering it.",
+      "priceIsRetroactive": "This price is also used for past months when working out what was collected."
     },
     "payments": {
       "title": "Payments",
@@ -188,7 +199,7 @@
     },
     "staff": {
       "title": "Staff",
-      "sub": "Coaches who can sign in",
+      "sub": "Who can sign in, and what they can do",
       "list": "Who has access",
       "addCoach": "Add a coach",
       "name": "Name",
@@ -196,7 +207,60 @@
       "tempPassword": "Temporary password",
       "usernameTaken": "That username is already taken",
       "created": "Account ready",
-      "sendCredentials": "Send login details on WhatsApp"
+      "sendCredentials": "Send login details on WhatsApp",
+      "addSomeone": "Add someone",
+      "role": "What they can do",
+      "roleSignsOut": "Changing this signs them out of the app.",
+      "resetPassword": "New password",
+      "remove": "Remove",
+      "confirmRemove": "Remove {{name}} from this gym?",
+      "removeNote": "They lose access here right away. Their account itself stays, so nothing breaks at another gym they work at.",
+      "lastOwner": "A gym needs at least one owner. Make someone else the owner first.",
+      "notAllowed": "You can only do this for a coach. Ask the gym owner."
+    },
+    "settings": {
+      "title": "Your gym",
+      "sub": "The name and logo members see",
+      "name": "Gym name",
+      "logo": "Logo",
+      "chooseLogo": "Choose a logo",
+      "removeLogo": "Remove logo",
+      "logoNote": "A square picture works best. It sits on the black bar at the top of every screen.",
+      "saved": "Saved"
+    },
+    "import": {
+      "title": "Bring in your members",
+      "sub": "From a spreadsheet, once",
+      "what": "A CSV with a name column and a phone column. A plan and an end date help but are not needed. Arabic is fine.",
+      "defaultPlan": "Plan for anyone with no plan in the file",
+      "defaultPlanNote": "Rows that name a plan use that one instead.",
+      "choose": "Choose a file",
+      "missingColumns": "We could not find these columns, so nothing was read",
+      "summary": "{{ready}} ready to add, {{blocked}} need fixing",
+      "needsFixing": "Need fixing",
+      "readyToAdd": "Ready to add",
+      "line": "Line {{n}}",
+      "skipRow": "Leave this one out",
+      "add": "Add {{count}} members",
+      "add_one": "Add 1 member",
+      "done": "Added {{count}} members",
+      "done_one": "Added 1 member",
+      "truncated": "The file was longer than we can take at once. Import this batch, then the rest.",
+      "emptyFile": "That file had no rows in it",
+      "column": {
+        "name": "Name",
+        "phone": "Phone"
+      },
+      "error": {
+        "name_missing": "No name",
+        "phone_missing": "No number",
+        "phone_invalid": "That is not a Lebanese number",
+        "duplicate_in_file": "This number is in the file twice",
+        "date_invalid": "We could not read that end date",
+        "plan_unknown": "You have no plan by that name",
+        "already_a_member": "Already one of your members"
+      },
+      "plan": "Plan"
     }
   },
   "coach": {
@@ -294,7 +358,7 @@
     },
     "videos": {
       "title": "Coach videos",
-      "by": "Recorded by {{coach}}",
+      "by": "Recorded at {{gym}}",
       "views": "{{count}} views",
       "filterMuscle": "Muscle",
       "filterEquipment": "Equipment"
@@ -494,5 +558,24 @@
     "muscleGroup": "Muscle group",
     "videoUrl": "Video link",
     "saved": "Saved"
+  },
+  "insights": {
+    "title": "The numbers",
+    "sub": "Last {{weeks}} weeks",
+    "collectionTitle": "Renewals paid on time",
+    "collectionNote": "{{onTime}} of {{due}} renewals were paid within a week of coming due",
+    "nothingDue": "No renewal came due in this period",
+    "previously": "Before: {{value}}",
+    "noComparison": "No earlier period yet",
+    "moneyTitle": "Money",
+    "collected": "Collected",
+    "uncollected": "Still not collected",
+    "trendTitle": "Collected each week",
+    "trendNote": "One point per week, oldest first, over {{weeks}} weeks",
+    "membersTitle": "Members",
+    "active": "Members now",
+    "newMembers": "New members",
+    "missing": "Away {{days}}+ days",
+    "seeMissing": "See who is missing"
   }
 }

@@ -21,7 +21,50 @@ const SCREENS = [
   ],
   ['manager-add', '/manager/members/new', 'phone'],
   ['manager-lapsed', '/manager/lapsed', 'phone'],
+  ['manager-insights', '/manager/insights', 'phone'],
+  ['manager-plans', '/manager/plans', 'phone'],
+  [
+    'manager-plans-edit',
+    '/manager/plans',
+    'phone',
+    // The price form only exists once a plan is open for editing.
+    async (page) => {
+      await page.getByRole('button', { name: /^(Edit|عدّل)$/ }).first().click()
+      await page.waitForTimeout(200)
+    },
+  ],
+  ['manager-settings', '/manager/settings', 'phone'],
+  ['manager-import', '/manager/import', 'phone'],
+  [
+    'manager-import-preview',
+    '/manager/import',
+    'phone',
+    // The preview only exists once a file has been handed over. Playwright
+    // can set files on the hidden input directly, so this does not depend
+    // on a native file dialog. Mock mode ignores the contents by design —
+    // the parser lives on the server (app/domain/csv_import.py).
+    async (page) => {
+      await page.locator('input[type=file]').setInputFiles({
+        name: 'members.csv',
+        mimeType: 'text/csv',
+        buffer: Buffer.from('name,phone\nRami,70123456\n'),
+      })
+      await page.waitForTimeout(300)
+    },
+  ],
   ['manager-staff', '/manager/staff', 'phone'],
+  [
+    'manager-staff-row',
+    '/manager/staff',
+    'phone',
+    // The per-person actions only exist once a row is open, so the default
+    // shot never covers them. The seeded name is the same in both
+    // languages, which keeps this prepare fn language-agnostic.
+    async (page) => {
+      await page.getByText('Kassem Shehady').click()
+      await page.waitForTimeout(200)
+    },
+  ],
   ['coach-queue', '/coach', 'ipad'],
   ['coach-checkin', '/coach/check-in', 'ipad'],
   ['coach-card', '/coach/member/m1', 'ipad'],

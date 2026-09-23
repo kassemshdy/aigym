@@ -4,15 +4,17 @@ import { Card, CardTitle } from '@/components/ui/Card'
 import { buttonClass } from '@/components/ui/Button'
 import { Icon } from '@/components/ui/Icon'
 import { Empty, Page } from '@/components/ui/Page'
-import { currentMemberId as mockCurrentMemberId, gym } from '@/mocks/data'
+import { currentMemberId as mockCurrentMemberId } from '@/mocks/data'
 import { getCurrentMemberId, getMember, getTodayWorkout } from '@/data/queries'
 import { useAsync } from '@/data/useAsync'
 import { shortDate, text } from '@/lib/format'
 import type { Lang } from '@/i18n'
+import { useGymName } from '@/gym/GymProvider'
 
 export function MemberToday() {
   const { t, i18n } = useTranslation()
   const lang = i18n.language as Lang
+  const gymName = useGymName(lang)
   const memberId = getCurrentMemberId() ?? mockCurrentMemberId
   const member = useAsync(() => getMember(memberId), [memberId])
   const today = useAsync(() => getTodayWorkout(memberId), [memberId])
@@ -73,7 +75,7 @@ export function MemberToday() {
 
       <Link to="/member/videos" className={buttonClass('secondary', 'lg', true)}>
         <Icon name="play" />
-        {t('member.videos.by', { coach: gym.coach[lang] })}
+        {t('member.videos.by', { gym: gymName })}
       </Link>
     </Page>
   )

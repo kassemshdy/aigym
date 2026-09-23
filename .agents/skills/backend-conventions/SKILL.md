@@ -75,8 +75,16 @@ body-metric column.
 ## Before committing
 
 ```bash
-uv run ruff check . && uv run mypy app scripts && uv run pytest -q
-uv run pytest tests/test_tenancy_isolation.py -v   # if you touched a gym-scoped table
+uv run ruff check . && uv run mypy app scripts
 ```
 
-`apps/api/AGENTS.md` has the full command list including local Postgres setup.
+That is the local loop. **The full suite runs in CI on every push to `develop`**, so
+pushing is what verifies a change end to end — see the root `AGENTS.md`'s "Where tests
+run" for why it is split this way. Run one test file directly when you have just written
+it (a test nobody has executed turns one CI round trip into two), and run
+`tests/test_tenancy_isolation.py` by hand when you have changed an RLS policy itself
+rather than merely used one — that is the property decision 7 calls the highest-stakes in
+the product, and it is worth not learning about it from a red build.
+
+`apps/api/AGENTS.md` has the full command list including local Postgres setup
+(`service postgresql start` — it is not running by default).

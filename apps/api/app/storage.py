@@ -53,6 +53,14 @@ def save(data: bytes, content_type: str) -> str:
     return key
 
 
+def exists(key: str) -> bool:
+    """Whether anything was ever uploaded under this key. Separate from
+    read() so a caller validating a key (PATCH /gyms/me) does not pull the
+    whole file off disk to find out. Raises InvalidKey on a malformed key,
+    same as every other function here."""
+    return _path_for(key).is_file()
+
+
 def read(key: str) -> bytes | None:
     path = _path_for(key)
     if not path.is_file():

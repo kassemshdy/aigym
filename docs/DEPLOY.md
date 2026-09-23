@@ -249,11 +249,27 @@ railway ssh -s api -- uv run python scripts/set_staff_password.py
 
 # 4. Set the gym's real prices. The starter $30/$80/$280 are placeholders.
 railway ssh -s api -- uv run python scripts/set_gym_plans.py
+
+# 5. Record what they agreed to pay us. Tracked, not charged.
+railway ssh -s api -- uv run python scripts/set_gym_billing.py
 ```
 
 Step 4 is not cosmetic. Every dues figure — what a member owes, what the gym is owed, the
 collection rate on the owner dashboard — is computed from these values, so wrong prices do
 not look wrong, they just make every downstream number wrong.
+
+Since Phase 6 the gym can also do step 4 itself, in the app: **Today → Plans and prices**,
+where a manager or the owner can add, edit and delete plans. The script stays because it
+works before anyone has logged in, which is exactly when the first prices get set. Sitting
+with the owner and doing it on their phone is the better version of the same step.
+
+**A price edit is retroactive.** Nothing records what a membership period cost when it was
+sold — `subscriptions` carries a `plan_id`, and both the dues calculation and the owner
+dashboard resolve the price through it at read time. So raising a plan from $30 to $40 also
+changes what last quarter's "collected" and "still not collected" say. That is fine for
+setup, when there is no history to distort, and it is worth knowing before a mid-pilot price
+rise. The fix is to snapshot the price onto the subscription at creation; see
+`app/api/plans.py`'s module docstring.
 
 ### Seeding real content, and setting the manager's password
 
@@ -382,3 +398,45 @@ healthcheck probe got `GET /health` → `200 OK` from inside Railway's network o
 deploys — confirmed via the Railway MCP tools rather than a direct request from here. A
 request from outside Railway's network (a phone, a browser with real internet) is still the
 one check this environment cannot do itself, same as `web`'s own deploys.
+
+
+## Operator routes: provisioning a gym, and what it pays us
+
+Everything in this section is gated by `X-Onboarding-Secret`, **never by a
+role**. `super_admin` means owner of *one* gym — `app/api/onboarding.py`
+grants it to every gym's first account — so a role check on billing is one
+the customer passes on their own row.
+
+```bash
+SECRET=$(railway variables -s api --kv | grep AIGYM_ONBOARDING_SECRET | cut -d= -f2)
+API=https://<the api service's domain>
+
+# Create a gym and its first (super_admin) account.
+curl -sX POST "$API/gyms" -H "X-Onboarding-Secret: $SECRET" \
+  -H 'Content-Type: application/json' \
+  -d '{"name_ar":"نادي","name_en":"Gym","slug":"their-gym",
+       "manager_name":"Owner","manager_username":"owner","manager_password":"…",
+       "manager_phone":"+9613000000"}'
+# 409 if the slug or the username is taken — usernames are unique across
+# every gym, since staff_users has no RLS (decision 16).
+
+# Every gym and what it owes.
+curl -s "$API/gyms" -H "X-Onboarding-Secret: $SECRET"
+
+# Record an agreement. An explicit null clears a field.
+curl -sX PATCH "$API/gyms/<gym_id>/billing" -H "X-Onboarding-Secret: $SECRET" \
+  -H 'Content-Type: application/json' \
+  -d '{"billing_status":"active","monthly_usd":40,"paid_through":"2026-12-31"}'
+```
+
+`scripts/set_gym_billing.py` does the same thing from a prompt, which is
+the better tool over `railway ssh`. At three to five pilot gyms that is the
+whole admin surface; there is deliberately no cross-gym UI.
+
+**Billing is tracked, not processed.** Stripe does not serve Lebanese
+businesses (decision 3's carried open question), so money changes hands out
+of band and these columns record what was agreed. Nothing in the gym's own
+app can read them: `gyms` has no RLS to lean on, so the wall is which
+fields the staff-facing response models select, and
+`tests/test_billing.py` walks the whole OpenAPI schema on every CI run to
+prove none of them ever grew one.

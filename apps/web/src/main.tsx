@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import { StoreProvider } from './state/store'
 import { OfflineProvider } from './offline/OfflineProvider'
+import { GymProvider } from './gym/GymProvider'
 import { TourProvider } from './help/TourProvider'
 import './i18n'
 import './index.css'
@@ -13,9 +14,11 @@ createRoot(document.getElementById('root')!).render(
     <BrowserRouter>
       <StoreProvider>
         <OfflineProvider>
-          <TourProvider>
-            <App />
-          </TourProvider>
+          <GymProvider>
+            <TourProvider>
+              <App />
+            </TourProvider>
+          </GymProvider>
         </OfflineProvider>
       </StoreProvider>
     </BrowserRouter>

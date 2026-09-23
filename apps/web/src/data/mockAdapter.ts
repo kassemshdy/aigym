@@ -13,10 +13,10 @@ import {
   checkIns as seedCheckIns,
   classes as seedClasses,
   coaches as seedCoaches,
+  gym as seedGym,
   currentMemberId,
   dayPlans as seedDayPlans,
   daysSinceVisit,
-  findPlan,
   foodGuesses,
   machines as seedMachines,
   members as seedMembers,
@@ -30,6 +30,7 @@ import type {
   Member as MockMember,
   Payment as MockPayment,
 } from '@/mocks/types'
+import { ApiError } from './client'
 import { waLink } from '@/lib/whatsapp'
 import { replyTo } from '@/mocks/agents'
 import type { AgentId } from '@/mocks/types'
@@ -39,15 +40,20 @@ import type { Lang } from '@/i18n'
 import type {
   AiDraftKind,
   ApiAiDraft,
+  ApiAnalyticsSummary,
   ApiAttendanceDay,
   ApiBooking,
+  ApiCollectionWindow,
   ApiChatReply,
   ApiCheckIn,
   ApiCoach,
   ApiExercise,
   ApiFoodEntry,
   ApiFoodEstimate,
+  ApiGym,
   ApiGymClass,
+  ApiImportPreview,
+  ApiImportRow,
   ApiLapsedMember,
   ApiMachine,
   ApiMember,
@@ -68,7 +74,9 @@ import type {
   CreateFoodEntryInput,
   CreateMemberInput,
   CreateNutritionLogInput,
+  CreatePlanInput,
   CreateProgramInput,
+  CommitImportRow,
   CreateStaffInput,
   CreateVideoInput,
   CreateWorkoutSessionInput,
@@ -77,11 +85,25 @@ import type {
   LogSetInput,
   ReplaceProgramExercisesInput,
   RecordPaymentInput,
+  StaffPasswordOut,
+  StaffRole,
   UpdateExerciseInput,
+  UpdateGymInput,
+  UpdatePlanInput,
   UpdateProgramInput,
   UpdateVideoInput,
   UpdateMyProfileInput,
 } from './types'
+
+// Session-only and mutable, like mockMembers: a plan created or repriced
+// in the demo has to be visible to every other mock read (a member's dues,
+// the renewal length, the owner dashboard), not only to the plans screen.
+// Everything below goes through findMockPlan rather than mocks/data's
+// frozen `plans` export for that reason.
+let mockPlans: ApiPlan[] = plans.map((p) => ({
+  id: p.id, name: p.name, price_usd: p.priceUsd, days: p.days,
+}))
+const findMockPlan = (id: string) => mockPlans.find((p) => p.id === id)
 
 let mockMembers: MockMember[] = seedMembers.map((m) => ({ ...m }))
 // Session-only, mirrors ai_plan_drafts.approve writing MemberProfile.daily_kcal_target
@@ -94,7 +116,7 @@ const newId = () => Math.random().toString(36).slice(2, 10)
 const todayIso = () => new Date().toISOString().slice(0, 10)
 
 function toApiMember(m: MockMember): ApiMember {
-  const plan = findPlan(m.planId)
+  const plan = findMockPlan(m.planId)
   return {
     id: m.id,
     name: m.name,
@@ -197,8 +219,136 @@ export function mockUpdateCheckInStatus(checkInId: string, status: string): ApiC
   return { id: updated.id, member_id: updated.memberId, at: updated.at, status: updated.status }
 }
 
+// ---------------------------------------------------------------------
+// Phase 6 stage 9 — the gym's own name and logo. Session-only like every
+// other mock mutation. mocks/data's `gym` const is the seed for this and
+// is no longer read anywhere else in the app: every screen goes through
+// GymProvider, so the demo and the live gym differ only in where the name
+// came from.
+// ---------------------------------------------------------------------
+
+let mockGym: ApiGym = {
+  id: 'gym-mock',
+  name: seedGym.name,
+  slug: 'triple-a',
+  // Mock mode has no object store; the bundled logo stands in, and
+  // useMediaUrl passes a non-key path straight through to <img src>.
+  logo_key: null,
+}
+
+export function mockGetGym(): ApiGym {
+  return mockGym
+}
+
+export function mockUpdateGym(input: UpdateGymInput): ApiGym {
+  mockGym = {
+    ...mockGym,
+    name: input.name ?? mockGym.name,
+    logo_key: 'logo_key' in input ? input.logo_key ?? null : mockGym.logo_key,
+  }
+  return mockGym
+}
+
+// ---------------------------------------------------------------------
+// Phase 6 stage 11 — the member import.
+//
+// This returns a fixed illustrative preview and ignores the file, on
+// purpose. The CSV parser lives on the server precisely so there is only
+// one of it (app/domain/csv_import.py) — re-implementing phone
+// normalization, cp1256 decoding and day-first dates here to make the
+// demo feel real would recreate the exact drift that decision exists to
+// prevent. The screen still exercises every state it has: ready rows,
+// blocked rows carrying real error keys, the commit, and the summary.
+// ---------------------------------------------------------------------
+
+export function mockPreviewMemberImport(defaultPlanId: string | null): ApiImportPreview {
+  const planId = defaultPlanId ?? mockPlans[0]?.id ?? null
+  const rows: ApiImportRow[] = [
+    { line: 2, name: 'رامي حداد', name_en: 'Rami Haddad', phone: '+96170123456',
+      plan: 'Monthly', plan_id: planId, ends_at: '2026-12-01', errors: [] },
+    { line: 3, name: 'نور عبدالله', name_en: 'Nour Abdallah', phone: '+9613123456',
+      plan: 'Monthly', plan_id: planId, ends_at: null, errors: [] },
+    { line: 4, name: 'جاد خوري', name_en: 'Jad Khoury', phone: '+96176111222',
+      plan: '3 Months', plan_id: planId, ends_at: '2026-11-15', errors: [] },
+    { line: 5, name: '', name_en: '', phone: '+96171999888',
+      plan: 'Monthly', plan_id: planId, ends_at: null, errors: ['name_missing'] },
+    { line: 6, name: 'مايا شمعون', name_en: 'Maya Chamoun', phone: '',
+      plan: 'Platinum', plan_id: null, ends_at: null,
+      errors: ['phone_invalid', 'plan_unknown'] },
+  ]
+  return {
+    rows,
+    missing_columns: [],
+    truncated: false,
+    ready: rows.filter((r) => r.errors.length === 0).length,
+    blocked: rows.filter((r) => r.errors.length > 0).length,
+  }
+}
+
+export function mockCommitMemberImport(rows: CommitImportRow[]): { imported: number } {
+  const today = todayIso()
+  for (const row of rows) {
+    const plan = findMockPlan(row.plan_id)
+    mockMembers = [
+      ...mockMembers,
+      {
+        id: newId(), name: row.name, nameEn: row.name_en, phone: row.phone,
+        planId: row.plan_id, joinedAt: today,
+        endsAt: row.ends_at ?? new Date(
+          Date.now() + (plan?.days ?? 30) * 86_400_000,
+        ).toISOString().slice(0, 10),
+        status: 'paid', owedUsd: 0, lastVisit: null,
+        // No profile data: a notebook has none, and the live import
+        // deliberately leaves it absent rather than inventing it.
+        goal: 'health', level: 'new', heightCm: 0, weightKg: 0, bodyFat: null,
+        injuries: [], daysPerWeek: 0, job: 'desk', sleepHours: 0, weightTrend: [],
+      },
+    ]
+  }
+  return { imported: rows.length }
+}
+
 export function mockListPlans(): ApiPlan[] {
-  return plans.map((p) => ({ id: p.id, name: p.name, price_usd: p.priceUsd, days: p.days }))
+  return [...mockPlans].sort((a, b) => a.price_usd - b.price_usd)
+}
+
+// ---------------------------------------------------------------------
+// Phase 6 stage 7 — the gym's own price list. The delete guard mirrors
+// app/api/plans.py rather than just splicing the array: subscriptions
+// reference plans with ON DELETE RESTRICT, and a demo that lets an owner
+// delete a plan members are on teaches them an action the live gym
+// refuses.
+// ---------------------------------------------------------------------
+
+export function mockCreatePlan(input: CreatePlanInput): ApiPlan {
+  const plan: ApiPlan = {
+    id: newId(),
+    name: input.name,
+    price_usd: input.price_usd,
+    days: input.days,
+  }
+  mockPlans = [...mockPlans, plan]
+  return plan
+}
+
+export function mockUpdatePlan(planId: string, input: UpdatePlanInput): ApiPlan {
+  const existing = findMockPlan(planId)
+  if (!existing) throw new ApiError(404, 'No plan with that id at this gym')
+  const updated: ApiPlan = {
+    ...existing,
+    name: input.name ?? existing.name,
+    price_usd: input.price_usd ?? existing.price_usd,
+    days: input.days ?? existing.days,
+  }
+  mockPlans = mockPlans.map((p) => (p.id === planId ? updated : p))
+  return updated
+}
+
+export function mockDeletePlan(planId: string): void {
+  if (!findMockPlan(planId)) throw new ApiError(404, 'No plan with that id at this gym')
+  const inUse = mockMembers.filter((m) => m.planId === planId).length
+  if (inUse) throw new ApiError(409, `${inUse} membership periods use this plan`)
+  mockPlans = mockPlans.filter((p) => p.id !== planId)
 }
 
 export function mockLapsedMembers(minDays: number): ApiLapsedMember[] {
@@ -217,7 +367,7 @@ export function mockLapsedMembers(minDays: number): ApiLapsedMember[] {
 }
 
 export function mockCreateMember(input: CreateMemberInput): ApiMemberDetail {
-  const plan = plans.find((p) => p.id === input.plan_id)
+  const plan = findMockPlan(input.plan_id)
   const today = todayIso()
   const endsAt = plan
     ? new Date(Date.now() + plan.days * 86_400_000).toISOString().slice(0, 10)
@@ -257,7 +407,7 @@ export function mockRecordPayment(memberId: string, input: RecordPaymentInput): 
   if (idx === -1) throw new Error('Member not found')
   const member = mockMembers[idx]
   const planId = input.plan_id ?? member.planId
-  const plan = plans.find((p) => p.id === planId)
+  const plan = findMockPlan(planId)
   const base = Math.max(new Date(member.endsAt).getTime(), Date.now())
   const newEndsAt = plan
     ? new Date(base + plan.days * 86_400_000).toISOString().slice(0, 10)
@@ -650,7 +800,10 @@ export function mockListNutritionLogs(memberId: string): ApiNutritionLog[] {
 // ---------------------------------------------------------------------
 
 let mockStaff: ApiStaff[] = [
-  { id: 'staff-kassem', username: 'kassem', name: 'Kassem Shehady', role: 'manager' },
+  // super_admin, not manager: onboarding.py grants the gym's first account
+  // that role, and a roster without one cannot demonstrate the floor that
+  // stops a gym being left with nobody who can grant access.
+  { id: 'staff-kassem', username: 'kassem', name: 'Kassem Shehady', role: 'super_admin' },
   ...seedCoaches.map((c) => ({
     id: `staff-${c.id}`,
     username: c.id.replace('c-', ''),
@@ -665,11 +818,56 @@ export function mockListStaff(): ApiStaff[] {
 
 export function mockCreateStaff(input: CreateStaffInput): ApiStaff {
   if (mockStaff.some((s) => s.username === input.username)) {
-    throw new Error('Username already taken')
+    throw new ApiError(409, 'Username already taken')
   }
   const staff: ApiStaff = { id: newId(), username: input.username, name: input.name, role: input.role }
   mockStaff = [...mockStaff, staff]
   return staff
+}
+
+// ---------------------------------------------------------------------
+// Phase 6 stage 5/6 — changing and revoking access. These mirror
+// app/api/staff.py's guards rather than just mutating the array: a demo
+// that lets the owner do something the server refuses teaches the wrong
+// thing, and the screen branches on the 409 either way.
+// ---------------------------------------------------------------------
+
+function mockStaffOr404(staffId: string): ApiStaff {
+  const found = mockStaff.find((s) => s.id === staffId)
+  if (!found) throw new ApiError(404, 'No staff member with that id at this gym')
+  return found
+}
+
+function mockRefuseLastSuperAdmin(staff: ApiStaff, becoming: StaffRole | null): void {
+  if (staff.role !== 'super_admin' || becoming === 'super_admin') return
+  const others = mockStaff.filter((s) => s.id !== staff.id && s.role === 'super_admin')
+  if (others.length === 0) {
+    throw new ApiError(409, 'This gym would be left with no super_admin')
+  }
+}
+
+export function mockUpdateStaffRole(staffId: string, role: StaffRole): ApiStaff {
+  const staff = mockStaffOr404(staffId)
+  mockRefuseLastSuperAdmin(staff, role)
+  const updated = { ...staff, role }
+  mockStaff = mockStaff.map((s) => (s.id === staffId ? updated : s))
+  return updated
+}
+
+export function mockRevokeStaffAccess(staffId: string): void {
+  const staff = mockStaffOr404(staffId)
+  mockRefuseLastSuperAdmin(staff, null)
+  mockStaff = mockStaff.filter((s) => s.id !== staffId)
+}
+
+export function mockResetStaffPassword(staffId: string): StaffPasswordOut {
+  const staff = mockStaffOr404(staffId)
+  // Not crypto — mock mode never authenticates anyone. The real password
+  // comes from app/security/hashing.py's generate_password.
+  const password = Math.random().toString(16).slice(2, 10)
+  // The roster has no phone numbers; the live endpoint reads the real one
+  // off staff_users. A placeholder keeps the wa.me link shape intact.
+  return { username: staff.username, password, phone: '+96170000000' }
 }
 
 // ---------------------------------------------------------------------
@@ -981,5 +1179,125 @@ export function mockSendChatMessage(agent: AgentId, message: string, lang: Lang)
       : null,
     draft: Boolean(reply.draft),
     referred: false,
+  }
+}
+
+// ---------------------------------------------------------------------
+// Phase 6 — the owner dashboard (app/api/analytics.py).
+//
+// Mock mode has no subscription history: a member carries one `endsAt` and
+// a status, not the renewal chain the real endpoint walks. So this
+// approximates rather than mirrors — a period that has already ended counts
+// as fallen due, and a member the seed still marks `paid` counts as having
+// renewed it. The bucketing and the null-vs-zero rate do match the server
+// exactly, since those are what the screen branches on.
+//
+// Derived from the seed rather than frozen as a literal, so registering a
+// member in the demo moves the numbers the way the live screen would.
+// ---------------------------------------------------------------------
+
+const DAY_MS = 86_400_000
+
+/** Midnight UTC for a bare `YYYY-MM-DD`, so comparisons never drift by a
+ * timezone offset the way `new Date(iso)` arithmetic can. */
+const dayMs = (iso: string) => Date.parse(`${iso}T00:00:00Z`)
+
+const todayMs = () => {
+  const now = new Date()
+  return Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())
+}
+
+/** The Monday of each of the last `weeks` weeks, oldest first — the same
+ * series week_starts() produces in app/domain/analytics.py. JS counts
+ * Sunday as 0, hence the shift. */
+function mockWeekStarts(weeks: number): number[] {
+  const today = todayMs()
+  const monday = today - ((new Date(today).getUTCDay() + 6) % 7) * DAY_MS
+  return Array.from({ length: weeks }, (_, i) => monday - (weeks - 1 - i) * 7 * DAY_MS)
+}
+
+type DuePeriod = { dueAt: number; priceUsd: number; renewed: boolean }
+
+function mockCollectionStats(periods: DuePeriod[]): ApiCollectionWindow {
+  const onTime = periods.filter((p) => p.renewed)
+  return {
+    due_count: periods.length,
+    on_time_count: onTime.length,
+    on_time_rate: periods.length
+      ? Math.round((onTime.length / periods.length) * 10_000) / 10_000
+      : null,
+    collected_usd: onTime.reduce((sum, p) => sum + p.priceUsd, 0),
+    uncollected_usd: periods
+      .filter((p) => !p.renewed)
+      .reduce((sum, p) => sum + p.priceUsd, 0),
+  }
+}
+
+/** Each member's most recent attendance on or before `cutoff`, or null. */
+function mockLastVisitBefore(memberId: string, cutoff: number): number | null {
+  const days = seedAttendance
+    .filter((a) => a.memberId === memberId)
+    .map((a) => dayMs(a.date))
+    .filter((d) => d <= cutoff)
+  return days.length ? Math.max(...days) : null
+}
+
+function mockLapsedCount(members: MockMember[], asOf: number, minDays: number): number {
+  return members.filter((m) => {
+    const last = mockLastVisitBefore(m.id, asOf)
+    return last === null || (asOf - last) / DAY_MS >= minDays
+  }).length
+}
+
+export function mockAnalyticsSummary(weeks: number, lapsedAfterDays: number): ApiAnalyticsSummary {
+  const span = weeks * 7 * DAY_MS
+  const today = todayMs()
+  const windowStart = today - span
+  const previousStart = windowStart - span
+
+  const periods: DuePeriod[] = mockMembers
+    .map((m) => ({
+      dueAt: dayMs(m.endsAt),
+      // Plan price, not owedUsd: the server measures a period by what it
+      // was worth, and owedUsd answers the different question of what the
+      // member owes right now (decision 17).
+      priceUsd: findMockPlan(m.planId)?.price_usd ?? 0,
+      renewed: m.status === 'paid',
+    }))
+    .filter((p) => p.dueAt >= previousStart && p.dueAt <= today)
+
+  const current = periods.filter((p) => p.dueAt >= windowStart)
+  const starts = mockWeekStarts(weeks)
+
+  return {
+    weeks,
+    window_start: new Date(windowStart).toISOString().slice(0, 10),
+    previous_start: new Date(previousStart).toISOString().slice(0, 10),
+    collection: mockCollectionStats(current),
+    collection_previous: mockCollectionStats(periods.filter((p) => p.dueAt < windowStart)),
+    lapsed_now: mockLapsedCount(mockMembers, today, lapsedAfterDays),
+    // Only members who had already joined — measuring today's roster
+    // against a date before they existed would invent churn.
+    lapsed_at_window_start: mockLapsedCount(
+      mockMembers.filter((m) => dayMs(m.joinedAt) < windowStart),
+      windowStart,
+      lapsedAfterDays,
+    ),
+    new_members: mockMembers.filter((m) => dayMs(m.joinedAt) >= windowStart).length,
+    new_members_previous: mockMembers.filter(
+      (m) => dayMs(m.joinedAt) >= previousStart && dayMs(m.joinedAt) < windowStart,
+    ).length,
+    active_members: mockMembers.length,
+    series: starts.map((start, i) => {
+      const next = starts[i + 1] ?? Infinity
+      const stats = mockCollectionStats(
+        current.filter((p) => p.dueAt >= start && p.dueAt < next),
+      )
+      return {
+        week_start: new Date(start).toISOString().slice(0, 10),
+        on_time_rate: stats.on_time_rate,
+        collected_usd: stats.collected_usd,
+      }
+    }),
   }
 }

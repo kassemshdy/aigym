@@ -4,10 +4,8 @@ import { useTranslation } from 'react-i18next'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Field, Input } from '@/components/ui/Field'
-import { gym } from '@/mocks/data'
 import { getStaffRole, requestStaffPasswordReset, staffLogin } from '@/data/queries'
 import { ApiError } from '@/data/client'
-import type { Lang } from '@/i18n'
 
 type ResetState = 'idle' | 'sending' | 'sent' | 'notSent' | 'notFound' | 'rateLimited'
 
@@ -17,8 +15,7 @@ type ResetState = 'idle' | 'sending' | 'sent' | 'notSent' | 'notFound' | 'rateLi
  * manager and coach (both are staff_users); after signing in this reads
  * the token's own role and lands on whichever surface it belongs to. */
 export function StaffLogin() {
-  const { t, i18n } = useTranslation()
-  const lang = i18n.language as Lang
+  const { t } = useTranslation()
   const navigate = useNavigate()
 
   const [username, setUsername] = useState('')
@@ -74,7 +71,7 @@ export function StaffLogin() {
             height={96}
             className="mx-auto size-24 rounded-2xl"
           />
-          <h1 className="mt-4 text-2xl font-extrabold text-white">{gym.name[lang]}</h1>
+          <h1 className="mt-4 text-2xl font-extrabold text-white">{t('common.appName')}</h1>
           <p className="mt-1 text-sm text-white/60">{t('manager.login.sub')}</p>
         </div>
 
