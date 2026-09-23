@@ -143,8 +143,68 @@ transcript (gym-scoped, RLS, retention questions) isn't asked for by any require
 `api` service — until it is, every AI route answers 503 by design rather than 500. Same for
 the GitHub Actions secret of the same name before the eval job can run. See `docs/DEPLOY.md`.
 
-## Phase 6 — Sell it
+## Phase 6 — Sell it ✅
 
-Gym self-serve signup, per-gym branding, owner analytics, CSV/notebook import for gyms
-migrating off paper, staff permissions. Two open questions carried in `docs/DECISIONS.md`:
-how to bill gym owners from Lebanon, and whether video needs real access control.
+Built. The scope came from `docs/GTM.md` rather than from a missing capability: a working
+product and zero paying gyms, sold by walking in with a conditional guarantee ("if it does
+not recover more in missed dues than we charge you in the first 90 days, you do not pay").
+
+**What shipped**
+
+- **The owner dashboard** (`/manager/insights`, `GET /analytics/summary`) — the on-time
+  renewal rate, money collected and still owed, a 12-week trend, and member counts, each
+  against the preceding equal window because the guarantee is a before/after claim. No
+  charting library: `Sparkline` and a ~30-line `Meter`.
+- **Staff permissions** — role changes, revoking access at one gym without touching the
+  account or another gym's role, and operator-run password resets. Every one of them
+  revokes the person's refresh tokens, which turns a demoted manager's window from 30 days
+  down to the 15-minute access-token lifetime.
+- **A gym sets its own prices** — `POST`/`PATCH`/`DELETE /plans`. This was the pilot
+  blocker nobody had listed: every gym was stuck with onboarding's $30/$80/$280 forever,
+  and the guarantee is settled on dues arithmetic that reads those numbers.
+- **Branding** — `gyms.logo_key`, `GET`/`PATCH /gyms/me`, and the gym-logo branch
+  `GET /media/{key}` was missing. Name and logo only.
+- **The frontend reads its own identity** — `GymProvider` replaced a `gym` const in
+  `src/mocks/data` that nine files imported directly, which is what made a multi-tenant
+  product render one tenant's name everywhere.
+- **Member import** — a notebook export in, parsed on the server, previewed and corrected
+  row by row, committed all-or-nothing.
+- **Operator provisioning and billing** — 409s where `POST /gyms` used to crash, billing
+  columns on `gyms`, and `scripts/set_gym_billing.py`.
+
+Decisions 34–38 in `docs/DECISIONS.md` record why each of those took the shape it did.
+
+**What was cut, and why**
+
+- **Self-serve signup**, which this phase's one-line scope originally called for. Wrong
+  channel for this market, and a public form would add an abuse surface to serve a channel
+  we do not use — decision 34.
+- **Per-gym colour theming.** It collides with two documented guarantees: green/amber/red
+  mean payment state and nothing else, and the `#f9e54c` contrast rule is specific to
+  yellow on black. Branding stops at name and logo.
+- **A cross-gym admin UI.** At three to five pilot gyms a script is the honest tool, and
+  building one would mean a second call site for `get_owner_sessionmaker()` (decision 18)
+  for no gain — decision 36.
+- **A payment processor.** Decision 3's "nothing may assume a card is on file" holds, so
+  billing is tracked and not processed — decision 38.
+- **Real video access control.** Decision 5's other carried open question stays carried:
+  an unlisted link is already documented as not being access control, and nothing about it
+  blocks selling to a pilot gym.
+
+**Known limitations, written down rather than discovered later**
+
+Two things distort the numbers the guarantee is settled on, both recorded in decision 35,
+in the endpoint docstrings, and in `docs/DEPLOY.md`'s go-live sequence:
+
+1. **A price edit is retroactive.** Nothing snapshots what a membership period cost when
+   it was sold, so raising a plan also changes what last quarter's "collected" says. Fix: a
+   price column on `subscriptions`, with a migration and a backfill.
+2. **Nothing can mark a member as having left.** "Lapsed" and "still not collected" both
+   drift upward as people quit. Fix: a member lifecycle.
+
+Either is a sensible first job for Phase 7, and both are bigger than the stage that
+surfaced them — which is why neither was smuggled in.
+
+**Still carried:** how to bill gym owners from Lebanon (decision 3 — tracked, not
+processed, is the interim answer), and whether video needs real access control
+(decision 5).

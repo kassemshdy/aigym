@@ -604,3 +604,113 @@ moment it's generated, and no amount of later analysis recovers it.
 
 Capturing it is nearly free, which is the point: a column and a first-edit check, decided
 now rather than after a few hundred approvals have already been lost.
+
+## 34. Gyms are provisioned by us, not signed up for
+
+Phase 6's one-line scope in the roadmap said "self-serve signup." Three things already
+checked into this repo disagreed with it, and they won.
+
+`app/api/onboarding.py`'s own docstring, written in Phase 2, says `POST /gyms` is "meant
+for the platform operator to run once per new gym customer, **not a public signup form**."
+`docs/GTM.md` says we walk into gyms and "import their members from the notebook
+ourselves." `docs/MARKET.md` puts the entire addressable market at a few hundred serious
+gyms. A public form would have added an abuse surface — no email verification, no captcha,
+no rate limit exists on that route — to serve a channel this business does not use.
+
+So provisioning stayed operator-run and got hardened instead: explicit 409s on a duplicate
+slug or username (both used to reach the operator as a 500, because nothing checked and
+the unique constraint raised at commit, outside the handler), and a response carrying the
+username and new staff id so whoever ran it can hand over a working login.
+
+The cost is real and accepted: nobody can start using this product without us. At a few
+hundred gyms reached by walking in, that is the channel anyway.
+
+## 35. Historical collection is computed from the renewal chain, and two things distort it
+
+`GET /analytics/summary` answers "did renewals get paid promptly" without a payments
+table, because `record_payment` writes each renewal with
+`starts_at = max(previous.ends_at, now)`. Paid early and the renewal starts exactly when
+the last period ended; paid late and its start *is* the moment of payment. The gap is the
+answer. Matching a payment row to the period it paid for is guesswork the moment a member
+pays twice in a month; this is not.
+
+**This does not contradict decision 17.** That one says dues are computed, never stored,
+and answers "what does this member owe right now." This asks a different question about
+the past, stores nothing, and restates no dues arithmetic in SQL.
+
+**Two things distort the answer, both known and neither fixed.**
+
+*Nothing snapshots what a period cost when it was sold.* `subscriptions` carries a
+`plan_id`, and both the dues calculation and the dashboard resolve the price through it at
+read time — so a gym raising a plan from $30 to $40 also changes what last quarter's
+"collected" says, after the fact. For dues that is arguably right (a member who never
+renewed owes today's price). For history it is not. The fix is a price column on
+`subscriptions` with a migration and a backfill.
+
+*Nothing can mark a member as having left.* `members` has no status column and nothing
+deletes one, so "lapsed" counts anyone without a recent visit including people who quit
+months ago, and their final unrenewed period keeps counting as uncollected. Both figures
+drift upward over time. The fix is a member lifecycle.
+
+Neither was smuggled into the stage that surfaced it. Both are written here, in the
+endpoint docstrings, in `docs/DEPLOY.md`'s go-live sequence, and — for the price — on the
+edit form the owner is looking at when they change it.
+
+## 36. `super_admin` is the owner of one gym, so operator actions are gated by a secret
+
+`app/api/onboarding.py` grants `StaffGymRole(role="super_admin")` to the **first account of
+every gym**. So `super_admin` does not mean "runs the platform"; it means "owns this gym."
+Anything gated on it is something every customer passes on their own data.
+
+That decided two things in Phase 6. Billing lives on operator routes behind
+`X-Onboarding-Secret`, never a role — a role check there is one the gym owner passes on
+the row that says what they owe us. And role changes (`PATCH /staff/{id}`) are
+super_admin-only rather than manager-and-up: carrying decision 25's shape over would leave
+a manager able to promote a coach, which is handing out access they were never given the
+authority to hand out.
+
+The same reading killed a third idea: a cross-gym admin UI. At three to five pilot gyms a
+prompt on a terminal is the honest tool, and `get_owner_sessionmaker()` stays at its single
+call site (decision 18). `gyms` carries no RLS at all, so `tenant_session(None)` reads
+every gym's row as the ordinary app role — no elevated connection needed.
+
+## 37. The member import is parsed on the server, and the budget is the smaller reason
+
+`app/domain/csv_import.py` uses Python's stdlib `csv`. Papaparse would have cost ~19 KB
+against a 200 KB budget, which matters, but it is not why.
+
+The import has two steps: a preview the manager corrects, and a commit that writes. Parsed
+in the browser, those are two implementations of the same rules — phone normalization,
+date order, encoding, duplicate detection — and they drift. The manager would be approving
+one while the other did the writing. On the server, the preview and the commit call the
+same functions, so what was approved is what gets validated.
+
+What that bought, each with a test that fails when the handling is removed: cp1256
+decoding (what an older Excel on an Arabic Windows writes — without the fallback the whole
+file decodes to nothing and the gym is told their ordinary export is broken), day-first
+dates (03/04/2026 is the 3rd of April here; the American reading moves a renewal by a
+month, silently), and six spellings of a Lebanese mobile collapsing to one shape, because
+the WhatsApp links depend on it.
+
+The commit is all-or-nothing. A gym that half-imported 300 members cannot tell which half
+landed, and re-running collides with the ones that did.
+
+## 38. Billing is tracked, not processed
+
+Decision 3's carried open question — how to bill gym owners from Lebanon — stays open.
+Stripe does not serve Lebanese businesses, and nothing in this product may assume a card
+is on file. Money changes hands out of band.
+
+So `gyms` gained four columns recording what was agreed and what has been paid
+(`billing_status`, `monthly_usd`, `paid_through`, `billing_notes`), reachable only through
+operator routes and `scripts/set_gym_billing.py`. That makes "which gyms are past due"
+answerable without a spreadsheet living somewhere else, which is the entire requirement at
+this size.
+
+**The wall between that and the customer is the response models, and only that.** There is
+no RLS on `gyms` to lean on and no role that helps (decision 36). So
+`tests/test_billing.py` walks the whole OpenAPI schema on every CI run — every path
+outside the two operator ones, every response, following `$ref`, arrays and
+any/all/oneOf — and fails if a billing field appears anywhere. It was checked by breaking
+it twice: once by adding `monthly_usd` to `GymOut`, and once by hiding `billing_status` a
+model deeper inside a member response, which a flat property check would have missed.

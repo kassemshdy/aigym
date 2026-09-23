@@ -40,8 +40,10 @@ src/
 │   └── AppShell.tsx  header (gym name + logo, sync badge reads OfflineProvider), language
 │                      toggle, role switcher, bottom tabs
 └── features/
-    ├── manager/      Home, Members, MemberDetail, AddMember, Plans, Payments, Lapsed,
-    │                 Staff, Login, Settings (the gym's own name and logo), Insights
+    ├── manager/      Home, Members, MemberDetail, AddMember, Payments, Lapsed, Staff,
+    │                 Login, Plans (the gym's own prices — they feed every dues figure),
+    │                 Settings (its name and logo), Import (a notebook export, parsed
+    │                 server-side — nothing here parses a CSV, see decision 37), Insights
     │                 (the owner dashboard — the numbers the GTM guarantee is settled on,
     │                 served by GET /analytics/summary)
     ├── coach/        Queue, CheckIn, MemberCard, Session, AiDrafts (the approval inbox —

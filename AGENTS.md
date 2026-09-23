@@ -173,13 +173,24 @@ symlink to it). Read the matching skill before the task:
 
 ## Phases
 
-See `docs/ROADMAP.md`. Phases 2–5 are built: tenancy/auth/money (2), the coach's floor
-tools and the offline outbox (3), member self-service and content (4), and the AI layer
-(5). Every surface reads and writes the real API when `VITE_API_URL` is set, and falls back
-to mocks when it isn't — keep both branches working for anything new.
+See `docs/ROADMAP.md`. Phases 2–6 are built: tenancy/auth/money (2), the coach's floor
+tools and the offline outbox (3), member self-service and content (4), the AI layer (5),
+and everything needed to sell to a gym (6) — the owner dashboard, staff permissions,
+a gym's own prices, branding, member import, and operator billing. Every surface reads and
+writes the real API when `VITE_API_URL` is set, and falls back to mocks when it isn't —
+keep both branches working for anything new.
 
 Phase 5's AI needs `AIGYM_ANTHROPIC_API_KEY`. Without it the AI routes answer 503 by
 design, and nothing else is affected (decision 29). It is **not set on the live service
 yet** — see `docs/DEPLOY.md`.
 
-Next up is Phase 6 (sell it): gym self-serve signup, branding, owner analytics, imports.
+**Two limitations Phase 6 wrote down rather than fixed** (decision 35), because both are
+bigger than the stage that surfaced them and both distort the numbers the sales guarantee
+is settled on:
+
+1. A plan's price edit is retroactive — nothing snapshots what a membership period cost
+   when it was sold. Fix: a price column on `subscriptions`.
+2. Nothing can mark a member as having left, so "lapsed" and "uncollected" drift upward as
+   people quit. Fix: a member lifecycle.
+
+Either is a sensible first job for Phase 7. Do not paper over them in a smaller change.
