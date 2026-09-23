@@ -137,7 +137,7 @@ start`.
 
 ## Deploy
 
-Live at **https://triple-a.up.railway.app** (Railway project `aigym`, service
+Live at **https://trpa.up.railway.app** (Railway project `aigym`, service
 `web`, region `europe-west4`). Railway watches **`main`** and redeploys anything under
 `apps/web/**` — so a deploy follows a merge from `develop`, not a direct push.
 

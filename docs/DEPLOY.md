@@ -1,6 +1,6 @@
 # Deploy
 
-The prototype runs on Railway at **https://triple-a.up.railway.app**
+The prototype runs on Railway at **https://trpa.up.railway.app**
 
 | | |
 |---|---|
@@ -110,7 +110,7 @@ the live URL — it asserts correct direction, no overflow and no console errors
 in both languages:
 
 ```bash
-BASE=https://triple-a.up.railway.app node apps/web/scripts/shots.mjs ./shots
+BASE=https://trpa.up.railway.app node apps/web/scripts/shots.mjs ./shots
 ```
 
 ## What is deployed
@@ -160,7 +160,15 @@ bootstrapping step — `AIGYM_DATABASE_URL` (the `aigym_app` role) and
 `AIGYM_JWT_SECRET` and `AIGYM_ONBOARDING_SECRET` are freshly generated 32-byte random
 values, set directly on the `api` service — not the `.env.example` placeholders, and not
 recorded anywhere outside Railway's own variable store. `AIGYM_CORS_ORIGINS` is
-`["https://triple-a.up.railway.app"]` — the `web` origin only.
+`["https://trpa.up.railway.app"]` — the `web` origin only.
+
+**If you ever regenerate the `web` service's domain, this has to move with it.** The two
+are coupled and nothing checks that they agree: a stale value here does not break the
+page, it breaks every API call the page makes, and the browser reports it as a CORS error
+rather than as anything pointing at this variable. The same goes for every URL written
+into this repo — `AGENTS.md`, `docs/ROADMAP.md`, `apps/web/scripts/demo.mjs` and
+`docs/pitch/build.mjs` all name the live domain, and `build.mjs` puts it on two slides of
+the investor deck.
 
 ### The media volume (Phase 4)
 

@@ -34,7 +34,7 @@ const CAPTIONS = {
     meal: 'Photograph a meal for an estimate. Water and supplements, tapped',
     chat: 'Ask the assistant anything',
     escalate: 'Change the program? It goes to the coach. Never on its own',
-    end: 'triple-a.up.railway.app',
+    end: 'trpa.up.railway.app',
   },
   ar: {
     title: 'نادي تريبل إي — عرمون',
@@ -52,7 +52,7 @@ const CAPTIONS = {
     meal: 'صوّر الأكل وبيجيك تقدير. المي والمكمّلات بدوسة',
     chat: 'اسأل المساعد أي شي',
     escalate: 'بدك تغيّر البرنامج؟ بيروح للكوتش. ما بيقرر لحالو',
-    end: 'triple-a.up.railway.app',
+    end: 'trpa.up.railway.app',
   },
 }[LANG]
 
