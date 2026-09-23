@@ -131,10 +131,17 @@ node scripts/landing-shots.mjs      # writes public/landing/*.webp
 ```
 
 Run it against a build with **no `VITE_API_URL`**, so the shots carry the seeded gym
-rather than whatever is in a real database. **Regenerate after changing any screen the
-page shows** (manager home, insights, lapsed, import, coach session, member today, member
-nutrition chat) — otherwise the landing page is advertising a version of the product that
-no longer exists.
+rather than whatever is in a real database. The page covers **most of the app** — the
+script's `SHOTS` list is the authoritative inventory, so read it rather than this
+paragraph — in two tiers: seven narrative sections rendered large, and three galleries
+(front desk, floor, member's phone) rendered small and encoded small to match. A gallery
+of full-size screenshots is most of a megabyte a phone on a congested network pays for
+and cannot see.
+
+**Regenerate after changing any screen in that list** — otherwise the landing page is
+advertising a version of the product that no longer exists. Adding a screen means a row
+in `SHOTS`, a `landing.tiles.<stem>` caption in both `en.json` and `ar.json`, and the
+stem in `GALLERIES` in `Landing.tsx`.
 
 Do not confuse it with `scripts/shots.mjs`. That one is a test: it scrolls `main` to the
 bottom to prove the tab bar stays put, which is the wrong frame to sell with.

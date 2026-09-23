@@ -38,6 +38,17 @@ const FEATURES = [
   { key: 'import', shot: 'import' },
 ] as const
 
+/** The rest of the product, three galleries deep. These are the screens a
+ * gym owner asks about on the second visit — "where do I take a payment",
+ * "can I see one member's history", "what does my coach actually hold" —
+ * and answering them with the real screen is cheaper than a paragraph.
+ * Rendered small, and encoded small to match (scripts/landing-shots.mjs). */
+const GALLERIES: { key: string; wide?: true; shots: string[] }[] = [
+  { key: 'desk', shots: ['members', 'record', 'payments', 'plans', 'staff', 'settings'] },
+  { key: 'floor', wide: true, shots: ['queue', 'checkin', 'program', 'drafts', 'library'] },
+  { key: 'phone', shots: ['calendar', 'book', 'food', 'progress', 'photos', 'videos'] },
+]
+
 const BUILT: { key: string; icon: IconName }[] = [
   { key: 'power', icon: 'bolt' },
   { key: 'light', icon: 'check' },
@@ -63,6 +74,25 @@ function Shot({ stem, lang, alt, wide }: { stem: string; lang: Lang; alt: string
         wide ? 'max-w-xl' : 'max-w-[16rem]',
       )}
     />
+  )
+}
+
+/** One gallery entry: the screen, then what it is. The caption is the alt
+ * text too — a screenshot with no accessible name is furniture. */
+function Tile({ stem, lang, label, wide }: { stem: string; lang: Lang; label: string; wide?: boolean }) {
+  return (
+    <figure className="space-y-2">
+      <img
+        src={`/landing/${stem}-${lang}.webp`}
+        alt={label}
+        width={wide ? 720 : 360}
+        height={wide ? 540 : 779}
+        loading="lazy"
+        decoding="async"
+        className="border-line bg-surface h-auto w-full rounded-xl border shadow-sm"
+      />
+      <figcaption className="text-muted text-xs font-semibold leading-snug">{label}</figcaption>
+    </figure>
   )
 }
 
@@ -179,7 +209,43 @@ export function Landing() {
         })}
       </section>
 
-      <section className="bg-surface border-line border-t">
+      {/* Everything else, by surface. Three sections rather than one long
+          grid: a gym owner is buying three different things here — a front
+          desk, a tool for the floor, and an app for their members — and the
+          galleries are how they check that each one exists. */}
+      <section className="bg-surface border-line border-y">
+        <div className="mx-auto max-w-5xl space-y-12 px-4 py-14">
+          <h2 className="text-2xl font-extrabold">{t('landing.everythingTitle')}</h2>
+          {GALLERIES.map((gallery) => (
+            <div key={gallery.key} className="space-y-4">
+              <div className="space-y-1">
+                <h3 className="text-lg font-bold">{t(`landing.galleries.${gallery.key}.title`)}</h3>
+                <p className="text-muted max-w-2xl text-sm leading-relaxed">
+                  {t(`landing.galleries.${gallery.key}.body`)}
+                </p>
+              </div>
+              <div
+                className={cn(
+                  'grid gap-4',
+                  gallery.wide ? 'sm:grid-cols-2' : 'grid-cols-2 sm:grid-cols-3',
+                )}
+              >
+                {gallery.shots.map((shot) => (
+                  <Tile
+                    key={shot}
+                    stem={shot}
+                    lang={lang}
+                    label={t(`landing.tiles.${shot}`)}
+                    wide={gallery.wide}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="bg-canvas">
         <div className="mx-auto max-w-5xl space-y-6 px-4 py-14">
           <h2 className="text-2xl font-extrabold">{t('landing.builtTitle')}</h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
