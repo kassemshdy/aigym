@@ -103,6 +103,12 @@ export function ManagerHome() {
             <span className="flex-1 font-semibold">{t('manager.settings.title')}</span>
           </Card>
         </Link>
+        <Link to="/manager/import">
+          <Card className="flex min-h-tap items-center gap-3 p-4">
+            <Icon name="list" />
+            <span className="flex-1 font-semibold">{t('manager.home.import')}</span>
+          </Card>
+        </Link>
       </div>
 
       <Link

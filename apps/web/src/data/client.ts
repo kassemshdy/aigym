@@ -186,16 +186,17 @@ export function newIdempotencyKey() {
   return crypto.randomUUID()
 }
 
-/** The one binary-upload path (progress/food photos) — separate from
- * apiFetch because a multipart body must NOT get apiFetch's
- * `Content-Type: application/json` + JSON.stringify treatment. Same
- * bearer-token and 401-refresh-retry behavior as apiFetch otherwise. */
-export async function uploadMedia(
+/** The multipart path — separate from apiFetch because a multipart body
+ * must NOT get apiFetch's `Content-Type: application/json` +
+ * JSON.stringify treatment (the browser has to set its own boundary).
+ * Same bearer-token and 401-refresh-retry behavior otherwise. */
+export async function postFile<T>(
+  path: string,
   file: File,
   authAs: AuthAs = 'staff',
-): Promise<MediaUploadResult> {
+): Promise<T> {
   if (!API_URL) {
-    throw new Error('uploadMedia called without VITE_API_URL set — this should never happen')
+    throw new Error(`postFile(${path}) called without VITE_API_URL set — never happens`)
   }
   const idempotencyKey = newIdempotencyKey()
 
@@ -205,7 +206,7 @@ export async function uploadMedia(
     if (token) headers.Authorization = `Bearer ${token}`
     const form = new FormData()
     form.append('file', file)
-    return fetch(`${API_URL}/media`, { method: 'POST', headers, body: form })
+    return fetch(`${API_URL}${path}`, { method: 'POST', headers, body: form })
   }
 
   let response = await request()
@@ -221,7 +222,15 @@ export async function uploadMedia(
         : response.statusText
     throw new ApiError(response.status, detail)
   }
-  return (await response.json()) as MediaUploadResult
+  return (await response.json()) as T
+}
+
+/** Progress and food photos. */
+export async function uploadMedia(
+  file: File,
+  authAs: AuthAs = 'staff',
+): Promise<MediaUploadResult> {
+  return postFile<MediaUploadResult>('/media', file, authAs)
 }
 
 /** The read half of the upload above — GET /media/{key} needs the same

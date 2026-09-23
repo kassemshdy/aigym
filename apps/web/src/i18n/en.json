@@ -131,7 +131,8 @@
       "whoOwes": "Who owes money",
       "seeAll": "See all",
       "addMember": "Register new member",
-      "plans": "Plans and prices"
+      "plans": "Plans and prices",
+      "import": "Bring in members"
     },
     "members": {
       "title": "Members",
@@ -226,6 +227,40 @@
       "removeLogo": "Remove logo",
       "logoNote": "A square picture works best. It sits on the black bar at the top of every screen.",
       "saved": "Saved"
+    },
+    "import": {
+      "title": "Bring in your members",
+      "sub": "From a spreadsheet, once",
+      "what": "A CSV with a name column and a phone column. A plan and an end date help but are not needed. Arabic is fine.",
+      "defaultPlan": "Plan for anyone with no plan in the file",
+      "defaultPlanNote": "Rows that name a plan use that one instead.",
+      "choose": "Choose a file",
+      "missingColumns": "We could not find these columns, so nothing was read",
+      "summary": "{{ready}} ready to add, {{blocked}} need fixing",
+      "needsFixing": "Need fixing",
+      "readyToAdd": "Ready to add",
+      "line": "Line {{n}}",
+      "skipRow": "Leave this one out",
+      "add": "Add {{count}} members",
+      "add_one": "Add 1 member",
+      "done": "Added {{count}} members",
+      "done_one": "Added 1 member",
+      "truncated": "The file was longer than we can take at once. Import this batch, then the rest.",
+      "emptyFile": "That file had no rows in it",
+      "column": {
+        "name": "Name",
+        "phone": "Phone"
+      },
+      "error": {
+        "name_missing": "No name",
+        "phone_missing": "No number",
+        "phone_invalid": "That is not a Lebanese number",
+        "duplicate_in_file": "This number is in the file twice",
+        "date_invalid": "We could not read that end date",
+        "plan_unknown": "You have no plan by that name",
+        "already_a_member": "Already one of your members"
+      },
+      "plan": "Plan"
     }
   },
   "coach": {

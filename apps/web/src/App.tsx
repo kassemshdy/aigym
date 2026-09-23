@@ -19,6 +19,7 @@ import { MemberChat, MemberChatPicker } from '@/features/member/Chat'
 import { MemberPhotos } from '@/features/member/Photos'
 import { MemberCalendar } from '@/features/member/Calendar'
 import { MemberBook } from '@/features/member/Book'
+import { ManagerImport } from '@/features/manager/Import'
 import { ManagerInsights } from '@/features/manager/Insights'
 import { ManagerLapsed } from '@/features/manager/Lapsed'
 import { ManagerSettings } from '@/features/manager/Settings'
@@ -76,6 +77,7 @@ export default function App() {
           <Route path="lapsed" element={<ManagerLapsed />} />
           <Route path="insights" element={<ManagerInsights />} />
           <Route path="settings" element={<ManagerSettings />} />
+          <Route path="import" element={<ManagerImport />} />
           <Route path="plans" element={<ManagerPlans />} />
           <Route path="payments" element={<ManagerPayments />} />
           <Route path="staff" element={<ManagerStaff />} />

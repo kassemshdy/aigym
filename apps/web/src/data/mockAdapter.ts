@@ -52,6 +52,8 @@ import type {
   ApiFoodEstimate,
   ApiGym,
   ApiGymClass,
+  ApiImportPreview,
+  ApiImportRow,
   ApiLapsedMember,
   ApiMachine,
   ApiMember,
@@ -74,6 +76,7 @@ import type {
   CreateNutritionLogInput,
   CreatePlanInput,
   CreateProgramInput,
+  CommitImportRow,
   CreateStaffInput,
   CreateVideoInput,
   CreateWorkoutSessionInput,
@@ -244,6 +247,65 @@ export function mockUpdateGym(input: UpdateGymInput): ApiGym {
     logo_key: 'logo_key' in input ? input.logo_key ?? null : mockGym.logo_key,
   }
   return mockGym
+}
+
+// ---------------------------------------------------------------------
+// Phase 6 stage 11 — the member import.
+//
+// This returns a fixed illustrative preview and ignores the file, on
+// purpose. The CSV parser lives on the server precisely so there is only
+// one of it (app/domain/csv_import.py) — re-implementing phone
+// normalization, cp1256 decoding and day-first dates here to make the
+// demo feel real would recreate the exact drift that decision exists to
+// prevent. The screen still exercises every state it has: ready rows,
+// blocked rows carrying real error keys, the commit, and the summary.
+// ---------------------------------------------------------------------
+
+export function mockPreviewMemberImport(defaultPlanId: string | null): ApiImportPreview {
+  const planId = defaultPlanId ?? mockPlans[0]?.id ?? null
+  const rows: ApiImportRow[] = [
+    { line: 2, name: 'رامي حداد', name_en: 'Rami Haddad', phone: '+96170123456',
+      plan: 'Monthly', plan_id: planId, ends_at: '2026-12-01', errors: [] },
+    { line: 3, name: 'نور عبدالله', name_en: 'Nour Abdallah', phone: '+9613123456',
+      plan: 'Monthly', plan_id: planId, ends_at: null, errors: [] },
+    { line: 4, name: 'جاد خوري', name_en: 'Jad Khoury', phone: '+96176111222',
+      plan: '3 Months', plan_id: planId, ends_at: '2026-11-15', errors: [] },
+    { line: 5, name: '', name_en: '', phone: '+96171999888',
+      plan: 'Monthly', plan_id: planId, ends_at: null, errors: ['name_missing'] },
+    { line: 6, name: 'مايا شمعون', name_en: 'Maya Chamoun', phone: '',
+      plan: 'Platinum', plan_id: null, ends_at: null,
+      errors: ['phone_invalid', 'plan_unknown'] },
+  ]
+  return {
+    rows,
+    missing_columns: [],
+    truncated: false,
+    ready: rows.filter((r) => r.errors.length === 0).length,
+    blocked: rows.filter((r) => r.errors.length > 0).length,
+  }
+}
+
+export function mockCommitMemberImport(rows: CommitImportRow[]): { imported: number } {
+  const today = todayIso()
+  for (const row of rows) {
+    const plan = findMockPlan(row.plan_id)
+    mockMembers = [
+      ...mockMembers,
+      {
+        id: newId(), name: row.name, nameEn: row.name_en, phone: row.phone,
+        planId: row.plan_id, joinedAt: today,
+        endsAt: row.ends_at ?? new Date(
+          Date.now() + (plan?.days ?? 30) * 86_400_000,
+        ).toISOString().slice(0, 10),
+        status: 'paid', owedUsd: 0, lastVisit: null,
+        // No profile data: a notebook has none, and the live import
+        // deliberately leaves it absent rather than inventing it.
+        goal: 'health', level: 'new', heightCm: 0, weightKg: 0, bodyFat: null,
+        injuries: [], daysPerWeek: 0, job: 'desk', sleepHours: 0, weightTrend: [],
+      },
+    ]
+  }
+  return { imported: rows.length }
 }
 
 export function mockListPlans(): ApiPlan[] {

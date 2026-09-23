@@ -34,6 +34,24 @@ const SCREENS = [
     },
   ],
   ['manager-settings', '/manager/settings', 'phone'],
+  ['manager-import', '/manager/import', 'phone'],
+  [
+    'manager-import-preview',
+    '/manager/import',
+    'phone',
+    // The preview only exists once a file has been handed over. Playwright
+    // can set files on the hidden input directly, so this does not depend
+    // on a native file dialog. Mock mode ignores the contents by design —
+    // the parser lives on the server (app/domain/csv_import.py).
+    async (page) => {
+      await page.locator('input[type=file]').setInputFiles({
+        name: 'members.csv',
+        mimeType: 'text/csv',
+        buffer: Buffer.from('name,phone\nRami,70123456\n'),
+      })
+      await page.waitForTimeout(300)
+    },
+  ],
   ['manager-staff', '/manager/staff', 'phone'],
   [
     'manager-staff-row',

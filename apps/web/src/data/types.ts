@@ -596,3 +596,50 @@ export interface ApiAnalyticsSummary {
   /** Pre-bucketed by the server so the client does no date arithmetic. */
   series: ApiAnalyticsWeek[]
 }
+
+
+// ---------------------------------------------------------------------
+// Phase 6 stage 10/11 — importing a gym's existing members. Mirrors
+// app/api/member_import.py. The file is parsed on the server, so these
+// shapes are the only thing the client knows about a CSV: there is no
+// second parser here to drift from the one that does the writing.
+// ---------------------------------------------------------------------
+
+export interface ApiImportRow {
+  /** 1-based and counting the header, so it is the line the gym owner
+   * sees in their own spreadsheet — blank lines included. */
+  line: number
+  name: string
+  name_en: string
+  /** Already normalized to +961…, so the manager approves the number that
+   * will actually be stored rather than what they typed. */
+  phone: string
+  /** The plan name as written in the file, kept so a row that failed to
+   * match one can show what it said. */
+  plan: string
+  plan_id: string | null
+  ends_at: string | null
+  /** Stable keys (`phone_invalid`, `already_a_member`, …), never
+   * sentences — the client renders them through t(). */
+  errors: string[]
+}
+
+export interface ApiImportPreview {
+  rows: ApiImportRow[]
+  /** Non-empty means the header had no name or phone column, and `rows`
+   * is empty: guessing which column held the number is how a gym imports
+   * 300 members under the wrong ones. */
+  missing_columns: string[]
+  truncated: boolean
+  ready: number
+  blocked: number
+}
+
+export interface CommitImportRow {
+  line: number
+  name: string
+  name_en: string
+  phone: string
+  plan_id: string
+  ends_at: string | null
+}

@@ -11,6 +11,7 @@ import {
   clearTokens,
   newIdempotencyKey,
   offlineFetch,
+  postFile,
   setTokens,
   uploadMedia,
   type AuthAs,
@@ -62,6 +63,8 @@ import {
   mockListStaff,
   mockListTodaysCheckIns,
   mockListVideos,
+  mockPreviewMemberImport,
+  mockCommitMemberImport,
   mockLogSet,
   mockRecordPayment,
   mockRejectAiDraft,
@@ -95,6 +98,7 @@ import type {
   ApiFoodEstimate,
   ApiGym,
   ApiGymClass,
+  ApiImportPreview,
   ApiLapsedMember,
   ApiMachine,
   ApiMember,
@@ -119,6 +123,7 @@ import type {
   CreateNutritionLogInput,
   CreatePlanInput,
   CreateProgramInput,
+  CommitImportRow,
   CreateStaffInput,
   CreateVideoInput,
   CreateWorkoutSessionInput,
@@ -227,6 +232,34 @@ export async function updatePlan(planId: string, input: UpdatePlanInput): Promis
 export async function deletePlan(planId: string): Promise<void> {
   if (!API_URL) return mockDeletePlan(planId)
   await apiFetch(`/plans/${planId}`, { method: 'DELETE', idempotencyKey: newIdempotencyKey() })
+}
+
+// ---------------------------------------------------------------------
+// Phase 6 stage 10/11 — importing a gym's existing members. The file is
+// parsed on the server (app/domain/csv_import.py) so there is exactly one
+// implementation of the rules; the preview and the commit call the same
+// one, and nothing here re-derives a phone number or a date.
+// ---------------------------------------------------------------------
+
+export async function previewMemberImport(
+  file: File,
+  defaultPlanId: string | null,
+): Promise<ApiImportPreview> {
+  if (!API_URL) return mockPreviewMemberImport(defaultPlanId)
+  const query = defaultPlanId ? `?default_plan_id=${defaultPlanId}` : ''
+  return postFile(`/members/import/preview${query}`, file)
+}
+
+/** All or nothing: one bad row and the server keeps none of them. */
+export async function commitMemberImport(
+  rows: CommitImportRow[],
+): Promise<{ imported: number }> {
+  if (!API_URL) return mockCommitMemberImport(rows)
+  return apiFetch('/members/import', {
+    method: 'POST',
+    body: { rows },
+    idempotencyKey: newIdempotencyKey(),
+  })
 }
 
 export async function listTodaysCheckIns(): Promise<ApiCheckIn[]> {
