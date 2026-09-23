@@ -25,12 +25,13 @@ import { ManagerLapsed } from '@/features/manager/Lapsed'
 import { ManagerSettings } from '@/features/manager/Settings'
 import { ManagerStaff } from '@/features/manager/Staff'
 import { StaffLogin } from '@/features/manager/Login'
-import { API_URL, isMemberSignedIn, isStaffSignedIn } from '@/data/client'
+import { API_URL, getStaffRole, isMemberSignedIn, isStaffSignedIn } from '@/data/client'
 import { MemberVideoDetail, MemberVideos } from '@/features/member/Videos'
 import { CoachVideos } from '@/features/coach/Videos'
 import { MemberProgress } from '@/features/member/Progress'
 import { MemberProfile } from '@/features/member/Profile'
 import { MemberEditProfile } from '@/features/member/EditProfile'
+import { Landing } from '@/features/public/Landing'
 
 /** Same shape as RequireStaff below, now that member login is real
  * (decision 13/28) instead of a `state.signedIn` boolean: with no API
@@ -39,6 +40,19 @@ import { MemberEditProfile } from '@/features/member/EditProfile'
 function RequireMember({ children }: { children: React.ReactNode }) {
   if (API_URL && !isMemberSignedIn()) return <Navigate to="/login" replace />
   return <>{children}</>
+}
+
+/** The public front door. `/` used to bounce straight to /manager, which
+ * meant the deployed URL — the one in the investor deck and on flyers —
+ * opened a login screen to anyone who had never heard of the product.
+ * Someone already signed in still skips the pitch: they are not the
+ * audience for it, and their bookmark should behave as it always has. */
+function Home() {
+  if (isStaffSignedIn()) {
+    return <Navigate to={getStaffRole() === 'coach' ? '/coach' : '/manager'} replace />
+  }
+  if (isMemberSignedIn()) return <Navigate to="/member" replace />
+  return <Landing />
 }
 
 /** With no API configured, mock mode never required a staff login (Phase 1
@@ -55,13 +69,12 @@ function RequireStaff({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <Routes>
+      <Route path="/" element={<Home />} />
       <Route path="/login" element={<MemberLogin />} />
       <Route path="/staff/login" element={<StaffLogin />} />
       {/* Kept so the deployed bookmark/investor-deck link still works. */}
       <Route path="/manager/login" element={<StaffLogin />} />
       <Route element={<AppShell />}>
-        <Route index element={<Navigate to="/manager" replace />} />
-
         <Route
           path="manager"
           element={

@@ -10,7 +10,13 @@ const distDir = join(scriptsDir, '..', 'dist')
 const publicDir = join(scriptsDir, '..', 'public')
 
 const assetFiles = readdirSync(join(distDir, 'assets')).map((f) => `/assets/${f}`)
-const publicFiles = readdirSync(publicDir).map((f) => `/${f}`)
+// Files only, deliberately not recursive: public/landing/ holds the
+// screenshots on the marketing page, and an offline shell should carry the
+// app, not its advertising. A directory name in this list would also cache
+// the SPA fallback under a path that is not a real asset.
+const publicFiles = readdirSync(publicDir, { withFileTypes: true })
+  .filter((entry) => entry.isFile())
+  .map((entry) => `/${entry.name}`)
 
 const precacheUrls = ['/', '/index.html', ...publicFiles, ...assetFiles]
 

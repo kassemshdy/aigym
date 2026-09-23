@@ -714,3 +714,34 @@ outside the two operator ones, every response, following `$ref`, arrays and
 any/all/oneOf — and fails if a billing field appears anywhere. It was checked by breaking
 it twice: once by adding `monthly_usd` to `GymOut`, and once by hiding `billing_status` a
 model deeper inside a member response, which a flat property check would have missed.
+
+## 39. `/` is a public landing page, and it sells with the product, not with mockups
+
+The deployed URL is in the investor deck and goes to gym owners. It used to redirect
+straight to `/manager`, which for anyone who had not already been sold meant a login
+screen and nothing else.
+
+`/` is now `src/features/public/Landing.tsx`, outside `AppShell` — no tab bar, no
+role switcher, its own language toggle. Someone already signed in still skips it
+(`Home` in `App.tsx` redirects staff to their surface and members to `/member`), so a
+bookmarked link behaves as it always has.
+
+**Every image on it is the real app**, captured by `scripts/landing-shots.mjs` against a
+mock-mode build and committed to `public/landing/`. That is the whole point: a gym owner
+who is shown a mockup finds out on day one, and the GTM channel is walking into gyms,
+where the next conversation is with someone who has already seen it. Screenshots exist per
+language, so an Arabic visitor is shown the Arabic product rather than English screens
+with Arabic copy underneath. **Regenerate them when a screen changes** — a stale shot is
+advertising a version that no longer exists.
+
+No signup form and no pricing. Gyms are provisioned by the operator after a conversation
+(decision 34); a public form would add an abuse surface to serve a channel this business
+does not use, and pricing is set against what a notebook loses that gym, not off a page.
+
+Two things fell out of building it. The hero's yellow square is `lg:` only: at 390px it
+landed under the headline, and white on `#f9e54c` fails contrast badly enough to make the
+sentence unreadable — the yellow guarantee band below carries the identity on a phone
+instead. And `gen-sw.mjs` was listing `public/` non-recursively, so `public/landing/`
+would have been precached as a bare directory path; it now filters to files, which also
+keeps 288 KB of marketing images out of the offline shell. An offline shell should hold
+the app, not its advertising.
