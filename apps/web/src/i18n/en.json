@@ -643,6 +643,40 @@
     "memberSignIn": "Member sign in",
     "talk": "Talk to us on WhatsApp",
     "waMessage": "Hi — I run a gym and I would like to see AIGym.",
-    "footerNote": "Built in Lebanon, for gyms in Lebanon."
+    "footerNote": "Built in Lebanon, for gyms in Lebanon.",
+    "everythingTitle": "And the rest of it",
+    "galleries": {
+      "desk": {
+        "title": "The front desk",
+        "body": "Everything the person on the desk does in a day — take a payment, look up a member, change your prices, add a coach."
+      },
+      "floor": {
+        "title": "The floor, on an iPad",
+        "body": "What your coach holds during a session. Big targets, pre-filled numbers, and it keeps working when the internet doesn't."
+      },
+      "phone": {
+        "title": "The member's own phone",
+        "body": "What your members see. They book, log, and track without anyone at the desk doing it for them."
+      }
+    },
+    "tiles": {
+      "members": "Every member, searchable, with what they owe",
+      "record": "One member: their plan, their history, their coach",
+      "payments": "Take a payment and renew in two taps",
+      "plans": "Your prices, your plan names, in both languages",
+      "staff": "Managers and coaches, with what each can do",
+      "settings": "Your gym's name and logo",
+      "queue": "Who is in the gym right now",
+      "checkin": "Check a member in by scanning their code",
+      "program": "Build a program from the exercise catalog",
+      "drafts": "AI drafts a plan; the coach approves or edits it",
+      "library": "Exercise videos your coach can assign",
+      "calendar": "Their week, and what is booked",
+      "book": "Booking a class",
+      "food": "Photograph a meal, confirm the estimate",
+      "progress": "Weight and measurements over time",
+      "photos": "Progress photos — private unless they share",
+      "videos": "How to do the movement, on demand"
+    }
   }
 }

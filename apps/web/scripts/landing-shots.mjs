@@ -22,8 +22,15 @@ import { join } from 'node:path'
 const BASE = process.env.BASE ?? 'http://localhost:4173'
 const OUT = 'public/landing'
 
-/** [name, path, viewport, optional interaction to reach a meaningful state] */
+/** [name, path, viewport, optional interaction to reach a meaningful state]
+ *
+ * Two tiers. The `phone`/`ipad` shots carry a narrative section each and are
+ * rendered large. The `*-tile` shots fill the three galleries that show the
+ * rest of the product, and are encoded smaller because they are displayed
+ * smaller — a gallery of full-size screenshots is most of a megabyte that a
+ * phone on a congested network pays for and cannot see. */
 const SHOTS = [
+  // The seven narrative sections.
   ['home', '/manager', 'phone'],
   ['insights', '/manager/insights', 'phone'],
   ['lapsed', '/manager/lapsed', 'phone'],
@@ -41,12 +48,46 @@ const SHOTS = [
     },
   ],
   ['session', '/coach/session/m1', 'ipad'],
+
+  // Gallery: the front desk.
+  ['members', '/manager/members', 'phone-tile'],
+  ['record', '/manager/members/m1', 'phone-tile'],
+  ['payments', '/manager/payments', 'phone-tile'],
+  ['plans', '/manager/plans', 'phone-tile'],
+  ['staff', '/manager/staff', 'phone-tile'],
+  ['settings', '/manager/settings', 'phone-tile'],
+
+  // Gallery: the floor. The coach works on an iPad, so these stay landscape.
+  ['queue', '/coach', 'ipad-tile'],
+  ['checkin', '/coach/check-in', 'ipad-tile'],
+  ['program', '/coach/programs/m1', 'ipad-tile'],
+  ['drafts', '/coach/ai', 'ipad-tile'],
+  ['library', '/coach/videos', 'ipad-tile'],
+
+  // Gallery: the member's own phone.
+  ['calendar', '/member/calendar', 'phone-tile'],
+  ['book', '/member/book', 'phone-tile'],
+  ['food', '/member/food', 'phone-tile'],
+  ['progress', '/member/progress', 'phone-tile'],
+  ['photos', '/member/photos', 'phone-tile'],
+  ['videos', '/member/videos', 'phone-tile'],
 ]
 
-const SIZES = { phone: { width: 390, height: 844 }, ipad: { width: 1024, height: 768 } }
-/** Rendered widths on the landing page, doubled for retina. Anything larger is
- * bytes a phone on a congested network pays for and cannot see. */
-const TARGET_WIDTH = { phone: 520, ipad: 1120 }
+const SIZES = {
+  phone: { width: 390, height: 844 },
+  'phone-tile': { width: 390, height: 844 },
+  ipad: { width: 1024, height: 768 },
+  'ipad-tile': { width: 1024, height: 768 },
+}
+
+/** Rendered widths on the landing page, doubled for retina. Anything larger
+ * is bytes a phone on a congested network pays for and cannot see. */
+const TARGET_WIDTH = {
+  phone: 520,
+  'phone-tile': 360,
+  ipad: 1120,
+  'ipad-tile': 720,
+}
 
 mkdirSync(OUT, { recursive: true })
 const raw = mkdtempSync(join(tmpdir(), 'landing-shots-'))
