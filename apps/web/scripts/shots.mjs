@@ -5,6 +5,7 @@ const OUT = process.argv[2]
 
 /** [name, path, viewport, optional interaction to reach a meaningful state] */
 const SCREENS = [
+  ['landing', '/', 'phone'],
   ['login', '/login', 'phone'],
   ['manager-home', '/manager', 'phone'],
   ['manager-members', '/manager/members', 'phone'],

@@ -67,6 +67,22 @@ class Settings(BaseSettings):
     # volume's real mount path.
     media_root: str = "./data/media"
 
+    # Railway Bucket holding the nightly database dumps, mapped from that
+    # bucket's own variables (BUCKET / ENDPOINT / REGION / ACCESS_KEY_ID /
+    # SECRET_ACCESS_KEY) through variable references, so no credential is
+    # ever typed anywhere. All unset by default: scripts/backup_db.py says
+    # so and exits rather than pretending it backed something up, and the
+    # API never touches these at all.
+    backup_bucket: str | None = None
+    backup_endpoint: str | None = None
+    backup_region: str = "auto"
+    backup_access_key_id: str | None = None
+    backup_secret_access_key: str | None = None
+    # Roughly two months of nightly dumps. Retention is the reason `list`
+    # pages: pruning that only saw the first page would quietly keep
+    # everything past it forever.
+    backup_keep: int = 60
+
     @property
     def is_production(self) -> bool:
         return self.env == "production"

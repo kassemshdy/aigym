@@ -115,6 +115,34 @@ Test both without Docker: `npm run build`, then
 `PORT=8080 caddy run --config Caddyfile --adapter caddyfile`, then curl a deep link. See
 `docs/DEPLOY.md`.
 
+## The public landing page
+
+`/` is the marketing page (`src/features/public/Landing.tsx`), not a redirect into
+`/manager` — see decision 39. It lives outside `AppShell`, so none of the shell's rules
+(`h-dvh`, the tab bar, the role switcher) apply to it; it is an ordinary scrolling
+document with its own header and language toggle.
+
+Its screenshots are the real app, one set per language, committed under `public/landing/`:
+
+```bash
+npm run build
+npx vite preview --port 4173 &
+node scripts/landing-shots.mjs      # writes public/landing/*.webp
+```
+
+Run it against a build with **no `VITE_API_URL`**, so the shots carry the seeded gym
+rather than whatever is in a real database. **Regenerate after changing any screen the
+page shows** (manager home, insights, lapsed, import, coach session, member today, member
+nutrition chat) — otherwise the landing page is advertising a version of the product that
+no longer exists.
+
+Do not confuse it with `scripts/shots.mjs`. That one is a test: it scrolls `main` to the
+bottom to prove the tab bar stays put, which is the wrong frame to sell with.
+
+`VITE_CONTACT_PHONE` is optional. Set it and the hero grows a WhatsApp call-to-action;
+leave it unset and that button does not render, because a dead contact link is worse than
+no contact link.
+
 ## Recording the demo video
 
 `scripts/demo.mjs` drives the real app and records a captioned walkthrough.

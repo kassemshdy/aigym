@@ -714,3 +714,88 @@ outside the two operator ones, every response, following `$ref`, arrays and
 any/all/oneOf — and fails if a billing field appears anywhere. It was checked by breaking
 it twice: once by adding `monthly_usd` to `GymOut`, and once by hiding `billing_status` a
 model deeper inside a member response, which a flat property check would have missed.
+
+## 39. `/` is a public landing page, and it sells with the product, not with mockups
+
+The deployed URL is in the investor deck and goes to gym owners. It used to redirect
+straight to `/manager`, which for anyone who had not already been sold meant a login
+screen and nothing else.
+
+`/` is now `src/features/public/Landing.tsx`, outside `AppShell` — no tab bar, no
+role switcher, its own language toggle. Someone already signed in still skips it
+(`Home` in `App.tsx` redirects staff to their surface and members to `/member`), so a
+bookmarked link behaves as it always has.
+
+**Every image on it is the real app**, captured by `scripts/landing-shots.mjs` against a
+mock-mode build and committed to `public/landing/`. That is the whole point: a gym owner
+who is shown a mockup finds out on day one, and the GTM channel is walking into gyms,
+where the next conversation is with someone who has already seen it. Screenshots exist per
+language, so an Arabic visitor is shown the Arabic product rather than English screens
+with Arabic copy underneath. **Regenerate them when a screen changes** — a stale shot is
+advertising a version that no longer exists.
+
+No signup form and no pricing. Gyms are provisioned by the operator after a conversation
+(decision 34); a public form would add an abuse surface to serve a channel this business
+does not use, and pricing is set against what a notebook loses that gym, not off a page.
+
+Two things fell out of building it. The hero's yellow square is `lg:` only: at 390px it
+landed under the headline, and white on `#f9e54c` fails contrast badly enough to make the
+sentence unreadable — the yellow guarantee band below carries the identity on a phone
+instead. And `gen-sw.mjs` was listing `public/` non-recursively, so `public/landing/`
+would have been precached as a bare directory path; it now filters to files, which also
+keeps 288 KB of marketing images out of the offline shell. An offline shell should hold
+the app, not its advertising.
+
+## 40. Railway's managed Postgres, and an `ops` service that is not on the internet
+
+Two problems with the same root: there was no way to run anything against production
+without `railway ssh`, and the database — a raw `postgres:16` Docker image on a volume —
+had no backups at all.
+
+**The database is now Railway's managed Postgres** (`postgres-ssl:18`). Same PostgreSQL:
+the RLS policies of decision 16, `DISTINCT ON`, `asyncpg` and every migration are
+untouched, because "managed" here is a service wrapper, not a different engine. What it
+adds is scheduled backups, connection pooling and a data panel, none of which the raw
+image had. The move itself was the proof that the backup tooling works: dump, bootstrap
+the new server, restore, compare. 47 rows on both sides, table for table. The old
+service still holds its volume and is the rollback path.
+
+**`ops` is a service that shares the `api` image and runs one command.** No port, no
+healthcheck, no domain — it cannot be reached from the internet. To run something, set
+`AIGYM_OPS_COMMAND` and press Deploy; to run it nightly, give the service a cron
+schedule. Its restart policy is NEVER, because Railway's default restarts a container
+that exits, which for a one-shot job means rerunning your maintenance command forever.
+
+**The rejected shape was an HTTP endpoint taking a script name**, gated by
+`X-Onboarding-Secret`. It is more convenient every single day, and it is remote code
+execution on production behind one shared secret — a secret that also has to survive
+screenshots, deploy logs and copied curl commands. Pressing Deploy is slower on purpose.
+Interactive scripts still need `railway ssh` regardless, since a deploy has no terminal.
+
+Three things this turned up that are not obvious:
+
+- **Dump as the migrations role, never the app role.** The app role is `NOBYPASSRLS` and
+  no `app.gym_id` is set outside a request, so a dump taken as it would contain only the
+  rows visible under whatever the setting happened to be — an empty backup that reports
+  success. The same trap sits under any future maintenance script, so it is written down
+  in `apps/api/AGENTS.md` rather than only here.
+- **`pg_dump` refuses to dump a server newer than itself.** Debian trixie packages 17;
+  our servers are 16 and 18. Without the PGDG client the nightly backup would have
+  failed on its first run, and the Dockerfile now reads `$VERSION_CODENAME` from the base
+  image rather than naming a Debian release — the first attempt said `bookworm`, which
+  python:3.11-slim stopped being, and the build failed on an unmet `libldap` dependency
+  that said nothing about the real cause.
+- **`pg_restore` exits 0 having done nothing** more readily than you would like, so
+  `restore_db.py` counts rows afterwards and treats zero as a failed restore. It also
+  refuses to restore into a database that already holds rows without `--force`, because
+  pointing it at the wrong URL is the likeliest way anyone destroys a live database.
+
+The S3 client is hand-written (`app/integrations/object_storage.py`) rather than boto3:
+three operations, in an image the API also ships, and `httpx` was already a dependency.
+A wrong SigV4 signer only ever tells you `403` with no detail, so the canonical request
+is asserted character for character and the signature is proven against the real bucket
+rather than a digest the same code produced. If a dump ever approaches a gigabyte it
+needs multipart upload, and that is the moment to take the dependency instead.
+
+The bucket is in `sjc` while the database is in `europe-west4`. For a backup that is the
+right way round.

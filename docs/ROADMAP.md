@@ -12,7 +12,7 @@ build, and the bundle budget.
 
 ## Phase 1 — Clickable prototype ✅ done, deployed
 
-**Live: https://triple-a.up.railway.app** — see `docs/DEPLOY.md`.
+**Live: https://trpa.up.railway.app** — see `docs/DEPLOY.md`.
 
 React + Vite + TS + Tailwind, mock data, no backend. Arabic default with RTL, English
 toggle. Eleven screens across three surfaces:
@@ -67,7 +67,7 @@ stay on mocks (Phases 4–5).
 
 ## Phase 4 — Members, content, and self-service ✅ done, deployed
 
-**Live: https://triple-a.up.railway.app** — member screens now read and write the real API.
+**Live: https://trpa.up.railway.app** — member screens now read and write the real API.
 
 Self-service member login (phone + 6-digit WhatsApp code, no staff needed to request one —
 decision 28), alongside the staff-assisted flow Phase 2 already shipped. Every new

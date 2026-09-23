@@ -137,7 +137,7 @@ start`.
 
 ## Deploy
 
-Live at **https://triple-a.up.railway.app** (Railway project `aigym`, service
+Live at **https://trpa.up.railway.app** (Railway project `aigym`, service
 `web`, region `europe-west4`). Railway watches **`main`** and redeploys anything under
 `apps/web/**` — so a deploy follows a merge from `develop`, not a direct push.
 
@@ -146,11 +146,28 @@ SPA fallback, the `/health` endpoint, and the cache headers. **There is no `rail
 there must not be** — Config as Code is deprecated, new services cannot opt into it, and
 existing files stop being read on 2026-12-01. Service settings live on the service.
 
-`apps/api` runs as a second Railway service (`api`) plus a Postgres service, both in the
-same project — provisioned and live, and `web`'s `VITE_API_URL` now points at it, so
-manager screens on the live URL read and write real data. No real manager account exists
-on the live database yet (seeding is still manual, see `docs/DEPLOY.md`). Setup and
-current status: `docs/DEPLOY.md`.
+`apps/api` runs as a second Railway service (`api`), and `web`'s `VITE_API_URL` points at
+it, so manager screens on the live URL read and write real data. No real manager account
+exists on the live database yet (seeding is still manual, see `docs/DEPLOY.md`).
+
+Two more services sit alongside them:
+
+- **The database is Railway's managed Postgres** (`postgres-ssl:18`), not a raw Docker
+  image — so it has scheduled backups, pooling and a data panel. Same PostgreSQL: RLS,
+  `DISTINCT ON` and every migration are unchanged. Decision 40.
+- **`ops`** shares the `api` image and database and has **no port, no healthcheck and no
+  domain** — it is not reachable from the internet. Set `AIGYM_OPS_COMMAND` and press
+  Deploy to run one maintenance script; a cron schedule runs `scripts/backup_db.py`
+  nightly into the `aigym-backups` bucket. Interactive scripts (`set_staff_password.py`,
+  `set_gym_billing.py`) still need `railway ssh -s api`, because a deploy has no terminal.
+
+**Anything new in `apps/api/scripts/` connects as the migrations role, never the app
+role.** The app role is `NOBYPASSRLS` and no `app.gym_id` is set outside a request, so a
+gym-scoped read as it returns nothing — which looks like an empty database, not a
+permissions error. That trap would have made `backup_db.py` write empty backups that
+reported success.
+
+Setup, runbooks and current status: `docs/DEPLOY.md`.
 
 Full runbook, including how to test the serving layer without Docker: `docs/DEPLOY.md`.
 
@@ -183,6 +200,12 @@ keep both branches working for anything new.
 Phase 5's AI needs `AIGYM_ANTHROPIC_API_KEY`. Without it the AI routes answer 503 by
 design, and nothing else is affected (decision 29). It is **not set on the live service
 yet** — see `docs/DEPLOY.md`.
+
+`/` is the **public landing page** (`apps/web/src/features/public/Landing.tsx`), not a
+redirect into `/manager`. Its screenshots are the real app, one set per language, committed
+under `apps/web/public/landing/` — **regenerate them with `scripts/landing-shots.mjs` when
+you change a screen it shows**, or it is advertising a version that no longer exists.
+Decision 39.
 
 **Two limitations Phase 6 wrote down rather than fixed** (decision 35), because both are
 bigger than the stage that surfaced them and both distort the numbers the sales guarantee

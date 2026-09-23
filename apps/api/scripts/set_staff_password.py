@@ -11,6 +11,15 @@ when that isn't set up or isn't working.
 Username and password are prompted interactively, never taken as argv,
 so neither ends up in shell history or a process list.
 
+**On the `ops` service there is no terminal**, so a prompt would hang and
+the deploy would sit there until it timed out. Set `AIGYM_SET_PASSWORD_USER`
+and `AIGYM_SET_PASSWORD_VALUE` on that service and it runs without asking.
+Those go in Railway's variable store, which is where a credential belongs —
+unlike argv, which shows up in `ps`, and unlike a chat window or a ticket.
+**Delete both variables once the run has succeeded**: nothing needs them
+afterwards, and a password sitting in a service's environment is a password
+that leaks with the next screenshot of that page.
+
 Connects with the migrations role (the table owner). staff_users carries no
 RLS policy at all (decision 16's own documented exception — it's looked up
 before any request has a gym_id), so the app role could write to it too, but
@@ -20,6 +29,7 @@ operation and keeping one convention for these one-off scripts is simpler.
 
 import asyncio
 import getpass
+import os
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -29,13 +39,32 @@ from app.security.hashing import hash_secret
 from app.settings import get_settings
 
 
-async def main() -> None:
+def credentials() -> tuple[str, str] | None:
+    """From the environment when it is set, otherwise by prompting.
+
+    The confirm step only exists for the interactive path: a variable you
+    set deliberately cannot be mistyped twice the way a blind prompt can,
+    and asking for it twice in a non-interactive run is a prompt that hangs.
+    """
+    username = os.environ.get("AIGYM_SET_PASSWORD_USER", "").strip()
+    password = os.environ.get("AIGYM_SET_PASSWORD_VALUE", "")
+    if username and password:
+        print(f"Using AIGYM_SET_PASSWORD_USER={username} from the environment.")
+        return username, password
+
     username = input("Staff username (e.g. kassem): ").strip()
-    password = getpass.getpass("New password: ").strip()
-    confirm = getpass.getpass("Confirm password: ").strip()
-    if password != confirm:
+    password = getpass.getpass("New password: ")
+    if password != getpass.getpass("Confirm password: "):
         print("Passwords did not match — nothing changed.")
+        return None
+    return username, password
+
+
+async def main() -> None:
+    supplied = credentials()
+    if supplied is None:
         return
+    username, password = supplied
     if not password:
         print("Password cannot be empty — nothing changed.")
         return

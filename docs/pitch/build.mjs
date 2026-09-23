@@ -79,7 +79,7 @@ const FILL = (label) => `[FILL: ${label}]`
       fontFace: B, fontSize: 15, color: MUTED, lineSpacing: 22, isTextBox: true,
     },
   )
-  s.addText('triple-a.up.railway.app   ·   Triple A Gym, Aaramoun, Lebanon', {
+  s.addText('trpa.up.railway.app   ·   Triple A Gym, Aaramoun, Lebanon', {
     x: M, y: 6.4, w: 9, h: 0.4,
     fontFace: B, fontSize: 13, bold: true, color: WHITE, isTextBox: true,
   })
@@ -484,7 +484,7 @@ const FILL = (label) => `[FILL: ${label}]`
     disc(s, i + 1, M + 1.35, y + 0.32)
     y += 1.32
   })
-  s.addText('See it working: triple-a.up.railway.app', {
+  s.addText('See it working: trpa.up.railway.app', {
     x: M + 2.2, y: 6.2, w: 9.7, h: 0.45,
     fontFace: H, fontSize: 18, bold: true, color: BRAND, isTextBox: true,
   })

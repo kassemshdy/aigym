@@ -577,5 +577,72 @@
     "newMembers": "New members",
     "missing": "Away {{days}}+ days",
     "seeMissing": "See who is missing"
+  },
+  "landing": {
+    "eyebrow": "Gym software built for Lebanon",
+    "headline": "Collect every dollar you're owed. Stop losing members quietly.",
+    "sub": "One app for the front desk, the gym floor and your members' phones. Arabic and English, on the cheapest Android, through a power cut.",
+    "seeInside": "See what it does",
+    "guaranteeTitle": "Our guarantee",
+    "guarantee": "If it doesn't recover more in missed dues than we charge you in the first 90 days, you don't pay.",
+    "features": {
+      "dues": {
+        "title": "Who owes you, on the first screen",
+        "body": "Open it in the morning and you know: who came in, who owes money, whose membership ends this week. One tap opens a WhatsApp message you don't have to write."
+      },
+      "proof": {
+        "title": "Proof it's working, not a feeling",
+        "body": "What share of renewals were paid on time this quarter, and what that share was the quarter before. It is the same number our guarantee is settled on."
+      },
+      "lapsed": {
+        "title": "Nobody disappears quietly",
+        "body": "Members who haven't walked in for two weeks, longest gap first. People don't quit a gym — they stop coming, and nobody notices for a month."
+      },
+      "floor": {
+        "title": "Your coach taps. Your coach never types.",
+        "body": "Every set comes pre-filled from last session. Weight and reps are big steppers, not a keyboard. It keeps working with the internet down and sends itself when the internet is back."
+      },
+      "member": {
+        "title": "Your members get their own app",
+        "body": "Today's workout, the class calendar, booking, and progress photos that stay private unless the member shares them."
+      },
+      "assistant": {
+        "title": "An assistant that answers — and knows when not to",
+        "body": "Members ask about food and training in their own words, and it can log a meal they describe. It can never change a program or a calorie target: that becomes a draft their coach approves."
+      },
+      "import": {
+        "title": "From the notebook, in half a day",
+        "body": "Hand over the spreadsheet. Arabic names, 03 and +961 numbers, half-filled rows — it reads them, shows you exactly what it found, and corrections go in before anything is saved."
+      }
+    },
+    "builtTitle": "Built for the way gyms here actually run",
+    "built": {
+      "power": {
+        "title": "Power cuts are normal",
+        "body": "Work queues on the phone and sends itself when the power and the internet come back. A generator kicking in mid-session never loses a logged set."
+      },
+      "light": {
+        "title": "Made for cheap Android phones",
+        "body": "The whole app weighs less than one photo from your camera, and the build fails if that ever stops being true. It opens fast on a phone that isn't new."
+      },
+      "lang": {
+        "title": "Arabic and English, equally",
+        "body": "Not a translation bolted on afterwards. Every screen is laid out right-to-left in Arabic and left-to-right in English, and it switches in one tap."
+      },
+      "whatsapp": {
+        "title": "WhatsApp, not email",
+        "body": "Reminders go the way Lebanon actually talks. You tap send yourself, so your gym's number never gets reported for blasting."
+      },
+      "privacy": {
+        "title": "Private by default",
+        "body": "A member's progress photos are theirs. Sharing is one photo at a time, by the member, and deleting really deletes."
+      }
+    },
+    "closingTitle": "Already using AIGym?",
+    "staffSignIn": "Staff sign in",
+    "memberSignIn": "Member sign in",
+    "talk": "Talk to us on WhatsApp",
+    "waMessage": "Hi — I run a gym and I would like to see AIGym.",
+    "footerNote": "Built in Lebanon, for gyms in Lebanon."
   }
 }
