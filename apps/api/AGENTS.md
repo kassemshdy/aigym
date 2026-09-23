@@ -202,3 +202,27 @@ way when adding a route that calls Claude.
 
 Read `.agents/skills/ai-prompt-eval` before changing a prompt or a guardrail, and note that
 the golden set costs real money to run, so it is not in the default CI path (decision 32).
+
+## Maintenance scripts and the `ops` service
+
+`scripts/` holds the one-off admin tools. Non-interactive ones run on the `ops` Railway
+service — same image, same database, no port and no domain — by setting
+`AIGYM_OPS_COMMAND` and deploying. Interactive ones (`set_staff_password.py`,
+`set_gym_billing.py`) prompt on stdin and still need `railway ssh -s api`, because a
+deploy has no terminal. See `docs/DEPLOY.md`.
+
+Two rules for anything new in here:
+
+- **Connect as the migrations role, not the app role.** The app role is `NOBYPASSRLS`
+  (decision 16) and no `app.gym_id` is set outside a request, so a gym-scoped read as
+  that role returns nothing — which looks exactly like an empty database rather than
+  like a permissions problem. `scripts/backup_db.py` would have written empty backups.
+- **Do not import one script from another.** `scripts/` is not a package: `python
+  scripts/x.py` puts `scripts/` on the path, not the directory above it. Shared helpers
+  go in `app/` (see `app/backup.py`), which is installed and importable from both.
+
+`app/integrations/object_storage.py` signs its own S3 requests rather than depending on
+boto3, for three operations in an image the API also ships. If it ever needs multipart
+upload — a dump approaching a gigabyte — that is the moment to take the dependency
+rather than grow that file.
+

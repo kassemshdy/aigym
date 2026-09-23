@@ -448,3 +448,91 @@ app can read them: `gyms` has no RLS to lean on, so the wall is which
 fields the staff-facing response models select, and
 `tests/test_billing.py` walks the whole OpenAPI schema on every CI run to
 prove none of them ever grew one.
+
+## The `ops` service: running a script against production
+
+`ops` is a fourth Railway service that shares the `api` image, the repo and the
+database, and has **no port, no healthcheck and no domain** — it is not reachable from
+the internet. It runs one command and exits:
+
+```
+AIGYM_OPS_COMMAND="python scripts/db_report.py"
+```
+
+Set that variable on the service and press Deploy; the run shows up in the service's
+deploy logs. Its restart policy is **NEVER** — Railway's default restarts a container
+that exits, which for a one-shot job is an infinite loop that reruns your maintenance
+command until someone notices. With the variable unset it prints "nothing to run" and
+exits 0, so an idle deploy is green rather than red.
+
+Useful commands:
+
+```bash
+python scripts/db_report.py                       # row counts, per table, counted for real
+python scripts/backup_db.py                       # dump to the bucket, prune to the newest 60
+python scripts/restore_db.py --into "$AIGYM_DATABASE_URL_MIGRATIONS"
+python scripts/set_staff_password.py              # prompts — see the note below
+python scripts/set_gym_billing.py
+bash scripts/bootstrap_db.sh                      # create the db and the app role
+```
+
+**The interactive scripts do not work here.** `set_staff_password.py` and
+`set_gym_billing.py` prompt on stdin, and a Railway deploy has no terminal attached.
+They still need `railway ssh -s api`. Everything non-interactive belongs on `ops`.
+
+**Why not an HTTP endpoint that runs a named script.** It would be more convenient and
+it is remote code execution on production behind one shared secret. If that secret ever
+leaks — a screenshot, a log line, a copied curl command — so does the database. Pressing
+Deploy is slower on purpose.
+
+## Backups
+
+`scripts/backup_db.py` writes `pg_dump --format=custom` into the project's Railway
+Bucket (`aigym-backups`) under `db/`, then prunes to the newest `AIGYM_BACKUP_KEEP`
+(60, roughly two months of nightly dumps). Credentials reach it as variable references
+to the bucket's own `BUCKET`/`ENDPOINT`/`REGION`/`ACCESS_KEY_ID`/`SECRET_ACCESS_KEY`,
+so no key is ever typed anywhere.
+
+The bucket is in `sjc` while the database is in `europe-west4`. That is on purpose for
+a backup: a copy in another region survives things a same-region copy does not.
+
+It dumps as the **migrations** role. The app role is `NOBYPASSRLS` by design
+(decision 16), so a dump taken as that role would contain only the rows visible under
+whatever `app.gym_id` happened to be set — an empty backup that looks like a successful
+one.
+
+To schedule it, give `ops` a cron schedule in Railway with
+`AIGYM_OPS_COMMAND="python scripts/backup_db.py"`.
+
+### Restoring
+
+```bash
+# into a fresh server: create the database and the app role first, because the
+# dump's GRANTs and RLS policies name that role
+bash scripts/bootstrap_db.sh
+python scripts/restore_db.py --into "$AIGYM_DATABASE_URL_MIGRATIONS"          # newest dump
+python scripts/restore_db.py --into "<url>" --key db/2026-09-23T02-00-00Z.dump
+```
+
+It **refuses to restore into a database that already holds rows** without `--force`, and
+it counts rows afterwards rather than trusting the exit code — `pg_restore` returns 0
+having done nothing useful more readily than you would like.
+
+## The database is Railway's managed Postgres
+
+The `Postgres-B2GH` service (`ghcr.io/railwayapp-templates/postgres-ssl:18`) replaced a
+raw `postgres:16` Docker image. Same PostgreSQL — RLS, `DISTINCT ON`, `asyncpg`,
+Alembic all unchanged — but the managed service adds scheduled backups, connection
+pooling and the data panel, none of which the raw image has.
+
+The move was done with the tools above, which is the point: dump with
+`scripts/backup_db.py`, `bootstrap_db.sh` on the new server, `scripts/restore_db.py`,
+then swap `AIGYM_DATABASE_URL`, `AIGYM_DATABASE_URL_MIGRATIONS` and the four `PG*`
+variables on `api`. Row counts matched at 47 on both sides, table for table.
+
+`pg_dump` comes from PGDG pinned to 18, not Debian: **pg_dump refuses outright to dump a
+server newer than itself**, and Debian trixie packages 17.
+
+The old `Postgres` service is still there, still holding its volume, and is the rollback
+path — reverting is swapping those six variables back. **Delete it only once you are
+satisfied the new one is behaving**, and take a dump first.
