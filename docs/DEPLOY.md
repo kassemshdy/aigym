@@ -501,8 +501,27 @@ It dumps as the **migrations** role. The app role is `NOBYPASSRLS` by design
 whatever `app.gym_id` happened to be set — an empty backup that looks like a successful
 one.
 
-To schedule it, give `ops` a cron schedule in Railway with
-`AIGYM_OPS_COMMAND="python scripts/backup_db.py"`.
+**The schedule lives on its own service, `backup`, not on `ops`.** Setting a cron
+schedule on a Railway service converts it into a cron job: it then runs *only* on that
+schedule and stops executing its start command on deploy. Putting the nightly backup on
+`ops` therefore silently disabled the "set `AIGYM_OPS_COMMAND`, press Deploy" workflow —
+every run afterwards was a container that started and drained without running anything,
+and the only symptom was empty logs.
+
+So there are two services sharing one image and one entrypoint:
+
+| Service | Cron | Runs |
+|---|---|---|
+| `ops` | none | its start command on every deploy — on-demand maintenance |
+| `backup` | `0 2 * * *` | `scripts/backup_db.py`, nightly |
+
+`backup` gets **only** what a dump needs: `AIGYM_DATABASE_URL_MIGRATIONS` and the five
+`AIGYM_BACKUP_*` variables. Not the JWT secret, not the onboarding secret, not the app
+role. A backup job that cannot read your signing key is a smaller blast radius, and it
+costs nothing to arrange.
+
+Because a cron service does not run on deploy, **verify a change to it before adding the
+schedule**: clear the cron, deploy once, read the log, then put the schedule back.
 
 ### Restoring
 

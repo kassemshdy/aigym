@@ -799,3 +799,30 @@ needs multipart upload, and that is the moment to take the dependency instead.
 
 The bucket is in `sjc` while the database is in `europe-west4`. For a backup that is the
 right way round.
+
+## 41. A cron schedule turns a Railway service into a cron job, so the backup has its own
+
+Setting `cronSchedule` on a Railway service does not add a schedule to it — it converts
+it. The service then runs *only* at those times and stops executing its start command on
+deploy.
+
+That was learned the expensive way. `ops` was built to run one maintenance command per
+deploy, and then given a nightly backup schedule, which quietly took the first behaviour
+away. Every subsequent run was a container that started, configured its network, and
+drained without executing anything. The only symptom was empty deploy logs — which reads
+as a logging lag, not as a service that has stopped doing its job, and cost a while to
+spot.
+
+So the two jobs are two services sharing one image and one entrypoint (`scripts/ops.sh`):
+`ops` with no cron, which runs on deploy and is how a person does anything by hand; and
+`backup` with `0 2 * * *`, which only ever runs `scripts/backup_db.py`.
+
+Two things fall out of the split that are worth keeping even if Railway changes this:
+
+- **`backup` holds only what a dump needs** — the migrations database URL and the five
+  bucket variables. Not `AIGYM_JWT_SECRET`, not `AIGYM_ONBOARDING_SECRET`, not the app
+  role. Separating the services made least privilege free, where a single service would
+  have needed every variable any script might want.
+- **A cron service cannot be verified by deploying it.** Changing one means clearing the
+  schedule, deploying once, reading the log, and putting the schedule back — otherwise
+  the first evidence that it is broken arrives at 02:00, if anyone is looking.
