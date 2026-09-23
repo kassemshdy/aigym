@@ -24,43 +24,20 @@ import subprocess
 import sys
 from datetime import UTC, datetime
 
-from app.integrations.object_storage import Bucket
+from app.backup import PREFIX, bucket_from_settings, libpq_url, missing_backup_settings
 from app.settings import get_settings
-
-PREFIX = "db/"
-
-
-def libpq_url(sqlalchemy_url: str) -> str:
-    """SQLAlchemy carries its driver in the scheme; pg_dump does not know
-    what `+psycopg` means and refuses the whole URL."""
-    return sqlalchemy_url.replace("postgresql+psycopg://", "postgresql://", 1)
 
 
 def main() -> int:
     settings = get_settings()
-    missing = [
-        name
-        for name, value in (
-            ("AIGYM_BACKUP_BUCKET", settings.backup_bucket),
-            ("AIGYM_BACKUP_ENDPOINT", settings.backup_endpoint),
-            ("AIGYM_BACKUP_ACCESS_KEY_ID", settings.backup_access_key_id),
-            ("AIGYM_BACKUP_SECRET_ACCESS_KEY", settings.backup_secret_access_key),
-        )
-        if not value
-    ]
+    missing = missing_backup_settings()
     if missing:
         # Loud and non-zero. A backup job that "succeeds" while storing
         # nothing is the single worst outcome available here.
         print(f"Not configured — set {', '.join(missing)}. No backup taken.", file=sys.stderr)
         return 1
 
-    bucket = Bucket(
-        name=settings.backup_bucket or "",
-        endpoint=settings.backup_endpoint or "",
-        region=settings.backup_region,
-        access_key_id=settings.backup_access_key_id or "",
-        secret_access_key=settings.backup_secret_access_key or "",
-    )
+    bucket = bucket_from_settings()
 
     stamp = datetime.now(UTC).strftime("%Y-%m-%dT%H-%M-%SZ")
     key = f"{PREFIX}{stamp}.dump"
