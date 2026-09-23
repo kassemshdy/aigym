@@ -27,10 +27,18 @@ from app.security.jwt import InvalidTokenError, decode_access_token
 MUTATING_METHODS = {"POST", "PATCH", "DELETE"}
 
 # /auth/* issues and rotates tokens — deliberately NOT idempotent (replaying
-# a login must not hand back the same tokens forever). /gyms is a one-time
-# bootstrap gated by its own shared secret, not a JWT, so there's no gym_id
-# to key an idempotency row on yet. Everything else under the API is a
-# gym-scoped write and must carry a key.
+# a login must not hand back the same tokens forever). /gyms is exempt
+# because POST /gyms is a one-time bootstrap gated by a shared secret, not
+# a JWT, so there is no gym_id to key an idempotency row on yet.
+#
+# Since Phase 6 that prefix also covers PATCH /gyms/me (branding) and the
+# operator billing routes. Both stay exempt and neither needs a key: every
+# one of them sets named fields to the values given, so replaying a request
+# lands on the same row with the same values. Nothing under /gyms appends,
+# increments, or mints anything — the moment one does, it needs its own
+# path outside this prefix rather than an exception carved into it.
+#
+# Everything else under the API is a gym-scoped write and must carry a key.
 EXEMPT_PREFIXES = ("/auth", "/gyms", "/health", "/docs", "/openapi.json", "/redoc")
 
 
