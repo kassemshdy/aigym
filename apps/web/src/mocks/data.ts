@@ -30,7 +30,7 @@ export const plans: Plan[] = [
 
 export const members: Member[] = [
   {
-    id: 'm0', name: 'قاسم شحادي', nameEn: 'Kassem Shehady', phone: '+96170622211',
+    id: 'm0', name: 'قاسم شحادي', nameEn: 'Kassem Shehady', phone: '+96170000011',
     planId: 'pt', joinedAt: '2026-03-02', endsAt: '2026-10-02', status: 'paid', owedUsd: 0,
     lastVisit: '2026-09-10', goal: 'strength', level: 'mid', heightCm: 177, weightKg: 80,
     bodyFat: 19, injuries: [], daysPerWeek: 3, job: 'desk', sleepHours: 7,

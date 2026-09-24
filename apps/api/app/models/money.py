@@ -31,6 +31,27 @@ class Subscription(Base, UUIDPrimaryKeyMixin, GymScopedMixin, TimestampMixin):
     plan_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("plans.id", ondelete="RESTRICT"), nullable=False
     )
+    #: What this period cost when it was sold — **not** a duplicate of
+    #: ``plans.price_usd``, and the difference is the point. A gym raising
+    #: its monthly plan from $30 to $45 used to rewrite what last quarter
+    #: had been owed and collected, because every figure resolved the price
+    #: by joining to the plan *now*. The sales guarantee is settled on those
+    #: figures, so they have to describe the past rather than the price
+    #: list. Decision 42.
+    #:
+    price_usd: Mapped[float] = mapped_column(Numeric(8, 2, asdecimal=False), nullable=False)
+    #: And how long it ran for, for the same reason: ``compute_dues``
+    #: counts missed cycles in plan-lengths, so editing a plan's duration
+    #: moved historical dues exactly as editing its price did.
+    #:
+    #: This was first written as a derivation — a period is created as
+    #: ``starts_at`` plus the plan's days, so ``ends_at - starts_at`` looked
+    #: like an exact record of what was sold. It is, until anything moves an
+    #: end date: a freeze, a pro-rated period, a correction. The first test
+    #: written against that derivation produced $180 owed where $30 was
+    #: right, because it moved ``ends_at`` alone. A column costs one
+    #: migration and removes an invariant nobody enforces.
+    days: Mapped[int] = mapped_column(Integer, nullable=False)
     starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 

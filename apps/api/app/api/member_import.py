@@ -250,6 +250,7 @@ async def commit_member_import(
         session.add(
             Subscription(
                 id=uuid.uuid4(), gym_id=claims.gym_id, member_id=member.id, plan_id=plan.id,
+                price_usd=plan.price_usd, days=plan.days,
                 starts_at=now, ends_at=_period_end(row.ends_at, now, plan),
             )
         )

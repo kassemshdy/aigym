@@ -39,7 +39,7 @@ from app.domain.analytics import (
     renewal_outcomes,
     week_starts,
 )
-from app.models import Attendance, Member, Plan, Subscription
+from app.models import Attendance, Member, Subscription
 from app.security.jwt import AccessTokenClaims
 
 router = APIRouter(tags=["analytics"])
@@ -124,19 +124,22 @@ async def analytics_summary(
 
     # One read covering both windows: everything that fell due since the
     # previous window opened.
+    # No join to plans any more: the price a period was sold at lives on
+    # the period. That is not only cheaper — joining to plans is what made
+    # a price edit rewrite history, which is the whole of decision 42.
     due_rows = (
         await session.execute(
-            select(Subscription, Plan)
-            .join(Plan, Plan.id == Subscription.plan_id)
-            .where(Subscription.ends_at >= previous_start, Subscription.ends_at <= now)
+            select(Subscription).where(
+                Subscription.ends_at >= previous_start, Subscription.ends_at <= now
+            )
         )
-    ).all()
+    ).scalars().all()
     due = [
         SubscriptionRow(
             member_id=sub.member_id, starts_at=sub.starts_at, ends_at=sub.ends_at,
-            plan_price_usd=float(plan.price_usd),
+            plan_price_usd=float(sub.price_usd),
         )
-        for sub, plan in due_rows
+        for sub in due_rows
     ]
 
     # Every subscription belonging to those members, so a renewal that
@@ -147,16 +150,14 @@ async def analytics_summary(
     if member_ids:
         all_rows = (
             await session.execute(
-                select(Subscription, Plan)
-                .join(Plan, Plan.id == Subscription.plan_id)
-                .where(Subscription.member_id.in_(member_ids))
+                select(Subscription).where(Subscription.member_id.in_(member_ids))
             )
-        ).all()
-        for sub, plan in all_rows:
+        ).scalars().all()
+        for sub in all_rows:
             by_member.setdefault(sub.member_id, []).append(
                 SubscriptionRow(
                     member_id=sub.member_id, starts_at=sub.starts_at, ends_at=sub.ends_at,
-                    plan_price_usd=float(plan.price_usd),
+                    plan_price_usd=float(sub.price_usd),
                 )
             )
 

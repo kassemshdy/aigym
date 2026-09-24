@@ -196,14 +196,15 @@ Decisions 34–38 in `docs/DECISIONS.md` record why each of those took the shape
 Two things distort the numbers the guarantee is settled on, both recorded in decision 35,
 in the endpoint docstrings, and in `docs/DEPLOY.md`'s go-live sequence:
 
-1. **A price edit is retroactive.** Nothing snapshots what a membership period cost when
-   it was sold, so raising a plan also changes what last quarter's "collected" says. Fix: a
-   price column on `subscriptions`, with a migration and a backfill.
+1. ~~**A price edit is retroactive.**~~ **Fixed** — `subscriptions` now records the price
+   and length a period was sold at, and dues and analytics read those instead of joining
+   to `plans`. Decision 42. Done while the table still held zero rows, which is the only
+   time the backfill is free rather than a guess.
 2. **Nothing can mark a member as having left.** "Lapsed" and "still not collected" both
    drift upward as people quit. Fix: a member lifecycle.
 
-Either is a sensible first job for Phase 7, and both are bigger than the stage that
-surfaced them — which is why neither was smuggled in.
+The second is the remaining one, and it is bigger than the stage that surfaced it — which
+is why it was not smuggled in either.
 
 **Still carried:** how to bill gym owners from Lebanon (decision 3 — tracked, not
 processed, is the interim answer), and whether video needs real access control

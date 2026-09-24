@@ -117,10 +117,13 @@ def _build_member_out(
     subscription, plan = current if current is not None else (None, None)
     dues = None
     if subscription is not None and plan is not None:
+        # The price this period was SOLD at, not what the plan costs today —
+        # otherwise raising a plan silently restates what a lapsed member
+        # has owed all along. Decision 42.
         info = compute_dues(
             ends_at=subscription.ends_at,
-            plan_price_usd=float(plan.price_usd),
-            plan_days=plan.days,
+            plan_price_usd=float(subscription.price_usd),
+            plan_days=subscription.days,
         )
         dues = DuesOut(status=info.status, owed_usd=info.owed_usd)
     return MemberOut(
@@ -269,6 +272,7 @@ async def create_member(
     session.add(
         Subscription(
             id=uuid.uuid4(), gym_id=claims.gym_id, member_id=member.id, plan_id=plan.id,
+            price_usd=plan.price_usd, days=plan.days,
             starts_at=now, ends_at=now + timedelta(days=plan.days),
         )
     )
@@ -364,6 +368,7 @@ async def record_payment(
     session.add(
         Subscription(
             id=uuid.uuid4(), gym_id=claims.gym_id, member_id=member_id, plan_id=plan.id,
+            price_usd=plan.price_usd, days=plan.days,
             starts_at=period_start, ends_at=period_start + timedelta(days=plan.days),
         )
     )

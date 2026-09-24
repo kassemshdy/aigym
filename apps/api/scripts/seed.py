@@ -97,7 +97,7 @@ class MemberSeed(NamedTuple):
 
 MEMBER_ROWS = [
     MemberSeed(
-        "m0", "قاسم شحادي", "Kassem Shehady", "+96170622211", "pt",
+        "m0", "قاسم شحادي", "Kassem Shehady", "+96170000011", "pt",
         "2026-03-02", "2026-10-02", "strength", "mid", 177, 80, 19, [],
         3, "desk", 7, [84, 83, 83, 82, 81, 81, 80],
     ),
@@ -346,7 +346,12 @@ async def _seed_owner_account(session: AsyncSession) -> None:
     # matters — flushing a freshly constructed row before its NOT NULL
     # columns are set fails the INSERT outright.
     staff.username = "kassem"
-    staff.phone = "+96170622211"
+    # A placeholder, not a real number. This repo is public and seed data
+    # is the easiest thing in it to forget: scrapers harvest public
+    # repositories for phone numbers specifically. Put the owner's real
+    # number on the row after seeding, with the app or a one-off script —
+    # never here.
+    staff.phone = "+96170000011"
     staff.name = "Kassem Shehady"
 
     # Fills the gap left by a staff row that has never had a password set
@@ -515,9 +520,13 @@ async def seed(session: AsyncSession, *, demo: bool = True) -> None:
     await session.flush()
 
     plan_ids: dict[str, uuid.UUID] = {}
+    plan_prices: dict[str, float] = {}
+    plan_days: dict[str, int] = {}
     for mock_id, name, price, days in PLAN_ROWS:
         pid = uid("plan", mock_id)
         plan_ids[mock_id] = pid
+        plan_prices[mock_id] = price
+        plan_days[mock_id] = days
         session.add(Plan(id=pid, gym_id=GYM_ID, name=name, price_usd=price, days=days))
 
     coach_ids: dict[str, uuid.UUID] = {}
@@ -607,6 +616,11 @@ async def seed(session: AsyncSession, *, demo: bool = True) -> None:
                 gym_id=GYM_ID,
                 member_id=member_ids[m.mock_id],
                 plan_id=plan_ids[m.plan_mock_id],
+                # Demo data, so the plan's current price IS what it was
+                # sold at. Real periods snapshot it at the point of sale
+                # instead — decision 42.
+                price_usd=plan_prices[m.plan_mock_id],
+                days=plan_days[m.plan_mock_id],
                 starts_at=d(m.joined_at),
                 ends_at=d(m.ends_at),
             )

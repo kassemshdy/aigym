@@ -157,9 +157,14 @@ Two more services sit alongside them:
   `DISTINCT ON` and every migration are unchanged. Decision 40.
 - **`ops`** shares the `api` image and database and has **no port, no healthcheck and no
   domain** — it is not reachable from the internet. Set `AIGYM_OPS_COMMAND` and press
-  Deploy to run one maintenance script; a cron schedule runs `scripts/backup_db.py`
-  nightly into the `aigym-backups` bucket. Interactive scripts (`set_staff_password.py`,
-  `set_gym_billing.py`) still need `railway ssh -s api`, because a deploy has no terminal.
+  Deploy to run one maintenance script. `set_staff_password.py` takes
+  `AIGYM_SET_PASSWORD_USER`/`_VALUE` so it works here; anything still prompting on stdin
+  needs `railway ssh -s api`, because a deploy has no terminal.
+- **`backup`** is the same image on a `0 2 * * *` cron, running `scripts/backup_db.py`
+  into the `aigym-backups` bucket. **It is deliberately a second service**: a cron
+  schedule turns a Railway service into a cron job that no longer runs on deploy, so
+  putting the schedule on `ops` disables `ops`. It holds only the database URL and the
+  bucket credentials — not the JWT or onboarding secrets.
 
 **Anything new in `apps/api/scripts/` connects as the migrations role, never the app
 role.** The app role is `NOBYPASSRLS` and no `app.gym_id` is set outside a request, so a
@@ -211,9 +216,11 @@ Decision 39.
 bigger than the stage that surfaced them and both distort the numbers the sales guarantee
 is settled on:
 
-1. A plan's price edit is retroactive — nothing snapshots what a membership period cost
-   when it was sold. Fix: a price column on `subscriptions`.
+1. ~~A plan's price edit is retroactive.~~ **Fixed by decision 42**: `subscriptions`
+   records `price_usd` and `days` as sold, and dues and analytics read those rather than
+   joining to `plans`. **Anything new that creates a `Subscription` must set both** — they
+   are NOT NULL, and getting the price from the plan at read time is the bug itself.
 2. Nothing can mark a member as having left, so "lapsed" and "uncollected" drift upward as
-   people quit. Fix: a member lifecycle.
+   people quit. Fix: a member lifecycle. Still open, and the sensible next job.
 
 Either is a sensible first job for Phase 7. Do not paper over them in a smaller change.
