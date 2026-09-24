@@ -515,9 +515,13 @@ async def seed(session: AsyncSession, *, demo: bool = True) -> None:
     await session.flush()
 
     plan_ids: dict[str, uuid.UUID] = {}
+    plan_prices: dict[str, float] = {}
+    plan_days: dict[str, int] = {}
     for mock_id, name, price, days in PLAN_ROWS:
         pid = uid("plan", mock_id)
         plan_ids[mock_id] = pid
+        plan_prices[mock_id] = price
+        plan_days[mock_id] = days
         session.add(Plan(id=pid, gym_id=GYM_ID, name=name, price_usd=price, days=days))
 
     coach_ids: dict[str, uuid.UUID] = {}
@@ -607,6 +611,11 @@ async def seed(session: AsyncSession, *, demo: bool = True) -> None:
                 gym_id=GYM_ID,
                 member_id=member_ids[m.mock_id],
                 plan_id=plan_ids[m.plan_mock_id],
+                # Demo data, so the plan's current price IS what it was
+                # sold at. Real periods snapshot it at the point of sale
+                # instead — decision 42.
+                price_usd=plan_prices[m.plan_mock_id],
+                days=plan_days[m.plan_mock_id],
                 starts_at=d(m.joined_at),
                 ends_at=d(m.ends_at),
             )

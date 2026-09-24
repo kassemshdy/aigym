@@ -87,7 +87,11 @@ async def _seed_scenario(gym_id: uuid.UUID) -> None:
             session.add(
                 Subscription(
                     id=uuid.uuid4(), gym_id=gym_id, member_id=member_id,
-                    plan_id=prices[price], starts_at=ends - timedelta(days=30), ends_at=ends,
+                    # The price rides on the period, not the plan — which is
+                    # the point of decision 42 and why `prices[price]` is now
+                    # only here to satisfy the foreign key.
+                    plan_id=prices[price], price_usd=price, days=30,
+                    starts_at=ends - timedelta(days=30), ends_at=ends,
                 )
             )
 
@@ -98,7 +102,8 @@ async def _seed_scenario(gym_id: uuid.UUID) -> None:
             session.add(
                 Subscription(
                     id=uuid.uuid4(), gym_id=gym_id, member_id=member_id,
-                    plan_id=prices[price], starts_at=starts,
+                    plan_id=prices[price], price_usd=price, days=30,
+                    starts_at=starts,
                     ends_at=starts + timedelta(days=30),
                 )
             )

@@ -826,3 +826,39 @@ Two things fall out of the split that are worth keeping even if Railway changes 
 - **A cron service cannot be verified by deploying it.** Changing one means clearing the
   schedule, deploying once, reading the log, and putting the schedule back — otherwise
   the first evidence that it is broken arrives at 02:00, if anyone is looking.
+
+## 42. A membership period records what it cost, because a price edit was rewriting history
+
+Every money figure in this product used to resolve a price by joining to `plans` **now**.
+Raising a monthly plan from $30 to $45 therefore also raised what a member who lapsed in
+March was recorded as owing, and what last quarter's dashboard said had been collected.
+Decision 35 wrote this down as a known limitation rather than smuggling a fix into the
+stage that found it; this is the fix.
+
+`subscriptions` now carries `price_usd` and `days`: what the period cost and how long it
+ran, as sold. `compute_dues` and `app/domain/analytics.py` read those instead of the plan,
+so the figures describe what happened rather than the current price list — which is what
+the sales guarantee in `docs/GTM.md` is settled on. The plan is still referenced for its
+name and identity; only the money comes off the period.
+
+The analytics endpoint lost two joins in the process. That is not a side benefit, it is
+the same fact: joining to `plans` for a price *was* the bug.
+
+**Why both columns, when duration looked derivable.** The first version of this stored
+only the price and computed length as `ends_at - starts_at`, on the reasoning that a
+period is created as its start plus the plan's days, so the row already states what was
+sold. That is true right up until anything moves an end date — a freeze, a pro-rated
+period, a correction — and then dues are computed against a length nobody sold. The first
+test written against that derivation reported **$180 owed where $30 was right**, from a
+helper that moved `ends_at` without `starts_at`. One column removes an invariant nobody
+enforces.
+
+**The timing was the cheap part.** This landed while `subscriptions` still held zero rows,
+so the migration's backfill touched nothing. Run later, that backfill is a guess: it
+copies each plan's price *as it is today* onto periods sold under it, which is precisely
+the assumption being removed. Nothing anywhere records the real figure, so for a gym that
+had already raised a price there is no way back. The migration says so in its own
+docstring.
+
+A schema change that is free today and unrecoverable in three weeks is worth doing on the
+quiet day.

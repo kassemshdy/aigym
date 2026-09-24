@@ -216,9 +216,11 @@ Decision 39.
 bigger than the stage that surfaced them and both distort the numbers the sales guarantee
 is settled on:
 
-1. A plan's price edit is retroactive — nothing snapshots what a membership period cost
-   when it was sold. Fix: a price column on `subscriptions`.
+1. ~~A plan's price edit is retroactive.~~ **Fixed by decision 42**: `subscriptions`
+   records `price_usd` and `days` as sold, and dues and analytics read those rather than
+   joining to `plans`. **Anything new that creates a `Subscription` must set both** — they
+   are NOT NULL, and getting the price from the plan at read time is the bug itself.
 2. Nothing can mark a member as having left, so "lapsed" and "uncollected" drift upward as
-   people quit. Fix: a member lifecycle.
+   people quit. Fix: a member lifecycle. Still open, and the sensible next job.
 
 Either is a sensible first job for Phase 7. Do not paper over them in a smaller change.
