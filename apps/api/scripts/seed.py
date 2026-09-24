@@ -97,7 +97,7 @@ class MemberSeed(NamedTuple):
 
 MEMBER_ROWS = [
     MemberSeed(
-        "m0", "قاسم شحادي", "Kassem Shehady", "+96170622211", "pt",
+        "m0", "قاسم شحادي", "Kassem Shehady", "+96170000011", "pt",
         "2026-03-02", "2026-10-02", "strength", "mid", 177, 80, 19, [],
         3, "desk", 7, [84, 83, 83, 82, 81, 81, 80],
     ),
@@ -346,7 +346,12 @@ async def _seed_owner_account(session: AsyncSession) -> None:
     # matters — flushing a freshly constructed row before its NOT NULL
     # columns are set fails the INSERT outright.
     staff.username = "kassem"
-    staff.phone = "+96170622211"
+    # A placeholder, not a real number. This repo is public and seed data
+    # is the easiest thing in it to forget: scrapers harvest public
+    # repositories for phone numbers specifically. Put the owner's real
+    # number on the row after seeding, with the app or a one-off script —
+    # never here.
+    staff.phone = "+96170000011"
     staff.name = "Kassem Shehady"
 
     # Fills the gap left by a staff row that has never had a password set
