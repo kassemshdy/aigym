@@ -19,6 +19,26 @@ class Member(Base, UUIDPrimaryKeyMixin, GymScopedMixin, TimestampMixin):
     phone: Mapped[str] = mapped_column(String, nullable=False)
     joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
+    #: ``active`` or ``left``. Without it, a member who quit stays in the
+    #: lapsed list forever and keeps accruing dues nobody will ever collect,
+    #: so both figures the sales guarantee is settled on drift upward as a
+    #: gym loses people — the opposite of what they measure. Decision 43.
+    #:
+    #: A leaver is **not** deleted: their attendance and payments are the
+    #: history the dashboard is computed from, and their progress photos are
+    #: theirs (decision 11). They stop being counted, not erased.
+    #:
+    #: There is deliberately no ``paused`` here. A freeze — travelling,
+    #: injured, Ramadan — is a different thing: it moves a subscription's end
+    #: date rather than removing someone from the roster, and conflating the
+    #: two would mean a frozen member silently stopped counting as active.
+    status: Mapped[str] = mapped_column(
+        String, nullable=False, server_default="active", default="active"
+    )
+    #: When they left, so "how many left this quarter" is answerable. Null
+    #: while active, and cleared again if they come back.
+    left_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
 
 class MemberProfile(Base, GymScopedMixin, TimestampMixin):
     """1:1 with Member. Split out because it's a different write pattern (a

@@ -83,6 +83,12 @@ class AnalyticsSummaryOut(BaseModel):
     new_members: int
     new_members_previous: int
     active_members: int
+    #: Members marked as having left inside the window, and inside the one
+    #: before it. The other half of "stop losing members quietly": until
+    #: decision 43 there was no way to count a departure at all, only to
+    #: watch the lapsed list grow.
+    left_members: int
+    left_members_previous: int
     series: list[SeriesPointOut]
 
 
@@ -165,9 +171,15 @@ async def analytics_summary(
     current = [o for o in outcomes if o.due_at >= window_start]
     previous = [o for o in outcomes if o.due_at < window_start]
 
-    members = list((await session.execute(select(Member))).scalars())
+    # Everyone, including leavers: the counts below need both, and asking
+    # twice would be a second round trip for the same rows.
+    everyone = list((await session.execute(select(Member))).scalars())
+    # Roster counts — active only. A member who quit must stop inflating
+    # "lapsed" and "active", which is the drift decision 43 exists to stop.
+    members = [m for m in everyone if m.status == "active"]
     all_ids = [m.id for m in members]
     joined_before_window = [m.id for m in members if m.joined_at < window_start]
+    departures = [m.left_at for m in everyone if m.left_at is not None]
 
     visits_now = await _last_visits_on_or_before(session, today)
     visits_then = await _last_visits_on_or_before(session, window_start.date())
@@ -196,6 +208,10 @@ async def analytics_summary(
             1 for m in members if previous_start <= m.joined_at < window_start
         ),
         active_members=len(members),
+        left_members=sum(1 for at in departures if at >= window_start),
+        left_members_previous=sum(
+            1 for at in departures if previous_start <= at < window_start
+        ),
         series=[
             SeriesPointOut(
                 week_start=start,

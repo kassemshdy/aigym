@@ -155,6 +155,20 @@ async def test_record_payment_404s_for_the_other_gym(
     assert response.status_code == 404
 
 
+async def test_marking_a_member_left_404s_for_the_other_gym(
+    client: AsyncClient, two_gyms: TwoGyms
+) -> None:
+    """Decision 43's transition is a write like any other: gym A must not
+    be able to take gym B's member off their roster. A 404 rather than a
+    403, since a 403 would confirm the id exists."""
+    response = await client.post(
+        f"/members/{two_gyms.member_b}/status",
+        headers=_idem(two_gyms.a.headers),
+        json={"status": "left"},
+    )
+    assert response.status_code == 404
+
+
 async def test_check_in_404s_for_the_other_gym(client: AsyncClient, two_gyms: TwoGyms) -> None:
     response = await client.post(
         "/check-ins",

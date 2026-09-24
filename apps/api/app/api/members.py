@@ -81,6 +81,8 @@ class MemberOut(BaseModel):
     name_en: str
     phone: str
     joined_at: datetime
+    status: str
+    left_at: datetime | None
     plan_id: uuid.UUID | None
     plan_name: dict[str, Any] | None
     ends_at: datetime | None
@@ -104,6 +106,12 @@ class MemberProfileOut(BaseModel):
 
 class MemberDetailOut(MemberOut):
     profile: MemberProfileOut | None
+
+
+#: A member is on the roster or they are not. See the Member model for why
+#: there is no `paused` — a freeze moves a subscription's end date and is a
+#: different feature entirely.
+MEMBER_STATUSES = ("active", "left")
 
 
 def _build_member_out(
@@ -132,6 +140,8 @@ def _build_member_out(
         name_en=member.name_en,
         phone=member.phone,
         joined_at=member.joined_at,
+        status=member.status,
+        left_at=member.left_at,
         plan_id=plan.id if plan else None,
         plan_name=plan.name if plan else None,
         ends_at=subscription.ends_at if subscription else None,
@@ -148,7 +158,12 @@ async def _to_member_out(session: AsyncSession, member: Member) -> MemberOut:
 
 @router.get("/members", response_model=list[MemberOut])
 async def list_members(session: CurrentSession) -> list[MemberOut]:
-    result = await session.execute(select(Member).order_by(Member.name_en))
+    # Leavers are off the roster. They are not deleted — their attendance
+    # and payments are the history the dashboard is computed from — they
+    # just stop appearing where staff work. Decision 43.
+    result = await session.execute(
+        select(Member).where(Member.status == "active").order_by(Member.name_en)
+    )
     members = list(result.scalars().all())
     member_ids = [m.id for m in members]
     subscriptions = await _current_subscriptions(session, member_ids)
@@ -173,7 +188,9 @@ async def lapsed_members(
 ) -> list[LapsedMemberOut]:
     """The GTM number: members 14+ days without a visit, or who have never
     checked in at all."""
-    result = await session.execute(select(Member))
+    # Someone who quit is not "missing" — leaving them here is what made
+    # this list grow forever and the GTM number meaningless. Decision 43.
+    result = await session.execute(select(Member).where(Member.status == "active"))
     members = list(result.scalars().all())
     visits = await _last_visits(session, [m.id for m in members])
     today = date.today()
@@ -373,6 +390,47 @@ async def record_payment(
         )
     )
     await session.flush()
+    return await get_member(member_id, session, claims)
+
+
+class MemberStatusRequest(BaseModel):
+    status: str
+
+
+@router.post("/members/{member_id}/status", response_model=MemberDetailOut)
+async def set_member_status(
+    member_id: uuid.UUID,
+    body: MemberStatusRequest,
+    session: CurrentSession,
+    claims: AccessTokenClaims = ManagerOrCoach,
+) -> MemberDetailOut:
+    """Mark a member as having left, or bring them back.
+
+    Its own route rather than a field on PATCH /members/{id}: this is a
+    state transition with a timestamp the server owns, and leaving it in
+    the details PATCH would mean every name correction could silently
+    change someone's `left_at`.
+
+    Nothing is deleted. `left_at` is set on the way out and cleared on the
+    way back, so "how many left this quarter" stays answerable and a member
+    who rejoins is not counted as having left twice.
+    """
+    if body.status not in MEMBER_STATUSES:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            f"status must be one of {MEMBER_STATUSES}",
+        )
+    member = await session.get(Member, member_id)
+    if member is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Member not found")
+
+    # Idempotent: marking a leaver as left again must not move the date
+    # they left, or a second tap on a slow connection rewrites history.
+    if body.status != member.status:
+        member.status = body.status
+        member.left_at = datetime.now(UTC) if body.status == "left" else None
+        await session.flush()
+
     return await get_member(member_id, session, claims)
 
 

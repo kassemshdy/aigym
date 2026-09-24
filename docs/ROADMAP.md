@@ -200,11 +200,12 @@ in the endpoint docstrings, and in `docs/DEPLOY.md`'s go-live sequence:
    and length a period was sold at, and dues and analytics read those instead of joining
    to `plans`. Decision 42. Done while the table still held zero rows, which is the only
    time the backfill is free rather than a guess.
-2. **Nothing can mark a member as having left.** "Lapsed" and "still not collected" both
-   drift upward as people quit. Fix: a member lifecycle.
+2. ~~**Nothing can mark a member as having left.**~~ **Fixed** — `members` carries
+   `status` and `left_at`, leavers drop out of the roster, the lapsed list and the
+   analytics counts, and departures are countable for the first time. Decision 43.
 
-The second is the remaining one, and it is bigger than the stage that surfaced it — which
-is why it was not smuggled in either.
+Both are now closed, and both were done while the tables were still empty — the only
+window in which neither migration has to guess.
 
 **Still carried:** how to bill gym owners from Lebanon (decision 3 — tracked, not
 processed, is the interim answer), and whether video needs real access control

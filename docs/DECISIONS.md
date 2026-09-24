@@ -862,3 +862,42 @@ docstring.
 
 A schema change that is free today and unrecoverable in three weeks is worth doing on the
 quiet day.
+
+## 43. A member can leave, because "lapsed" was counting people who already had
+
+Nothing could record a departure. A member who quit stayed on the roster
+permanently: still in the lapsed list, still accruing dues against a plan they had
+cancelled, still counted as active. So both figures the guarantee in `docs/GTM.md` is
+settled on drifted **upward as a gym lost people** — precisely backwards. Decision 35
+wrote this down as the second known limitation rather than smuggling a fix into the stage
+that found it; this is that fix.
+
+`members` gains `status` (`active` | `left`) and `left_at`. Leavers drop out of the member
+list, the lapsed list, and the roster counts in `/analytics/summary`.
+
+**Nothing is deleted.** Their attendance and payments are the history the dashboard is
+computed from — removing a leaver would retroactively reduce what the gym collected — and
+their progress photos are theirs (decision 11). They stop being counted, not erased. A
+leaver is still reachable by id, so a front desk can look up what someone owed when they
+walked out.
+
+**There is deliberately no `paused`.** A freeze — travelling, injured, Ramadan — moves a
+subscription's end date rather than taking someone off the roster, and folding it in here
+would mean a frozen member silently stopped counting as active. That is a separate
+feature, and naming only two states now is what keeps it separate later.
+
+`POST /members/{id}/status` is its own route rather than a field on
+`PATCH /members/{id}`: this is a state transition carrying a timestamp the server owns,
+and putting it in the details PATCH would let every name correction silently move
+someone's `left_at`. The transition is idempotent — marking a leaver as left again does
+not move the date, so a second tap on a bad connection cannot rewrite history.
+
+The departure is now countable, which it never was: `left_members` and
+`left_members_previous` are the other half of "stop losing members quietly". Watching the
+lapsed list grow was the only signal available before, and it could not tell churn from
+a quiet fortnight.
+
+Landed while `members` held zero rows, so the column default filled everything and there
+was nothing to guess at — the same reasoning as decision 42. Deciding after the fact
+*which* of a year's inactive members had actually quit is not a migration, it is
+archaeology.
