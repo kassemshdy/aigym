@@ -220,7 +220,10 @@ is settled on:
    records `price_usd` and `days` as sold, and dues and analytics read those rather than
    joining to `plans`. **Anything new that creates a `Subscription` must set both** — they
    are NOT NULL, and getting the price from the plan at read time is the bug itself.
-2. Nothing can mark a member as having left, so "lapsed" and "uncollected" drift upward as
-   people quit. Fix: a member lifecycle. Still open, and the sensible next job.
+2. ~~Nothing can mark a member as having left.~~ **Fixed by decision 43**: `members`
+   carries `status` (`active` | `left`) and `left_at`. **Any new query that lists or
+   counts members must filter to `status == "active"`** — the lapsed list, the roster and
+   the analytics counts all do, and forgetting it is the drift itself. History is kept
+   deliberately: a leaver is never deleted.
 
-Either is a sensible first job for Phase 7. Do not paper over them in a smaller change.
+Both of Phase 6's written-down limitations are now closed.
