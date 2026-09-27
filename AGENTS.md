@@ -228,6 +228,9 @@ is settled on:
    carries `status` (`active` | `left`) and `left_at`. **Any new query that lists or
    counts members must filter to `status == "active"`** — the lapsed list, the roster and
    the analytics counts all do, and forgetting it is the drift itself. History is kept
-   deliberately: a leaver is never deleted.
+   deliberately: a leaver is never deleted. The manager marks someone as having left from
+   the member's own screen, and reaches them again through the `Left` chip on the members
+   list (`GET /members?status=left`) — **that chip is the only way back, so nothing may
+   remove it without another one.**
 
 Both of Phase 6's written-down limitations are now closed.

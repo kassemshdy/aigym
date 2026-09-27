@@ -53,6 +53,7 @@ import {
   mockListFoodEntries,
   mockListMachines,
   mockListMembers,
+  mockSetMemberStatus,
   mockListMyAttendance,
   mockListMyBookings,
   mockListNutritionLogs,
@@ -130,6 +131,7 @@ import type {
   ApproveAiDraftInput,
   FinishWorkoutSessionInput,
   LogSetInput,
+  MemberStatus,
   RecordPaymentInput,
   ReplaceProgramExercisesInput,
   StaffPasswordOut,
@@ -144,9 +146,25 @@ import type {
   UpdateVideoInput,
 } from './types'
 
-export async function listMembers(): Promise<ApiMember[]> {
-  if (!API_URL) return mockListMembers()
-  return apiFetch('/members')
+/** Active members by default. `'left'` is the only way back to someone who
+ * has been marked as having left — they are off every other list by
+ * design, so without it the button that marks them is a one-way door
+ * (decision 43). */
+export async function listMembers(status: MemberStatus = 'active'): Promise<ApiMember[]> {
+  if (!API_URL) return mockListMembers(status)
+  return apiFetch(`/members?status=${status}`)
+}
+
+export async function setMemberStatus(
+  memberId: string,
+  status: MemberStatus,
+): Promise<ApiMemberDetail> {
+  if (!API_URL) return mockSetMemberStatus(memberId, status)
+  return apiFetch(`/members/${memberId}/status`, {
+    method: 'POST',
+    body: { status },
+    idempotencyKey: newIdempotencyKey(),
+  })
 }
 
 export async function getMember(memberId: string): Promise<ApiMemberDetail> {

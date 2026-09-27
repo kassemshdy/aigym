@@ -902,6 +902,19 @@ was nothing to guess at — the same reasoning as decision 42. Deciding after th
 *which* of a year's inactive members had actually quit is not a migration, it is
 archaeology.
 
+**The way back matters as much as the way out.** `GET /members` takes `?status=`,
+defaulting to `active`, and the members screen carries a `Left` chip beside the three dues
+chips. Without it the button that marks someone as having left is a one-way door: they
+drop off every list a manager can open, so undoing a mis-tap would take a database. Two
+axes share one row of chips because from the front desk it is one question — "show me
+who" — and the fetch, not a client-side filter, answers the lifecycle half.
+
+The action itself lives only on the member's own screen, last on the page, behind a
+confirm that says what happens. Not on the lapsed list, where a manager notices someone
+is gone: that row already has a 48px WhatsApp button, and a second action next to it is
+how a "remind them" tap becomes a departure. Two taps to get to the member is the right
+price for that.
+
 ## 44. A phone number has one shape, because it is the only thing a member logs in with
 
 A member typed `03 123456` — their own number, written the way it is written on every

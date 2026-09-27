@@ -19,12 +19,19 @@ export interface ApiPlan {
   days: number
 }
 
+/** Whether someone is still a member — not whether they have paid. That is
+ * `dues.status`, which is a different question with different colours
+ * (green/amber/red are payment state only). Decision 43. */
+export type MemberStatus = 'active' | 'left'
+
 export interface ApiMember {
   id: string
   name: string
   name_en: string
   phone: string
   joined_at: string
+  status: MemberStatus
+  left_at: string | null
   plan_id: string | null
   plan_name: { ar: string; en: string } | null
   ends_at: string | null

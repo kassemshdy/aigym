@@ -202,7 +202,9 @@ in the endpoint docstrings, and in `docs/DEPLOY.md`'s go-live sequence:
    time the backfill is free rather than a guess.
 2. ~~**Nothing can mark a member as having left.**~~ **Fixed** — `members` carries
    `status` and `left_at`, leavers drop out of the roster, the lapsed list and the
-   analytics counts, and departures are countable for the first time. Decision 43.
+   analytics counts, and departures are countable for the first time. Decision 43. The
+   manager-facing half followed: the action sits last on the member's own screen behind a
+   confirm, and a `Left` chip on the members list is how a leaver is reached again.
 
 Both are now closed, and both were done while the tables were still empty — the only
 window in which neither migration has to guess.

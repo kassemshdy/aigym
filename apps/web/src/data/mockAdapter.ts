@@ -83,6 +83,7 @@ import type {
   ApproveAiDraftInput,
   FinishWorkoutSessionInput,
   LogSetInput,
+  MemberStatus,
   ReplaceProgramExercisesInput,
   RecordPaymentInput,
   StaffPasswordOut,
@@ -115,6 +116,12 @@ let mockCheckIns: MockCheckIn[] = seedCheckIns.map((c) => ({ ...c }))
 const newId = () => Math.random().toString(36).slice(2, 10)
 const todayIso = () => new Date().toISOString().slice(0, 10)
 
+/** Who has left, and when — kept beside the seed rather than on MockMember,
+ * whose own `status` field is the *dues* status. Two different questions
+ * that would read identically at the call site. Decision 43. */
+const mockLeftAt = new Map<string, string>()
+const lifecycle = (id: string): MemberStatus => (mockLeftAt.has(id) ? 'left' : 'active')
+
 function toApiMember(m: MockMember): ApiMember {
   const plan = findMockPlan(m.planId)
   return {
@@ -123,6 +130,8 @@ function toApiMember(m: MockMember): ApiMember {
     name_en: m.nameEn,
     phone: m.phone,
     joined_at: m.joinedAt,
+    status: lifecycle(m.id),
+    left_at: mockLeftAt.get(m.id) ?? null,
     plan_id: m.planId,
     plan_name: plan ? plan.name : null,
     ends_at: m.endsAt,
@@ -154,8 +163,21 @@ function toApiMemberDetail(m: MockMember): ApiMemberDetail {
   }
 }
 
-export function mockListMembers(): ApiMember[] {
-  return mockMembers.map(toApiMember)
+export function mockListMembers(status: MemberStatus = 'active'): ApiMember[] {
+  return mockMembers.filter((m) => lifecycle(m.id) === status).map(toApiMember)
+}
+
+export function mockSetMemberStatus(memberId: string, status: MemberStatus): ApiMemberDetail {
+  const m = mockMembers.find((x) => x.id === memberId)
+  if (!m) throw new Error('Member not found')
+  // Idempotent, like the route: marking a leaver as left again must not
+  // move the date they left.
+  if (status === 'left') {
+    if (!mockLeftAt.has(memberId)) mockLeftAt.set(memberId, new Date().toISOString())
+  } else {
+    mockLeftAt.delete(memberId)
+  }
+  return toApiMemberDetail(m)
 }
 
 export function mockGetMember(memberId: string): ApiMemberDetail {
@@ -353,6 +375,7 @@ export function mockDeletePlan(planId: string): void {
 
 export function mockLapsedMembers(minDays: number): ApiLapsedMember[] {
   return mockMembers
+    .filter((m) => lifecycle(m.id) === 'active')
     .map((m) => ({ member: m, days: daysSinceVisit(m.id) }))
     .filter((row) => row.days >= minDays)
     .sort((a, b) => b.days - a.days)
