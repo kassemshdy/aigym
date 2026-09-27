@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_owner_sessionmaker, tenant_session
 from app.deps import CurrentClaims, CurrentSession, require_role
+from app.domain.phone import normalize_phone
 from app.domain.whatsapp import wa_link
 from app.integrations.whatsapp_business import send_whatsapp_text
 from app.models import Member, MemberLoginCode, RefreshToken, StaffGymRole, StaffUser
@@ -263,10 +264,20 @@ async def request_own_member_code(body: MemberCodeSelfRequest) -> MemberCodeSelf
     `sent: true`. Distinguishing any of those turns this into a phone
     number enumeration endpoint. See db.py's get_owner_sessionmaker for how
     the gym is resolved before app.gym_id is known (decision 28).
+
+    The number is normalized before the lookup (decision 44). A member who
+    types 03 123456 means the same number the roster holds as
+    +9613123456, and an exact string match rejected them while still
+    answering `sent: true` — the one failure mode where the anti-enumeration
+    silence works against the member it protects.
     """
+    phone = normalize_phone(body.phone)
+    if phone is None:
+        return MemberCodeSelfResponse(sent=True)
+
     async with get_owner_sessionmaker()() as owner_session:
         member = (
-            (await owner_session.execute(select(Member).where(Member.phone == body.phone)))
+            (await owner_session.execute(select(Member).where(Member.phone == phone)))
             .scalars()
             .first()
         )
@@ -281,7 +292,7 @@ async def request_own_member_code(body: MemberCodeSelfRequest) -> MemberCodeSelf
                 select(func.count())
                 .select_from(MemberLoginCode)
                 .where(
-                    MemberLoginCode.phone == body.phone,
+                    MemberLoginCode.phone == phone,
                     MemberLoginCode.created_at > datetime.now(UTC) - timedelta(hours=1),
                 )
             )
@@ -299,11 +310,14 @@ async def request_own_member_code(body: MemberCodeSelfRequest) -> MemberCodeSelf
                 expires_at=datetime.now(UTC) + timedelta(minutes=settings.member_code_ttl_minutes),
             )
         )
-        phone = member.phone
+        # Read while the row is still attached, and named apart from the
+        # normalized input above: delivery goes to the number on file, never
+        # to whatever spelling was typed.
+        phone_on_file = member.phone
         ttl = settings.member_code_ttl_minutes
 
     await send_whatsapp_text(
-        to=phone, body=f"Your AIGym login code is {code}. It expires in {ttl} minutes."
+        to=phone_on_file, body=f"Your AIGym login code is {code}. It expires in {ttl} minutes."
     )
     return MemberCodeSelfResponse(sent=True)
 
@@ -316,11 +330,18 @@ class MemberLoginRequest(BaseModel):
 @router.post("/member/login", response_model=TokenPair)
 async def member_login(body: MemberLoginRequest) -> TokenPair:
     now = datetime.now(UTC)
+    # Normalized for the same reason the request endpoint is (decision 44):
+    # the code row holds the roster's canonical +961…, and a member who typed
+    # 03 123456 to ask for the code types it the same way again here.
+    phone = normalize_phone(body.phone)
+    if phone is None:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid or expired code")
+
     async with tenant_session(None) as session:
         candidates = (
             await session.execute(
                 select(MemberLoginCode).where(
-                    MemberLoginCode.phone == body.phone,
+                    MemberLoginCode.phone == phone,
                     MemberLoginCode.used_at.is_(None),
                     MemberLoginCode.expires_at > now,
                 )

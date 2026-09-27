@@ -220,3 +220,41 @@ async def test_list_payments(client: AsyncClient) -> None:
     assert len(rows) == 1
     assert rows[0]["member_id"] == member_id
     assert rows[0]["amount_usd"] == 40.0
+
+
+async def test_a_member_added_at_the_desk_is_stored_in_one_phone_shape(
+    client: AsyncClient,
+) -> None:
+    """A manager types the number the way it is written on a card. It has to
+    land in the roster as +961… anyway, or the WhatsApp link builds
+    wa.me/03123456 and the member's own login never finds them (decision 44).
+    """
+    _gym_id, headers = await _gym_and_staff_token(client, slug="members-phone")
+    plan_id = await _get_a_plan_id(client, headers)
+
+    create = await client.post(
+        "/members", headers=_idem(headers), json=_member_payload(plan_id, "070 400 100")
+    )
+    assert create.status_code == 201, create.text
+    assert create.json()["phone"] == "+96170400100"
+
+    # And an edit cannot put a raw one back.
+    patched = await client.patch(
+        f"/members/{create.json()['id']}", headers=_idem(headers), json={"phone": "03/400100"}
+    )
+    assert patched.status_code == 200, patched.text
+    assert patched.json()["phone"] == "+9613400100"
+
+
+async def test_a_member_cannot_be_added_under_a_number_nobody_can_be_reached_on(
+    client: AsyncClient,
+) -> None:
+    _gym_id, headers = await _gym_and_staff_token(client, slug="members-phone-bad")
+    plan_id = await _get_a_plan_id(client, headers)
+
+    create = await client.post(
+        "/members", headers=_idem(headers), json=_member_payload(plan_id, "not-a-phone")
+    )
+    assert create.status_code == 422, create.text
+    # The 422 names the field, so the form can put the error on it.
+    assert create.json()["detail"][0]["loc"][-1] == "phone"

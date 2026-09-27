@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button'
 import { Field, Input } from '@/components/ui/Field'
 import { memberLogin, requestMemberCode } from '@/data/queries'
 import { API_URL, ApiError } from '@/data/client'
+import { normalizePhone } from '@/lib/phone'
 
 /**
  * Phone + code, no email: most gym members here do not use email, and a password is one
@@ -92,7 +93,13 @@ export function MemberLogin() {
             variant="brand"
             full
             size="lg"
-            disabled={busy || phone.trim().length < 6}
+            /* A parseable Lebanese number, not just six characters. The
+               endpoint answers `sent: true` whatever it is given so it can't
+               be used to test whether a number is a member's (decision 20),
+               and that silence meant a typo produced the "check WhatsApp"
+               screen and no message. Checking the shape here leaks nothing —
+               it says nothing about who is a member. */
+            disabled={busy || normalizePhone(phone) === null}
             onClick={() => void sendCode()}
           >
             {t('login.sendCode')}

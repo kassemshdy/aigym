@@ -72,7 +72,8 @@
     "loading": "عم يحمّل…",
     "error": "صار في خطأ",
     "remove": "حذف",
-    "appName": "AIGym"
+    "appName": "AIGym",
+    "phoneInvalid": "رقم موبايل لبناني، مثل 70 123 456"
   },
   "status": {
     "paid": "مدفوع",

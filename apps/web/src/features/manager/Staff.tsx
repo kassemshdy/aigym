@@ -17,6 +17,7 @@ import {
 import { useAsync } from '@/data/useAsync'
 import { ApiError } from '@/data/client'
 import { waLink } from '@/lib/whatsapp'
+import { normalizePhone } from '@/lib/phone'
 import type { ApiStaff, StaffRole } from '@/data/types'
 import type { Lang } from '@/i18n'
 import { useGymName } from '@/gym/GymProvider'
@@ -66,6 +67,10 @@ export function ManagerStaff() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<'taken' | 'other' | null>(null)
   const [credentials, setCredentials] = useState<Credentials | null>(null)
+  // Staff phones matter as much as members': the password reset delivers
+  // over WhatsApp to this column, so a wrong shape is an account nobody
+  // can recover. The server 422s it either way (decision 44).
+  const phoneOk = normalizePhone(phone) !== null
 
   const [openId, setOpenId] = useState<string | null>(null)
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
@@ -328,6 +333,9 @@ export function ManagerStaff() {
               placeholder="+961 70 000 000"
             />
           </Field>
+          {phone.trim() && !phoneOk ? (
+            <p className="text-muted text-sm font-semibold">{t('common.phoneInvalid')}</p>
+          ) : null}
           <Field label={t('manager.login.username')}>
             <Input
               value={username}
@@ -380,7 +388,7 @@ export function ManagerStaff() {
               disabled={
                 saving ||
                 !name.trim() ||
-                !phone.trim() ||
+                !phoneOk ||
                 !username.trim() ||
                 password.trim().length < 4
               }

@@ -72,7 +72,8 @@
     "loading": "Loading…",
     "error": "Something went wrong",
     "remove": "Remove",
-    "appName": "AIGym"
+    "appName": "AIGym",
+    "phoneInvalid": "A Lebanese mobile number, like 70 123 456"
   },
   "status": {
     "paid": "Paid",

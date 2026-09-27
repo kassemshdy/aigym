@@ -207,6 +207,11 @@ in the endpoint docstrings, and in `docs/DEPLOY.md`'s go-live sequence:
 Both are now closed, and both were done while the tables were still empty — the only
 window in which neither migration has to guess.
 
+**Also closed since:** a member could not log in with their own number written the way
+Lebanon writes it — `03 123456` matched nothing, the endpoint answered `sent: true`
+regardless, and the login said the code was wrong. Every door a phone number comes in
+through now normalizes through `app/domain/phone.py`. Decision 44.
+
 **Still carried:** how to bill gym owners from Lebanon (decision 3 — tracked, not
 processed, is the interim answer), and whether video needs real access control
 (decision 5).

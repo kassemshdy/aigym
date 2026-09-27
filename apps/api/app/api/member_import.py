@@ -41,9 +41,9 @@ from app.domain.csv_import import (
     MAX_ROWS,
     ImportRow,
     decode,
-    normalize_phone,
     parse_rows,
 )
+from app.domain.phone import normalize_phone
 from app.models import Member, Plan, Subscription
 from app.security.jwt import AccessTokenClaims
 

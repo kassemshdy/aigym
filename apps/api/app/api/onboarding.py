@@ -22,6 +22,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from app.db import tenant_session
+from app.domain.phone import normalize_phone
 from app.models import Gym, Plan, StaffGymRole, StaffUser
 from app.security.hashing import hash_secret
 from app.settings import get_settings
@@ -52,6 +53,10 @@ class OnboardGymRequest(BaseModel):
     manager_name: str
     manager_username: str
     manager_password: str
+    #: Deliberately not schemas.LebanesePhone, which would 422 before
+    #: the secret is checked: this route answers 401 to anyone without
+    #: the operator secret, whatever they sent in the body. Normalized
+    #: inside the handler instead (decision 44).
     manager_phone: str
 
 
@@ -77,6 +82,12 @@ async def onboard_gym(
     operator to run once per new gym customer, not a public signup form.
     """
     _require_operator(x_onboarding_secret)
+
+    manager_phone = normalize_phone(body.manager_phone)
+    if manager_phone is None:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, "manager_phone is not a Lebanese mobile number"
+        )
 
     gym_id = uuid.uuid4()
     async with tenant_session(gym_id) as session:
@@ -116,7 +127,7 @@ async def onboard_gym(
         staff = StaffUser(
             id=uuid.uuid4(),
             username=body.manager_username,
-            phone=body.manager_phone,
+            phone=manager_phone,
             name=body.manager_name,
             password_hash=hash_secret(body.manager_password),
         )
