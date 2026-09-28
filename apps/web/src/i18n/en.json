@@ -167,7 +167,12 @@
       "markLeft": "They left the gym",
       "confirmLeft": "Mark {{name}} as having left?",
       "leftNote": "They come off the roster and the lapsed list. Nothing is deleted — their payments stay in the records, and you can bring them back from the “Left” list.",
-      "bringBack": "They came back"
+      "bringBack": "They came back",
+      "edit": "Edit details",
+      "nameEn": "Name in English",
+      "sendLoginCode": "Send login code",
+      "codeLabel": "Login code",
+      "codeValid": "valid {{minutes}} minutes"
     },
     "add": {
       "title": "New member",
@@ -218,12 +223,17 @@
       "addSomeone": "Add someone",
       "role": "What they can do",
       "roleSignsOut": "Changing this signs them out of the app.",
-      "resetPassword": "New password",
+      "resetPassword": "Send new login details",
       "remove": "Remove",
       "confirmRemove": "Remove {{name}} from this gym?",
       "removeNote": "They lose access here right away. Their account itself stays, so nothing breaks at another gym they work at.",
       "lastOwner": "A gym needs at least one owner. Make someone else the owner first.",
-      "notAllowed": "You can only do this for a coach. Ask the gym owner."
+      "notAllowed": "You can only do this for a coach. Ask the gym owner.",
+      "details": "Name and number",
+      "detailsSaved": "Saved",
+      "sendsTo": "Goes to",
+      "resetNote": "makes a new password — the old one stops working",
+      "resetDone": "New password ready"
     },
     "settings": {
       "title": "Your gym",
@@ -418,9 +428,10 @@
   "whatsapp": {
     "dues": "Hi {{name}}, your membership at {{gym}} has ended and {{amount}}$ is due. See you soon 💪",
     "expiring": "Hi {{name}}, your membership at {{gym}} ends on {{date}}. Want to renew?",
-    "welcome": "Welcome {{name}}! You're registered at {{gym}}. Check your workout and the coach's videos in the app 💪",
+    "welcome": "Welcome {{name}}! You're registered at {{gym}}.\nSee your membership, your workout and the coach's videos in the app: {{link}}\nTo log in, ask us for your code and we'll send it here 💪",
     "missYou": "Hi {{name}}, we miss you at {{gym}}! Your last session was {{days}} days ago. See you soon 💪",
-    "staffCredentials": "Hi {{name}}, your AIGym login for {{gym}} is ready.\nUsername: {{username}}\nPassword: {{password}}\nSign in: {{link}}"
+    "staffCredentials": "Hi {{name}}, your AIGym login for {{gym}} is ready.\nUsername: {{username}}\nPassword: {{password}}\nSign in: {{link}}",
+    "memberLoginCode": "Hi {{name}}, your {{gym}} login code is {{code}} — valid for {{minutes}} minutes.\nLog in here: {{link}}"
   },
   "nav": {
     "today": "Today",
@@ -455,7 +466,8 @@
     "enter": "Enter",
     "demo": "Prototype: any code works",
     "error": "Something went wrong — try again",
-    "errorCode": "Wrong or expired code"
+    "errorCode": "Wrong or expired code",
+    "haveCode": "I already have a code"
   },
   "food": {
     "title": "My food today",

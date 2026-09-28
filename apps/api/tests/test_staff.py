@@ -397,3 +397,106 @@ async def test_an_admin_reset_does_not_rate_limit_the_self_service_one(
         "/auth/staff/password/reset", json={"username": "selfserve"}
     )
     assert self_serve.status_code == 200, self_serve.text
+
+
+# ---------------------------------------------------------------------
+# Decision 46 — correcting who someone is, not what they may do.
+
+
+async def test_a_super_admin_corrects_a_coachs_name_and_phone(client: AsyncClient) -> None:
+    gym = await _onboard(client, slug="details-a")
+    coach_id = await _create(client, gym.headers, username="walid", role="coach")
+
+    edited = await client.patch(
+        f"/staff/{coach_id}/details",
+        headers=_idem(gym.headers),
+        json={"name": "Walid Hamdan", "phone": "03 456 789"},
+    )
+    assert edited.status_code == 200, edited.text
+    # Normalized on the way in, like every other phone (decision 44).
+    assert edited.json()["phone"] == "+9613456789"
+    assert edited.json()["name"] == "Walid Hamdan"
+
+    listed = await client.get("/staff", headers=gym.headers)
+    row = next(s for s in listed.json() if s["id"] == str(coach_id))
+    assert row["phone"] == "+9613456789", "the list shows the number a reset goes to"
+
+
+async def test_the_corrected_phone_is_where_the_next_password_goes(
+    client: AsyncClient,
+) -> None:
+    """The reason this exists. A reset hands back a wa.me target; with no way
+    to fix a wrong number, "send login details" went to whoever that was."""
+    gym = await _onboard(client, slug="details-b")
+    coach_id = await _create(client, gym.headers, username="rana", role="coach")
+
+    await client.patch(
+        f"/staff/{coach_id}/details", headers=_idem(gym.headers), json={"phone": "71 222 333"}
+    )
+    reset = await client.post(f"/staff/{coach_id}/password/reset", headers=_idem(gym.headers))
+    assert reset.status_code == 200, reset.text
+    assert reset.json()["phone"] == "+96171222333"
+
+
+async def test_a_manager_may_edit_a_coach_but_not_a_peer(client: AsyncClient) -> None:
+    """The password-reset rule, for the same reason: a manager who could
+    rewrite a peer's phone could aim that peer's reset at their own number."""
+    gym = await _onboard(client, slug="details-c")
+    await _create(client, gym.headers, username="mgr-c", role="manager")
+    coach_id = await _create(client, gym.headers, username="coach-c", role="coach")
+    peer_id = await _create(client, gym.headers, username="peer-c", role="manager")
+    manager = await _headers(client, "mgr-c")
+
+    on_coach = await client.patch(
+        f"/staff/{coach_id}/details", headers=_idem(manager), json={"name": "Coach C"}
+    )
+    assert on_coach.status_code == 200, on_coach.text
+
+    on_peer = await client.patch(
+        f"/staff/{peer_id}/details", headers=_idem(manager), json={"phone": "70 111 222"}
+    )
+    assert on_peer.status_code == 403
+
+
+async def test_editing_details_signs_nobody_out(client: AsyncClient) -> None:
+    """Neither field is a credential, so fixing a typo must not cost anyone
+    their session — unlike a role change, which does."""
+    gym = await _onboard(client, slug="details-d")
+    coach_id = await _create(client, gym.headers, username="sami", role="coach")
+    tokens = await _tokens(client, "sami")
+
+    await client.patch(
+        f"/staff/{coach_id}/details", headers=_idem(gym.headers), json={"phone": "76 999 000"}
+    )
+    alive = await client.post("/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
+    assert alive.status_code == 200, alive.text
+
+
+async def test_a_bad_phone_or_blank_name_is_refused(client: AsyncClient) -> None:
+    gym = await _onboard(client, slug="details-e")
+    coach_id = await _create(client, gym.headers, username="nour", role="coach")
+
+    bad_phone = await client.patch(
+        f"/staff/{coach_id}/details", headers=_idem(gym.headers), json={"phone": "12345"}
+    )
+    assert bad_phone.status_code == 422
+    blank = await client.patch(
+        f"/staff/{coach_id}/details", headers=_idem(gym.headers), json={"name": "   "}
+    )
+    assert blank.status_code == 422
+
+
+async def test_one_gym_cannot_edit_another_gyms_staff(client: AsyncClient) -> None:
+    """404, not 403 — a 403 would confirm the id exists at some other gym."""
+    gym_a = await _onboard(client, slug="details-f1")
+    gym_b = await _onboard(client, slug="details-f2")
+    coach_at_a = await _create(client, gym_a.headers, username="coach-f", role="coach")
+
+    reached = await client.patch(
+        f"/staff/{coach_at_a}/details", headers=_idem(gym_b.headers), json={"name": "Stolen"}
+    )
+    assert reached.status_code == 404
+
+    async with tenant_session(gym_a.gym_id) as session:
+        user = await session.get(StaffUser, coach_at_a)
+        assert user is not None and user.name == "Coach-F"

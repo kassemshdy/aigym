@@ -32,6 +32,7 @@ import type {
 } from '@/mocks/types'
 import { ApiError } from './client'
 import { waLink } from '@/lib/whatsapp'
+import { normalizePhone } from '@/lib/phone'
 import { replyTo } from '@/mocks/agents'
 import type { AgentId } from '@/mocks/types'
 import { text } from '@/lib/format'
@@ -58,6 +59,7 @@ import type {
   ApiMachine,
   ApiMember,
   ApiMemberDetail,
+  ApiMemberLoginCode,
   ApiMemberProfile,
   ApiNutritionLog,
   ApiPayment,
@@ -90,6 +92,8 @@ import type {
   StaffRole,
   UpdateExerciseInput,
   UpdateGymInput,
+  UpdateMemberInput,
+  UpdateStaffDetailsInput,
   UpdatePlanInput,
   UpdateProgramInput,
   UpdateVideoInput,
@@ -178,6 +182,34 @@ export function mockSetMemberStatus(memberId: string, status: MemberStatus): Api
     mockLeftAt.delete(memberId)
   }
   return toApiMemberDetail(m)
+}
+
+export function mockSendMemberLoginCode(memberId: string): ApiMemberLoginCode {
+  const m = mockMembers.find((x) => x.id === memberId)
+  if (!m) throw new ApiError(404, 'Member not found')
+  // Not crypto — mock mode never logs anyone in. Six digits, like the real one.
+  const code = String(Math.floor(100000 + Math.random() * 900000))
+  return { code, phone: m.phone, ttl_minutes: 5 }
+}
+
+export function mockUpdateMember(memberId: string, input: UpdateMemberInput): ApiMemberDetail {
+  const idx = mockMembers.findIndex((x) => x.id === memberId)
+  if (idx === -1) throw new ApiError(404, 'Member not found')
+  const existing = mockMembers[idx]
+  let phone = existing.phone
+  if (input.phone !== undefined) {
+    const normalized = normalizePhone(input.phone)
+    if (normalized === null) throw new ApiError(422, 'not a Lebanese mobile number')
+    phone = normalized
+  }
+  const updated: MockMember = {
+    ...existing,
+    name: input.name ?? existing.name,
+    nameEn: input.name_en ?? existing.nameEn,
+    phone,
+  }
+  mockMembers = mockMembers.map((x, i) => (i === idx ? updated : x))
+  return toApiMemberDetail(updated)
 }
 
 export function mockGetMember(memberId: string): ApiMemberDetail {
@@ -826,11 +858,16 @@ let mockStaff: ApiStaff[] = [
   // super_admin, not manager: onboarding.py grants the gym's first account
   // that role, and a roster without one cannot demonstrate the floor that
   // stops a gym being left with nobody who can grant access.
-  { id: 'staff-kassem', username: 'kassem', name: 'Kassem Shehady', role: 'super_admin' },
-  ...seedCoaches.map((c) => ({
+  // Placeholders, never real numbers — this repo is public.
+  {
+    id: 'staff-kassem', username: 'kassem', name: 'Kassem Shehady',
+    phone: '+96170000011', role: 'super_admin',
+  },
+  ...seedCoaches.map((c, i) => ({
     id: `staff-${c.id}`,
     username: c.id.replace('c-', ''),
     name: toBilingual(c.name).en,
+    phone: `+9617000002${i}`,
     role: 'coach',
   })),
 ]
@@ -843,7 +880,10 @@ export function mockCreateStaff(input: CreateStaffInput): ApiStaff {
   if (mockStaff.some((s) => s.username === input.username)) {
     throw new ApiError(409, 'Username already taken')
   }
-  const staff: ApiStaff = { id: newId(), username: input.username, name: input.name, role: input.role }
+  const staff: ApiStaff = {
+    id: newId(), username: input.username, name: input.name,
+    phone: normalizePhone(input.phone) ?? input.phone, role: input.role,
+  }
   mockStaff = [...mockStaff, staff]
   return staff
 }
@@ -888,9 +928,31 @@ export function mockResetStaffPassword(staffId: string): StaffPasswordOut {
   // Not crypto — mock mode never authenticates anyone. The real password
   // comes from app/security/hashing.py's generate_password.
   const password = Math.random().toString(16).slice(2, 10)
-  // The roster has no phone numbers; the live endpoint reads the real one
-  // off staff_users. A placeholder keeps the wa.me link shape intact.
-  return { username: staff.username, password, phone: '+96170000000' }
+  // The phone on file, as the live endpoint returns it — so correcting a
+  // number in the demo visibly changes where "send login details" goes.
+  return { username: staff.username, password, phone: staff.phone }
+}
+
+export function mockUpdateStaffDetails(
+  staffId: string,
+  input: UpdateStaffDetailsInput,
+): ApiStaff {
+  const staff = mockStaffOr404(staffId)
+  let phone = staff.phone
+  if (input.phone !== undefined) {
+    const normalized = normalizePhone(input.phone)
+    // The server 422s a number that cannot be Lebanese (decision 44).
+    if (normalized === null) throw new ApiError(422, 'not a Lebanese mobile number')
+    phone = normalized
+  }
+  let name = staff.name
+  if (input.name !== undefined) {
+    name = input.name.trim()
+    if (!name) throw new ApiError(422, 'Name cannot be blank')
+  }
+  const updated = { ...staff, name, phone }
+  mockStaff = mockStaff.map((s) => (s.id === staffId ? updated : s))
+  return updated
 }
 
 // ---------------------------------------------------------------------

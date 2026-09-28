@@ -201,6 +201,15 @@ def _generate_code() -> str:
 
 class MemberCodeResponse(BaseModel):
     wa_link: str
+    #: The pieces as well as the pre-built link, so the screen can write the
+    #: message in the member's own language (decision 5) and add a link that
+    #: opens the login already at the code step — the link above is English
+    #: only and says nothing about where to type it. Returning the code
+    #: exposes nothing new: it is already in plaintext inside wa_link, and
+    #: this route is staff-only.
+    code: str
+    phone: str
+    ttl_minutes: int
 
 
 @router.post("/member/{member_id}/code", response_model=MemberCodeResponse)
@@ -240,7 +249,9 @@ async def request_member_code(
 
     ttl = settings.member_code_ttl_minutes
     message = f"Your AIGym login code is {code}. It expires in {ttl} minutes."
-    return MemberCodeResponse(wa_link=wa_link(member.phone, message))
+    return MemberCodeResponse(
+        wa_link=wa_link(member.phone, message), code=code, phone=member.phone, ttl_minutes=ttl
+    )
 
 
 class MemberCodeSelfRequest(BaseModel):

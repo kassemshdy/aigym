@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -18,9 +18,13 @@ export function MemberLogin() {
   const { t } = useTranslation()
   const navigate = useNavigate()
 
-  const [phone, setPhone] = useState('')
+  // A link from the front desk carries the member's phone, and — when it
+  // came with a code — `step=code`, so they land on the box they need.
+  // The phone is theirs already; nothing secret ever goes in the URL.
+  const [params] = useSearchParams()
+  const [phone, setPhone] = useState(params.get('phone') ?? '')
   const [code, setCode] = useState('')
-  const [sent, setSent] = useState(false)
+  const [sent, setSent] = useState(params.get('step') === 'code')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(false)
 
@@ -104,6 +108,18 @@ export function MemberLogin() {
           >
             {t('login.sendCode')}
           </Button>
+        ) : null}
+        {!sent ? (
+          // For a code the front desk already sent: asking for another
+          // would only add one to the hourly limit.
+          <Button
+            variant="ghost"
+            full
+            disabled={normalizePhone(phone) === null}
+            onClick={() => setSent(true)}
+          >
+            {t('login.haveCode')}
+          </Button>
         ) : (
           <>
             <p className="bg-paid-bg text-paid rounded-xl px-4 py-3 text-sm font-semibold">
@@ -115,7 +131,9 @@ export function MemberLogin() {
                 onChange={(e) => setCode(e.target.value)}
                 inputMode="numeric"
                 dir="ltr"
-                placeholder="1234"
+                // Six digits. This hint said 1234, and a four-digit code
+                // is one that can never exist — it read as "wrong code".
+                placeholder="123456"
                 autoFocus
               />
             </Field>

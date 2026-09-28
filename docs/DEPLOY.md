@@ -1,5 +1,32 @@
 # Deploy
 
+> **Mid-migration, 2026-09-28.** Everything is being rebuilt in a new Railway environment,
+> **`Release`**, and the old `production` environment is being retired. Until the cutover
+> finishes, much of what follows describes `production`. Read this box first.
+>
+> | `Release` service | Id | Notes |
+> |---|---|---|
+> | `Postgres` | `5209a40a` | `postgres-ssl:18`, EU West; the app lives in its `railway` database (see *The database is named `railway`* below) |
+> | `api-BlMk` | `100277f6` | root `/apps/api`; domain `api-blmk-release.up.railway.app`; `media` volume at `/data/media` |
+> | `web-QeVY` | `4bc4236d` | root `/apps/web`; domain `web-qevy-release.up.railway.app`, to be renamed to `trpa` |
+> | `ops-mJUc` | `ef903bd0` | `bash scripts/ops.sh`, restart policy NEVER |
+>
+> All four are in `europe-west4-drams3a`. `Release` was built from an empty database with
+> **freshly generated secrets** — none of `production`'s, and none of the public defaults
+> in `app/settings.py`. The `-BlMk`/`-QeVY`/`-mJUc` suffixes are Railway's, added because
+> the plain names were taken; they can be renamed in the dashboard once `production` goes.
+>
+> **Not yet done, and not safe to skip:** `Release` has **no backups** — no bucket, no
+> `backup` service. The `aigym-backups` bucket belongs to `production` and is deleted with
+> it. Build `Release`'s backups, and copy the old dumps out, **before** deleting
+> `production`. Also still to do: move the `trpa` domain across, and delete `production`.
+>
+> Why the move: on 2026-09-28 `europe-west4-drams3a` was briefly reported invalid for the
+> `production` services and a deploy hung at `INITIALIZING` with no region; four services
+> were moved to US East as a workaround, splitting `api` from its database across the
+> Atlantic. `Release` puts everything back in EU West, co-located — Amsterdam is ~50 ms
+> from Beirut, Virginia ~130 ms.
+
 The prototype runs on Railway at **https://trpa.up.railway.app**
 
 | | |
@@ -562,6 +589,28 @@ variables on `api`. Row counts matched at 47 on both sides, table for table.
 `pg_dump` comes from PGDG pinned to 18, not Debian: **pg_dump refuses outright to dump a
 server newer than itself**, and Debian trixie packages 17.
 
-The old `Postgres` service is still there, still holding its volume, and is the rollback
-path — reverting is swapping those six variables back. **Delete it only once you are
-satisfied the new one is behaving**, and take a dump first.
+The old `Postgres` service was **deleted on 2026-09-28**, along with its `postgres-data`
+volume. It is no longer a rollback path; the dumps in the backup bucket are.
+
+### The database is named `railway` on Railway, not `aigym`
+
+Locally and in CI the application database is `aigym` — `bootstrap_db.sh` creates it,
+and `settings.py`'s defaults name it. On Railway, **`AIGYM_DB` is set to `railway`**, the
+database the managed Postgres template creates for itself.
+
+The reason is the dashboard. Railway's **Data** tab connects with the service's own
+`POSTGRES_DB`, which is `railway`, and has no database picker. With the app in a separate
+`aigym` database, the panel showed an empty server while 28 tables sat one database over
+— and a table created in the panel to test it landed in `railway`, confirming the two
+were looking at different places. Being able to open the Data tab and see `members` is
+worth more than the separation a dedicated database name buys, since Railway's default
+database is otherwise empty.
+
+**Changing it is three variables, not one**, and the two URLs are the ones that get
+missed: `AIGYM_DB`, plus the database path at the end of `AIGYM_DATABASE_URL` and
+`AIGYM_DATABASE_URL_MIGRATIONS`. Set on `api` and on `ops` (and on `backup` once it
+exists), since each connects on its own. `bootstrap_db.sh` creates the database only if
+it is absent, so pointing it at `railway` simply uses the one already there.
+
+Do not set it back to `aigym` to "match the docs" — that is the change that made the
+panel look empty in the first place.

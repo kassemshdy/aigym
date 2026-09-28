@@ -11,6 +11,7 @@ import {
   getStaffRole,
   listStaff,
   resetStaffPassword,
+  updateStaffDetails,
   revokeStaffAccess,
   updateStaffRole,
 } from '@/data/queries'
@@ -24,6 +25,9 @@ import { useGymName } from '@/gym/GymProvider'
 import { HelpTip } from '@/help/HelpTip'
 
 interface Credentials {
+  /** Titles the card: a reset is not a new account, and saying "account
+   * ready" after one reads as though something was created. */
+  kind: 'created' | 'reset'
   name: string
   phone: string
   username: string
@@ -76,6 +80,11 @@ export function ManagerStaff() {
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [rowError, setRowError] = useState<string | null>(null)
+  // The open row's name and phone as typed, seeded from the row when it
+  // opens. Only one row is open at a time, so one pair is enough.
+  const [draftName, setDraftName] = useState('')
+  const [draftPhone, setDraftPhone] = useState('')
+  const [savedId, setSavedId] = useState<string | null>(null)
 
   function resetForm() {
     setName('')
@@ -89,6 +98,14 @@ export function ManagerStaff() {
     setOpenId(null)
     setConfirmingId(null)
     setRowError(null)
+    setSavedId(null)
+  }
+
+  function openRow(member: ApiStaff) {
+    closeRow()
+    setOpenId(member.id)
+    setDraftName(member.name)
+    setDraftPhone(member.phone)
   }
 
   /** The three guards app/api/staff.py enforces, each with its own answer.
@@ -126,7 +143,7 @@ export function ManagerStaff() {
         // rendered for a super_admin, and the server checks it again.
         role: viewer === 'super_admin' ? newRole : 'coach',
       })
-      setCredentials({ name, phone, username, password })
+      setCredentials({ kind: 'created', name, phone, username, password })
       setAdding(false)
       resetForm()
       staff.reload()
@@ -156,12 +173,17 @@ export function ManagerStaff() {
             {staff.data.map((s) => {
               const open = openId === s.id
               const actionable = canActOn(viewer, s)
+              const draftPhoneNormalized = normalizePhone(draftPhone)
+              const nameChanged = draftName.trim() !== s.name
+              const phoneChanged =
+                draftPhoneNormalized !== null && draftPhoneNormalized !== s.phone
+              const detailsValid = draftName.trim() !== '' && draftPhoneNormalized !== null
               return (
                 <li key={s.id} className="border-line border-b last:border-0">
                   <button
                     type="button"
                     disabled={!actionable}
-                    onClick={() => (open ? closeRow() : (closeRow(), setOpenId(s.id)))}
+                    onClick={() => (open ? closeRow() : openRow(s))}
                     aria-expanded={open}
                     className="min-h-tap flex w-full items-center gap-3 px-4 py-3 text-start disabled:opacity-100"
                   >
@@ -184,6 +206,55 @@ export function ManagerStaff() {
 
                   {open ? (
                     <div className="bg-canvas space-y-4 px-4 py-4">
+                      <div className="space-y-3">
+                        <p className="text-muted text-sm font-semibold">
+                          {t('manager.staff.details')}
+                        </p>
+                        <Field label={t('manager.staff.name')}>
+                          <Input
+                            value={draftName}
+                            onChange={(e) => {
+                              setDraftName(e.target.value)
+                              setSavedId(null)
+                            }}
+                          />
+                        </Field>
+                        <Field label={t('manager.staff.phone')}>
+                          <Input
+                            value={draftPhone}
+                            onChange={(e) => {
+                              setDraftPhone(e.target.value)
+                              setSavedId(null)
+                            }}
+                            inputMode="tel"
+                            dir="ltr"
+                            placeholder="+961 70 000 000"
+                          />
+                        </Field>
+                        {draftPhone.trim() && draftPhoneNormalized === null ? (
+                          <p className="text-muted text-sm font-semibold">
+                            {t('common.phoneInvalid')}
+                          </p>
+                        ) : null}
+                        <Button
+                          full
+                          disabled={busy || !detailsValid || !(nameChanged || phoneChanged)}
+                          onClick={() =>
+                            void run(async () => {
+                              // Only what changed, so saving a name never
+                              // re-sends a phone and vice versa.
+                              await updateStaffDetails(s.id, {
+                                ...(nameChanged ? { name: draftName.trim() } : {}),
+                                ...(phoneChanged ? { phone: draftPhone } : {}),
+                              })
+                              setSavedId(s.id)
+                            })
+                          }
+                        >
+                          {savedId === s.id ? t('manager.staff.detailsSaved') : t('common.save')}
+                        </Button>
+                      </div>
+
                       {viewer === 'super_admin' ? (
                         <div>
                           <p className="text-muted mb-1.5 text-sm font-semibold">
@@ -237,33 +308,50 @@ export function ManagerStaff() {
                           </div>
                         </div>
                       ) : (
-                        <div className="grid grid-cols-2 gap-2">
-                          <Button
-                            variant="secondary"
-                            disabled={busy}
-                            onClick={() =>
-                              void run(async () => {
-                                const fresh = await resetStaffPassword(s.id)
-                                setCredentials({
-                                  name: s.name,
-                                  phone: fresh.phone,
-                                  username: fresh.username,
-                                  password: fresh.password,
+                        <div className="space-y-2">
+                          <div className="grid grid-cols-2 gap-2">
+                            <Button
+                              variant="secondary"
+                              // A typed-but-unsaved number is the trap: the
+                              // reset would go to the OLD one, silently. Save
+                              // first, then send.
+                              disabled={busy || phoneChanged}
+                              onClick={() =>
+                                void run(async () => {
+                                  const fresh = await resetStaffPassword(s.id)
+                                  setCredentials({
+                                    kind: 'reset',
+                                    name: s.name,
+                                    phone: fresh.phone,
+                                    username: fresh.username,
+                                    password: fresh.password,
+                                  })
+                                  closeRow()
                                 })
-                                closeRow()
-                              })
-                            }
-                          >
-                            <Icon name="lock" size={16} />
-                            {t('manager.staff.resetPassword')}
-                          </Button>
-                          <Button
-                            variant="secondary"
-                            disabled={busy}
-                            onClick={() => setConfirmingId(s.id)}
-                          >
-                            {t('manager.staff.remove')}
-                          </Button>
+                              }
+                            >
+                              <Icon name="lock" size={16} />
+                              {t('manager.staff.resetPassword')}
+                            </Button>
+                            <Button
+                              variant="secondary"
+                              disabled={busy}
+                              onClick={() => setConfirmingId(s.id)}
+                            >
+                              {t('manager.staff.remove')}
+                            </Button>
+                          </div>
+                          {/* Where it actually goes — the number on file, not
+                              the one being typed above. Only the numeric run
+                              is isolated, never the Arabic label with it. */}
+                          <p className="text-muted text-xs">
+                            {t('manager.staff.sendsTo')}{' '}
+                            <bdi className="tnum" dir="ltr">
+                              {s.phone}
+                            </bdi>
+                            {' · '}
+                            {t('manager.staff.resetNote')}
+                          </p>
                         </div>
                       )}
 
@@ -286,7 +374,9 @@ export function ManagerStaff() {
           <span className="bg-paid-bg text-paid mx-auto flex size-12 items-center justify-center rounded-full">
             <Icon name="check" size={24} />
           </span>
-          <p className="font-bold">{t('manager.staff.created')}</p>
+          <p className="font-bold">
+            {credentials.kind === 'reset' ? t('manager.staff.resetDone') : t('manager.staff.created')}
+          </p>
           <p className="text-muted text-sm">{credentials.name}</p>
           {/* The password is shown here because this is the only time it
               exists in the clear — it is hashed the moment it is stored. */}

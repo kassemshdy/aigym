@@ -14,12 +14,18 @@ import {
   getMember,
   listPayments,
   recordPayment,
+  sendMemberLoginCode,
   setMemberStatus,
+  updateMember,
   whatsappReminderLink,
 } from '@/data/queries'
+import { cn } from '@/lib/cn'
+import { normalizePhone } from '@/lib/phone'
+import { waLink } from '@/lib/whatsapp'
+import { useGymName } from '@/gym/GymProvider'
+import type { ApiMemberLoginCode } from '@/data/types'
 import { useAsync } from '@/data/useAsync'
 import { listSep, shortDate, usd } from '@/lib/format'
-import { cn } from '@/lib/cn'
 import type { Lang } from '@/i18n'
 import { SharedPhotos } from '@/features/photos/SharedPhotos'
 
@@ -36,6 +42,12 @@ export function ManagerMemberDetail() {
   const [method, setMethod] = useState<'cash' | 'transfer'>('cash')
   const [saving, setSaving] = useState(false)
   const [confirmingLeave, setConfirmingLeave] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [loginCode, setLoginCode] = useState<ApiMemberLoginCode | null>(null)
+  const gymName = useGymName(lang)
+  const [draftName, setDraftName] = useState('')
+  const [draftNameEn, setDraftNameEn] = useState('')
+  const [draftPhone, setDraftPhone] = useState('')
   const leaveCard = useRef<HTMLDivElement>(null)
   // The confirm grows downward off the bottom of a long page, so the
   // buttons it asks about would otherwise open where nobody can see
@@ -72,6 +84,77 @@ export function ManagerMemberDetail() {
 
   const memberPayments = (payments.data ?? []).filter((p) => p.member_id === id)
   const hasLeft = m.status === 'left'
+
+  // A member added in the app has one name, stored twice (AddMember sends
+  // it as both). One imported from a notebook can have distinct Arabic and
+  // English names. Editing one field for the first kind keeps them equal;
+  // the second kind gets both fields, so neither overwrites the other.
+  const splitName = m.name !== m.name_en
+  const draftPhoneNormalized = normalizePhone(draftPhone)
+  const nameChanged = draftName.trim() !== m.name
+  const nameEnChanged = splitName && draftNameEn.trim() !== m.name_en
+  const phoneChanged = draftPhoneNormalized !== null && draftPhoneNormalized !== m.phone
+  const editValid =
+    draftName.trim() !== '' &&
+    (!splitName || draftNameEn.trim() !== '') &&
+    draftPhoneNormalized !== null
+
+  /** A member cannot get a code by themselves until the WhatsApp Business
+   * API is configured — the self-service one is created and never sent.
+   * So the front desk sends it, the way this product sends everything
+   * (decision 4, decision 47). The link opens their login at the code
+   * step with their phone filled in, so there is nothing to retype. */
+  async function sendLoginCode() {
+    setSaving(true)
+    try {
+      const sent = await sendMemberLoginCode(id)
+      setLoginCode(sent)
+      const link = `${window.location.origin}/login?phone=${encodeURIComponent(sent.phone)}&step=code`
+      window.open(
+        waLink(
+          sent.phone,
+          t('whatsapp.memberLoginCode', {
+            name,
+            gym: gymName,
+            code: sent.code,
+            minutes: sent.ttl_minutes,
+            link,
+          }),
+        ),
+        '_blank',
+        'noreferrer',
+      )
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function startEditing() {
+    setRecording(false)
+    setDraftName(m.name)
+    setDraftNameEn(m.name_en)
+    setDraftPhone(m.phone)
+    setEditing(true)
+  }
+
+  async function saveDetails() {
+    setSaving(true)
+    try {
+      await updateMember(id, {
+        ...(nameChanged
+          ? splitName
+            ? { name: draftName.trim() }
+            : { name: draftName.trim(), name_en: draftName.trim() }
+          : {}),
+        ...(nameEnChanged ? { name_en: draftNameEn.trim() } : {}),
+        ...(phoneChanged ? { phone: draftPhone } : {}),
+      })
+      setEditing(false)
+      member.reload()
+    } finally {
+      setSaving(false)
+    }
+  }
 
   async function changeStatus(next: 'active' | 'left') {
     setSaving(true)
@@ -116,20 +199,51 @@ export function ManagerMemberDetail() {
           </button>
           <button
             type="button"
-            onClick={() => setRecording((v) => !v)}
+            onClick={() => {
+              setEditing(false)
+              setRecording((v) => !v)
+            }}
             className={buttonClass('primary', 'lg')}
           >
             <Icon name="money" />
             {t('manager.member.recordPayment')}
           </button>
-          <Link
-            to={`/manager/programs/${id}`}
-            className={cn(buttonClass('secondary', 'lg', true), 'col-span-2')}
+          <button
+            type="button"
+            onClick={() => (editing ? setEditing(false) : startEditing())}
+            className={buttonClass('secondary', 'lg')}
           >
+            <Icon name="user" />
+            {t('manager.member.edit')}
+          </button>
+          <Link to={`/manager/programs/${id}`} className={buttonClass('secondary', 'lg', true)}>
             <Icon name="dumbbell" />
             {t('manager.member.editPlan')}
           </Link>
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => void sendLoginCode()}
+            className={cn(buttonClass('secondary', 'lg'), 'col-span-2')}
+          >
+            <Icon name="lock" />
+            {t('manager.member.sendLoginCode')}
+          </button>
         </div>
+
+        {/* Also on screen, for a member standing at the desk: read it out
+            and they are in, WhatsApp or not. Only the digits are isolated,
+            never the Arabic around them. */}
+        {loginCode ? (
+          <p className="text-muted mt-3 text-center text-sm">
+            {t('manager.member.codeLabel')}{' '}
+            <bdi className="tnum text-ink text-base font-extrabold" dir="ltr">
+              {loginCode.code}
+            </bdi>
+            {' · '}
+            {t('manager.member.codeValid', { minutes: loginCode.ttl_minutes })}
+          </p>
+        ) : null}
 
         {recording ? (
           <div className="border-line mt-4 space-y-3 border-t pt-4">
@@ -162,6 +276,44 @@ export function ManagerMemberDetail() {
             >
               {t('common.save')}
             </Button>
+          </div>
+        ) : null}
+
+        {editing ? (
+          <div className="border-line mt-4 space-y-3 border-t pt-4">
+            <Field label={t('manager.add.name')}>
+              <Input value={draftName} onChange={(e) => setDraftName(e.target.value)} autoFocus />
+            </Field>
+            {splitName ? (
+              <Field label={t('manager.member.nameEn')}>
+                <Input value={draftNameEn} onChange={(e) => setDraftNameEn(e.target.value)} />
+              </Field>
+            ) : null}
+            <Field label={t('manager.add.phone')}>
+              <Input
+                value={draftPhone}
+                onChange={(e) => setDraftPhone(e.target.value)}
+                inputMode="tel"
+                dir="ltr"
+                placeholder="+961 70 000 000"
+              />
+            </Field>
+            {draftPhone.trim() && draftPhoneNormalized === null ? (
+              <p className="text-muted text-sm font-semibold">{t('common.phoneInvalid')}</p>
+            ) : null}
+            <div className="flex gap-2">
+              <Button variant="secondary" size="lg" onClick={() => setEditing(false)}>
+                {t('common.cancel')}
+              </Button>
+              <Button
+                full
+                size="lg"
+                disabled={saving || !editValid || !(nameChanged || nameEnChanged || phoneChanged)}
+                onClick={() => void saveDetails()}
+              >
+                {t('common.save')}
+              </Button>
+            </div>
           </div>
         ) : null}
       </Card>
