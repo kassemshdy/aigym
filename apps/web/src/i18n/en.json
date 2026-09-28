@@ -173,7 +173,10 @@
       "nameEn": "Name in English",
       "sendLoginCode": "Send login code",
       "codeLabel": "Login code",
-      "codeValid": "valid {{minutes}} minutes"
+      "codeValid": "valid {{minutes}} minutes",
+      "coach": "Coach",
+      "noCoach": "No coach",
+      "noCoaches": "No coaches yet — add one under Staff."
     },
     "add": {
       "title": "New member",
@@ -308,11 +311,13 @@
       "training": "Training",
       "done": "Finished",
       "tap": "Tap a name to start",
-      "checkIn": "Check in a member"
+      "checkIn": "Check in a member",
+      "yours": "Yours"
     },
     "checkIn": {
       "title": "Check in",
-      "searchInstead": "Search by name"
+      "searchInstead": "Search by name",
+      "yourMembers": "Your members"
     },
     "card": {
       "paidOk": "Membership is fine",

@@ -7,11 +7,12 @@ import { StatusBadge } from '@/components/ui/Badge'
 import { Icon } from '@/components/ui/Icon'
 import { Empty, Page } from '@/components/ui/Page'
 import { useAsync } from '@/data/useAsync'
-import { getActiveProgram, listMembers, listTodaysCheckIns } from '@/data/queries'
+import { getActiveProgram, listMembers, listTodaysCheckIns, myStaffId } from '@/data/queries'
 import type { ApiCheckIn, ApiMember } from '@/data/types'
 import type { Lang } from '@/i18n'
 import { hhmm, text } from '@/lib/format'
 import { useTourAutostart } from '@/help/TourProvider'
+import { YoursTag } from './YoursTag'
 
 const GROUPS: ApiCheckIn['status'][] = ['waiting', 'training', 'done']
 
@@ -19,7 +20,17 @@ function memberName(m: ApiMember, lang: Lang) {
   return lang === 'ar' ? m.name : m.name_en
 }
 
-function QueueRow({ checkIn, member, lang }: { checkIn: ApiCheckIn; member: ApiMember; lang: Lang }) {
+function QueueRow({
+  checkIn,
+  member,
+  lang,
+  mine,
+}: {
+  checkIn: ApiCheckIn
+  member: ApiMember
+  lang: Lang
+  mine: boolean
+}) {
   const { t } = useTranslation()
   const { data: program } = useAsync(() => getActiveProgram(member.id), [member.id])
 
@@ -35,6 +46,7 @@ function QueueRow({ checkIn, member, lang }: { checkIn: ApiCheckIn; member: ApiM
           {program ? text(program.title, lang) : t('coach.card.noPlan')}
         </span>
       </span>
+      {mine ? <YoursTag /> : null}
       <span className="tnum text-muted text-sm" dir="ltr">
         {hhmm(checkIn.at)}
       </span>
@@ -63,6 +75,9 @@ export function CoachQueue() {
   }
 
   const memberById = new Map(members.map((m) => [m.id, m]))
+  const me = myStaffId()
+  const isMine = (memberId: string) =>
+    me !== null && memberById.get(memberId)?.coach_staff_id === me
 
   return (
     <Page title={t('coach.queue.title')} sub={t('coach.queue.tap')}>
@@ -79,7 +94,10 @@ export function CoachQueue() {
 
       <div data-tour="coach-groups" className="space-y-4">
         {GROUPS.map((group) => {
-          const rows = checkIns.filter((c) => c.status === group)
+          // A coach's own members first in each group; arrival order after.
+          const rows = checkIns
+            .filter((c) => c.status === group)
+            .sort((a, b) => Number(isMine(b.member_id)) - Number(isMine(a.member_id)))
           return (
             <Card key={group}>
               <CardTitle>
@@ -95,7 +113,7 @@ export function CoachQueue() {
                     if (!member) return null
                     return (
                       <li key={c.id}>
-                        <QueueRow checkIn={c} member={member} lang={lang} />
+                        <QueueRow checkIn={c} member={member} lang={lang} mine={isMine(c.member_id)} />
                       </li>
                     )
                   })}

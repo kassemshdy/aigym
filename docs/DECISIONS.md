@@ -1184,3 +1184,25 @@ read rather than saving a video that never plays.
 
 The library is not filled automatically. Which videos a gym shows its members, and whose,
 is the gym's call; the coach pastes each link on Coach → Videos.
+
+## 52. A member can be on a coach's list
+
+Every coach saw every member, with nothing saying whose was whose. `members.coach_staff_id`
+now names the coach responsible, as a staff account. It is optional and unset for every
+existing member, because guessing would put someone on the wrong list.
+
+- **Managers assign**, on the member's screen: one tap per coach, or *No coach*
+  (`POST /members/{id}/coach`). A coach cannot assign; one who could would empty a
+  colleague's list by claiming their members.
+- **Only a coach at this gym** can be assigned. `staff_gym_roles` is RLS-scoped, so a
+  person who coaches only elsewhere is the same 422 as nobody.
+- **Stopping coaching here releases their members**: removal, or a role change away from
+  coach, clears the assignment, so no member points at someone who no longer works at the
+  gym. `members` is RLS-scoped, so the same person's members at another gym stay put.
+- **What a coach sees**: on *Who is in*, their own members come first in each group,
+  marked *Yours* in black (green, amber and red mean payment; yellow is identity). The
+  check-in screen lists their members before anything is typed, so checking in the people
+  you train needs no keyboard.
+
+Every member stays visible to every coach. The list decides order and responsibility, not
+access: a gym covering a sick coach should not need a manager first.

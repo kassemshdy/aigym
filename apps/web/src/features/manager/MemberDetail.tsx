@@ -12,9 +12,12 @@ import { Icon } from '@/components/ui/Icon'
 import { Empty, Page } from '@/components/ui/Page'
 import {
   getMember,
+  getStaffRole,
   listPayments,
+  listStaff,
   recordPayment,
   sendMemberLoginCode,
+  setMemberCoach,
   setMemberStatus,
   updateMember,
   whatsappReminderLink,
@@ -334,6 +337,14 @@ export function ManagerMemberDetail() {
         />
       </Card>
 
+      {!hasLeft ? (
+        <CoachPicker
+          memberId={id}
+          current={m.coach_staff_id}
+          onChanged={() => member.reload()}
+        />
+      ) : null}
+
       {m.profile ? (
         <>
           <Card>
@@ -414,5 +425,79 @@ export function ManagerMemberDetail() {
         </Card>
       </div>
     </Page>
+  )
+}
+
+/** Which coach this member belongs to (decision 52). Managers only — the
+ * server refuses a coach, and a coach looking at this screen sees nothing to
+ * press. Lists only the gym's coach accounts; "No coach" takes them off. */
+function CoachPicker({
+  memberId,
+  current,
+  onChanged,
+}: {
+  memberId: string
+  current: string | null
+  onChanged: () => void
+}) {
+  const { t } = useTranslation()
+  const role = getStaffRole() ?? 'super_admin' // mock mode shows the owner's view
+  const canAssign = role === 'super_admin' || role === 'manager'
+  const staff = useAsync(() => (canAssign ? listStaff() : Promise.resolve([])), [canAssign])
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(false)
+
+  if (!canAssign || staff.loading || !staff.data) return null
+  const coaches = staff.data.filter((s) => s.role === 'coach')
+
+  async function pick(coachId: string | null) {
+    if (coachId === current) return
+    setBusy(true)
+    setError(false)
+    try {
+      await setMemberCoach(memberId, coachId)
+      onChanged()
+    } catch {
+      setError(true)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const option = (value: string | null, label: string) => (
+    <button
+      key={value ?? 'none'}
+      type="button"
+      disabled={busy}
+      aria-pressed={current === value}
+      onClick={() => void pick(value)}
+      className={cn(
+        'min-h-tap rounded-xl px-4 text-start font-semibold',
+        current === value ? 'bg-ink text-white' : 'border-line bg-surface border',
+      )}
+    >
+      {label}
+    </button>
+  )
+
+  return (
+    <Card>
+      <CardTitle>{t('manager.member.coach')}</CardTitle>
+      <div className="grid gap-2 p-4 sm:grid-cols-2">
+        {coaches.length === 0 ? (
+          <p className="text-muted text-sm font-semibold">{t('manager.member.noCoaches')}</p>
+        ) : (
+          <>
+            {coaches.map((c) => option(c.id, c.name))}
+            {option(null, t('manager.member.noCoach'))}
+          </>
+        )}
+        {error ? (
+          <p className="bg-ink rounded-xl px-4 py-3 text-sm font-semibold text-white">
+            {t('common.error')}
+          </p>
+        ) : null}
+      </div>
+    </Card>
   )
 }

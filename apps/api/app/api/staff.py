@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.booking import ensure_coach_profile
 from app.api.schemas import PhoneNumber
 from app.deps import CurrentSession, require_role
-from app.models import RefreshToken, StaffGymRole, StaffUser
+from app.models import Member, RefreshToken, StaffGymRole, StaffUser
 from app.security.hashing import generate_password, hash_secret
 from app.security.jwt import AccessTokenClaims
 
@@ -188,6 +188,16 @@ async def _revoke_refresh_tokens(session: AsyncSession, staff_user_id: uuid.UUID
     )
 
 
+async def _release_their_members(session: AsyncSession, staff_user_id: uuid.UUID) -> None:
+    """Take this person's members off their list when they stop coaching
+    here, so no member is assigned to someone who no longer works at the
+    gym. members is RLS-scoped: the same person's members at another gym
+    are untouched. Decision 52."""
+    await session.execute(
+        update(Member).where(Member.coach_staff_id == staff_user_id).values(coach_staff_id=None)
+    )
+
+
 async def _other_super_admins(session: AsyncSession, staff_user_id: uuid.UUID) -> int:
     """How many super_admins this gym would still have if this person
     stopped being one. RLS scopes the count to the caller's gym."""
@@ -262,6 +272,8 @@ async def change_staff_role(
         await _revoke_refresh_tokens(session, staff_user_id)
         if body.role == "coach":
             await ensure_coach_profile(session, gym_id=role.gym_id, staff=user)
+        else:
+            await _release_their_members(session, staff_user_id)
 
     return StaffOut(
         id=user.id, username=user.username, name=user.name, phone=user.phone,
@@ -351,6 +363,7 @@ async def revoke_staff_access(
 
     await session.delete(role)
     await _revoke_refresh_tokens(session, staff_user_id)
+    await _release_their_members(session, staff_user_id)
 
 
 class StaffPasswordOut(BaseModel):

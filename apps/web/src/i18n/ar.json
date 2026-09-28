@@ -173,7 +173,10 @@
       "nameEn": "الاسم بالإنكليزي",
       "sendLoginCode": "ابعت كود الدخول",
       "codeLabel": "كود الدخول",
-      "codeValid": "صالح {{minutes}} دقائق"
+      "codeValid": "صالح {{minutes}} دقائق",
+      "coach": "الكوتش",
+      "noCoach": "بلا كوتش",
+      "noCoaches": "ما في كوتشات بعد — زيد واحد من الموظفين."
     },
     "add": {
       "title": "مشترك جديد",
@@ -308,11 +311,13 @@
       "training": "عم يتمرّن",
       "done": "خلّص",
       "tap": "دوس عالاسم لتبلّش",
-      "checkIn": "سجّل دخول مشترك"
+      "checkIn": "سجّل دخول مشترك",
+      "yours": "إلك"
     },
     "checkIn": {
       "title": "تسجيل دخول",
-      "searchInstead": "دور بالاسم"
+      "searchInstead": "دور بالاسم",
+      "yourMembers": "مشتركينك"
     },
     "card": {
       "paidOk": "اشتراكه ماشي",

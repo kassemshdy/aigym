@@ -38,6 +38,15 @@ class Member(Base, UUIDPrimaryKeyMixin, GymScopedMixin, TimestampMixin):
     #: When they left, so "how many left this quarter" is answerable. Null
     #: while active, and cleared again if they come back.
     left_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    #: The coach responsible for this member: a staff account holding the
+    #: coach role at this gym. Optional — most gyms start with nobody
+    #: assigned — and cleared when that person stops coaching here, so a
+    #: member never points at someone who no longer works at the gym.
+    #: Decision 52.
+    coach_staff_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("staff_users.id", ondelete="SET NULL"),
+        nullable=True, index=True,
+    )
 
 
 class MemberProfile(Base, GymScopedMixin, TimestampMixin):

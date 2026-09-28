@@ -7,8 +7,9 @@ import { Field, Input } from '@/components/ui/Field'
 import { Avatar } from '@/components/ui/Avatar'
 import { Empty, Page } from '@/components/ui/Page'
 import { useAsync } from '@/data/useAsync'
-import { createCheckIn, listMembers } from '@/data/queries'
+import { createCheckIn, listMembers, myStaffId } from '@/data/queries'
 import type { Lang } from '@/i18n'
+import { YoursTag } from './YoursTag'
 
 /** Manual check-in by name search. A QR-code path was tried and dropped —
  * the only decoder small enough for the iPad's browser (no native
@@ -38,12 +39,17 @@ export function CoachCheckIn() {
     }
   }
 
-  const filtered =
-    members?.filter((m) => {
-      const q = query.trim()
-      if (!q) return false
-      return m.name.includes(q) || m.name_en.toLowerCase().includes(q.toLowerCase())
-    }) ?? []
+  const me = myStaffId()
+  const isMine = (m: { coach_staff_id: string | null }) => me !== null && m.coach_staff_id === me
+  const q = query.trim()
+  // Before anything is typed, a coach sees their own members to tap —
+  // checking in the people you train should not need the keyboard
+  // (decision 52). Searching still covers everyone, theirs first.
+  const filtered = q
+    ? (members ?? [])
+        .filter((m) => m.name.includes(q) || m.name_en.toLowerCase().includes(q.toLowerCase()))
+        .sort((a, b) => Number(isMine(b)) - Number(isMine(a)))
+    : (members ?? []).filter(isMine)
 
   return (
     <Page title={t('coach.checkIn.title')}>
@@ -55,7 +61,10 @@ export function CoachCheckIn() {
           <Field label={t('common.search')}>
             <Input value={query} onChange={(e) => setQuery(e.target.value)} autoFocus />
           </Field>
-          {query.trim() && filtered.length === 0 ? <Empty>{t('common.none')}</Empty> : null}
+          {q && filtered.length === 0 ? <Empty>{t('common.none')}</Empty> : null}
+          {!q && filtered.length > 0 ? (
+            <p className="text-muted text-sm font-semibold">{t('coach.checkIn.yourMembers')}</p>
+          ) : null}
           {filtered.length > 0 ? (
             <ul className="border-line divide-line divide-y rounded-xl border">
               {filtered.map((m) => (
@@ -70,6 +79,7 @@ export function CoachCheckIn() {
                     <span className="flex-1 truncate font-semibold">
                       {lang === 'ar' ? m.name : m.name_en}
                     </span>
+                    {q && isMine(m) ? <YoursTag /> : null}
                   </button>
                 </li>
               ))}

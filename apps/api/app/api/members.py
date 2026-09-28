@@ -13,7 +13,16 @@ from app.deps import CurrentClaims, CurrentSession, require_role
 from app.domain.analytics import is_missing
 from app.domain.dues import DuesStatus, compute_dues
 from app.domain.whatsapp import wa_link
-from app.models import Attendance, Member, MemberProfile, Payment, Plan, Subscription
+from app.models import (
+    Attendance,
+    Member,
+    MemberProfile,
+    Payment,
+    Plan,
+    StaffGymRole,
+    StaffUser,
+    Subscription,
+)
 from app.schemas.injuries import MemberInjury
 from app.security.jwt import AccessTokenClaims
 
@@ -90,6 +99,11 @@ class MemberOut(BaseModel):
     ends_at: datetime | None
     last_visit: date | None
     dues: DuesOut | None
+    #: The coach responsible for this member, and their name, so a list can
+    #: show it without a second request. Null when nobody is assigned.
+    #: Decision 52.
+    coach_staff_id: uuid.UUID | None = None
+    coach_name: str | None = None
 
 
 class MemberProfileOut(BaseModel):
@@ -120,6 +134,7 @@ def _build_member_out(
     member: Member,
     current: tuple[Subscription, Plan] | None,
     last_visit: date | None,
+    coach_names: dict[uuid.UUID, str] | None = None,
 ) -> MemberOut:
     """The one place a MemberOut is assembled. Pure: every caller fetches
     its own rows — one at a time for a detail screen, in bulk for a list —
@@ -149,13 +164,33 @@ def _build_member_out(
         ends_at=subscription.ends_at if subscription else None,
         last_visit=last_visit,
         dues=dues,
+        coach_staff_id=member.coach_staff_id,
+        coach_name=(coach_names or {}).get(member.coach_staff_id)
+        if member.coach_staff_id
+        else None,
     )
+
+
+async def _coach_names(
+    session: AsyncSession, members: Sequence[Member]
+) -> dict[uuid.UUID, str]:
+    """Every assigned coach's name in one query. staff_users carries no RLS
+    (decision 16), which is fine here: the ids come from this gym's own
+    members, and a member only ever holds a coach of this gym (decision 52)."""
+    ids = {m.coach_staff_id for m in members if m.coach_staff_id is not None}
+    if not ids:
+        return {}
+    rows = await session.execute(select(StaffUser.id, StaffUser.name).where(StaffUser.id.in_(ids)))
+    return {staff_id: name for staff_id, name in rows.all()}
 
 
 async def _to_member_out(session: AsyncSession, member: Member) -> MemberOut:
     subscriptions = await _current_subscriptions(session, [member.id])
     visits = await _last_visits(session, [member.id])
-    return _build_member_out(member, subscriptions.get(member.id), visits.get(member.id))
+    return _build_member_out(
+        member, subscriptions.get(member.id), visits.get(member.id),
+        await _coach_names(session, [member]),
+    )
 
 
 @router.get("/members", response_model=list[MemberOut])
@@ -182,8 +217,10 @@ async def list_members(
     member_ids = [m.id for m in members]
     subscriptions = await _current_subscriptions(session, member_ids)
     visits = await _last_visits(session, member_ids)
+    coach_names = await _coach_names(session, members)
     return [
-        _build_member_out(m, subscriptions.get(m.id), visits.get(m.id)) for m in members
+        _build_member_out(m, subscriptions.get(m.id), visits.get(m.id), coach_names)
+        for m in members
     ]
 
 
@@ -427,6 +464,51 @@ async def record_payment(
             starts_at=period_start, ends_at=period_start + timedelta(days=plan.days),
         )
     )
+    await session.flush()
+    return await get_member(member_id, session, claims)
+
+
+class MemberCoachRequest(BaseModel):
+    #: Null takes the member off any coach's list.
+    coach_staff_id: uuid.UUID | None
+
+
+ManagerOrAdmin = Depends(require_role("super_admin", "manager"))
+
+
+@router.post("/members/{member_id}/coach", response_model=MemberDetailOut)
+async def set_member_coach(
+    member_id: uuid.UUID,
+    body: MemberCoachRequest,
+    session: CurrentSession,
+    claims: AccessTokenClaims = ManagerOrAdmin,
+) -> MemberDetailOut:
+    """Put a member on a coach's list, or take them off it. Decision 52.
+
+    Managers only: who coaches whom is a staffing decision, and a coach who
+    could assign members to themselves could empty a colleague's list.
+
+    The coach must hold the coach role **at this gym** — staff_gym_roles is
+    RLS-scoped, so a person who coaches only at another gym is the same 422
+    as nobody, and says nothing about that other gym's staff.
+    """
+    member = await session.get(Member, member_id)
+    if member is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Member not found")
+    if body.coach_staff_id is not None:
+        is_coach = (
+            await session.execute(
+                select(StaffGymRole.id).where(
+                    StaffGymRole.staff_user_id == body.coach_staff_id,
+                    StaffGymRole.role == "coach",
+                )
+            )
+        ).first()
+        if is_coach is None:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_CONTENT, "That person is not a coach at this gym"
+            )
+    member.coach_staff_id = body.coach_staff_id
     await session.flush()
     return await get_member(member_id, session, claims)
 

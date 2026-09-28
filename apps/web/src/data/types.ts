@@ -37,6 +37,10 @@ export interface ApiMember {
   ends_at: string | null
   last_visit: string | null
   dues: ApiDues | null
+  /** The coach responsible for this member (a staff account id) and their
+   * name; null when nobody is assigned. Decision 52. */
+  coach_staff_id: string | null
+  coach_name: string | null
 }
 
 /** Mirrors app/schemas/injuries.py's MemberInjury. body_part is a

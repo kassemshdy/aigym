@@ -92,6 +92,15 @@ export function getStaffRole(): string | null {
   return payload && 'role' in payload ? String(payload.role) : null
 }
 
+/** The signed-in staff member's own account id, for "which members are
+ * mine" — routing and ordering only; the server checks the real claims. */
+export function getStaffId(): string | null {
+  const token = getAccessToken('staff')
+  if (!token) return null
+  const payload = decodeTokenPayload(token)
+  return payload && 'sub' in payload ? String(payload.sub) : null
+}
+
 /** The signed-in member's own id, decoded from their access token's `sub`
  * claim — replaces the old hardcoded mock `currentMemberId`. Member-facing
  * queries pass this as the member id; the server independently derives the

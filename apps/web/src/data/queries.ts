@@ -9,6 +9,7 @@ import {
   API_URL,
   apiFetch,
   clearTokens,
+  getStaffId,
   newIdempotencyKey,
   offlineFetch,
   postFile,
@@ -48,6 +49,8 @@ import {
   mockLapsedMembers,
   mockListAiDrafts,
   mockListClasses,
+  mockSetMemberCoach,
+  MOCK_COACH_STAFF_ID,
   mockCreateClass,
   mockUpdateClass,
   mockDeleteClass,
@@ -164,6 +167,26 @@ import type {
 export async function listMembers(status: MemberStatus = 'active'): Promise<ApiMember[]> {
   if (!API_URL) return mockListMembers(status)
   return apiFetch(`/members?status=${status}`)
+}
+
+/** Put a member on a coach's list, or pass null to take them off it.
+ * Managers only (decision 52). */
+export async function setMemberCoach(
+  memberId: string,
+  coachStaffId: string | null,
+): Promise<ApiMemberDetail> {
+  if (!API_URL) return mockSetMemberCoach(memberId, coachStaffId)
+  return apiFetch(`/members/${memberId}/coach`, {
+    method: 'POST',
+    body: { coach_staff_id: coachStaffId },
+    idempotencyKey: newIdempotencyKey(),
+  })
+}
+
+/** Whose members are "mine" on the coach screens. Mock mode has no login,
+ * so the prototype plays Coach Assaf, who has members assigned. */
+export function myStaffId(): string | null {
+  return API_URL ? getStaffId() : MOCK_COACH_STAFF_ID
 }
 
 export async function setMemberStatus(

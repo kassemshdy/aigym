@@ -90,6 +90,7 @@ const SCREENS = [
   // steppers pushed off the card — which only the iPad run never showed.
   ['coach-queue-phone', '/coach', 'phone'],
   ['coach-card-phone', '/coach/member/m1', 'phone'],
+  ['coach-checkin-phone', '/coach/check-in', 'phone'],
   ['coach-session-phone', '/coach/session/m1', 'phone'],
   ['program-editor-phone', '/coach/programs/m1', 'phone'],
   ['member-today', '/member', 'phone'],

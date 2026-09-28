@@ -126,6 +126,15 @@ const todayIso = () => new Date().toISOString().slice(0, 10)
  * whose own `status` field is the *dues* status. Two different questions
  * that would read identically at the call site. Decision 43. */
 const mockLeftAt = new Map<string, string>()
+
+/** Who coaches whom in the prototype. Coach Assaf has three members, so the
+ * coach screens can show "yours" first (decision 52). */
+export const MOCK_COACH_STAFF_ID = 'staff-c-assaf'
+const mockCoachOf = new Map<string, string>([
+  ['m0', MOCK_COACH_STAFF_ID],
+  ['m1', MOCK_COACH_STAFF_ID],
+  ['m3', MOCK_COACH_STAFF_ID],
+])
 const lifecycle = (id: string): MemberStatus => (mockLeftAt.has(id) ? 'left' : 'active')
 
 function toApiMember(m: MockMember): ApiMember {
@@ -143,7 +152,28 @@ function toApiMember(m: MockMember): ApiMember {
     ends_at: m.endsAt,
     last_visit: m.lastVisit,
     dues: { status: m.status, owed_usd: m.owedUsd },
+    coach_staff_id: mockCoachOf.get(m.id) ?? null,
+    coach_name: mockStaffName(mockCoachOf.get(m.id)),
   }
+}
+
+// Hoisted, so toApiMember can use it before mockStaff is declared below.
+function mockStaffName(staffId: string | undefined): string | null {
+  if (!staffId) return null
+  return mockStaff.find((s) => s.id === staffId)?.name ?? null
+}
+
+export function mockSetMemberCoach(memberId: string, coachStaffId: string | null): ApiMemberDetail {
+  const member = mockMembers.find((m) => m.id === memberId)
+  if (!member) throw new ApiError(404, 'Member not found')
+  if (coachStaffId === null) mockCoachOf.delete(memberId)
+  else {
+    if (!mockStaff.some((s) => s.id === coachStaffId && s.role === 'coach')) {
+      throw new ApiError(422, 'That person is not a coach at this gym')
+    }
+    mockCoachOf.set(memberId, coachStaffId)
+  }
+  return toApiMemberDetail(member)
 }
 
 function toApiMemberDetail(m: MockMember): ApiMemberDetail {
@@ -934,13 +964,23 @@ export function mockUpdateStaffRole(staffId: string, role: StaffRole): ApiStaff 
   mockRefuseLastSuperAdmin(staff, role)
   const updated = { ...staff, role }
   mockStaff = mockStaff.map((s) => (s.id === staffId ? updated : s))
+  if (role !== 'coach') releaseMockMembers(staffId)
   return updated
+}
+
+/** As staff.py's _release_their_members: nobody stays assigned to a person
+ * who no longer coaches here. */
+function releaseMockMembers(staffId: string) {
+  for (const [memberId, coachId] of mockCoachOf) {
+    if (coachId === staffId) mockCoachOf.delete(memberId)
+  }
 }
 
 export function mockRevokeStaffAccess(staffId: string): void {
   const staff = mockStaffOr404(staffId)
   mockRefuseLastSuperAdmin(staff, null)
   mockStaff = mockStaff.filter((s) => s.id !== staffId)
+  releaseMockMembers(staffId)
 }
 
 export function mockResetStaffPassword(staffId: string): StaffPasswordOut {
