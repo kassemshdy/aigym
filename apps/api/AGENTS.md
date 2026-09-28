@@ -48,6 +48,8 @@ scripts/
 │                        destructive path when the gym has real members; --no-demo is the
 │                        default in production
 ├── set_staff_password.py   operator-run password reset
+├── staff_accounts.py       who has an account and where; frees the username of one
+│                            that holds no access anywhere (decision 45)
 ├── set_gym_plans.py        the gym's real prices, before anyone has logged in
 └── set_gym_billing.py      what a gym pays us — tracked, never processed (decision 38)
 
@@ -136,6 +138,13 @@ not a different role).
 Two auth flows read from tables *before* `app.gym_id` is known, and take different
 approaches (decisions 18, 19) — read the docstrings on `get_owner_sessionmaker()` in
 `db.py` and on `MemberLoginCode` in `models/auth.py` before adding a third pattern.
+
+**A staff username is taken platform-wide, and outlives the access it was
+created with.** `staff_users` has no RLS, so `POST /staff`'s uniqueness check spans every
+gym, while `GET /staff` joins to the gym-scoped `staff_gym_roles`. Removing someone drops
+only the role, so their name stays taken and stops being visible — by design for the
+account, by accident for the name. `scripts/staff_accounts.py` reports and releases;
+decision 45 says why it is a script and not a route.
 
 **A member logs in with a phone number and nothing else**, so the phone is a credential
 and its shape is load-bearing: both `/auth/member/*` endpoints normalize through

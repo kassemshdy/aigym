@@ -81,7 +81,18 @@ async def create_staff(
         await session.execute(select(StaffUser).where(StaffUser.username == body.username))
     ).scalar_one_or_none()
     if existing is not None:
-        raise HTTPException(status.HTTP_409_CONFLICT, "Username already taken")
+        # Deliberately says nothing about *who* holds it or where: this
+        # table is not gym-scoped, so the name may belong to another gym's
+        # staff, and confirming that would leak their roster one guess at a
+        # time. What it can honestly say is the part a manager can act on —
+        # that the name is gone platform-wide, including to an account they
+        # removed and can no longer see. Decision 45.
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "That username is already in use. Usernames are shared across all gyms, and "
+            "an account stays after you remove someone — so a name used here before is "
+            "still taken. Pick a different one.",
+        )
 
     staff = StaffUser(
         id=uuid.uuid4(),
