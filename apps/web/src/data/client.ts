@@ -121,12 +121,28 @@ async function refreshTokens(authAs: AuthAs): Promise<boolean> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ refresh_token: refreshToken }),
   })
-  if (!response.ok) {
+  if (response.status === 401 || response.status === 403) {
     clearTokens(authAs)
+    sendToLogin(authAs)
     return false
   }
+  // A 5xx is the server's trouble, not a dead session: keep the tokens and
+  // let the caller's request fail visibly, rather than signing a manager out
+  // because the API restarted mid-request.
+  if (!response.ok) return false
   setTokens((await response.json()) as TokenPair, authAs)
   return true
+}
+
+/** The session is gone for good — the refresh token was rejected. Clearing
+ * it alone left the screen already on display showing "Something went
+ * wrong" with nothing to tap, because the route guards only run on
+ * navigation. Reported live: `trpa` moved to a new environment with its own
+ * signing secret, and every browser holding the old login got that screen.
+ * `replace`, so Back does not return to the broken page. */
+function sendToLogin(authAs: AuthAs) {
+  const target = authAs === 'member' ? '/login' : '/staff/login'
+  if (window.location.pathname !== target) window.location.replace(target)
 }
 
 interface FetchOptions {
