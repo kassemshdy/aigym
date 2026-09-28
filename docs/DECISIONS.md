@@ -1001,3 +1001,45 @@ its removal, so a name used here before is still taken; pick another.
 
 **If this recurs often enough to annoy, the follow-up is the endpoint**, and it needs
 decision 18 reopened rather than quietly worked around.
+
+## 46. A staff member's name and phone can be corrected, and the phone is shown before anything is sent
+
+Asked for from the live app: "why can't I edit staff, or members? I want to change a
+staff member's phone and resend their details on WhatsApp." There was no way to. A staff
+member's name and phone were fixed at creation — `PATCH /staff/{id}` accepts a role and
+nothing else — and members had a working `PATCH /members/{id}` that no screen called.
+
+**Resending details already existed; it was the phone that made it useless.** "New
+password" generates one and opens WhatsApp to the number on file. With no way to correct
+that number, a wrong one meant the password went to whoever held it, silently — and the
+owner's own row carries a placeholder on purpose, since the repo is public. So the fix is
+the phone, and making the number visible *before* anything is sent.
+
+**`PATCH /staff/{id}/details`, its own route.** Not a field on the role change: that one
+is super_admin-only and signs the person out, and fixing a typo in a phone number should
+do neither. Same split as `POST /members/{id}/status` (decision 43). Name and phone are
+optional so the screen sends only what changed, and the phone goes through
+`LebanesePhone` (decision 44) — this is the number a reset goes to.
+
+**The same authorization as a password reset:** a super_admin edits anyone at their gym,
+a manager only coaches. A manager who could rewrite a peer's phone could aim that peer's
+reset at their own number and walk into their account.
+
+**The account is shared across gyms** (decision 16), so a new phone applies wherever that
+person works. Deliberately accepted: it is no wider than the password reset, which already
+lets any gym they work at set their password and read it back, and it is one person with
+one phone.
+
+`GET /staff` now carries `phone`. It was omitted on purpose when nothing needed it; an
+edit form that cannot show the current value is not an edit form. It is visible only to a
+gym's managers and super_admins.
+
+**The screen's one guard.** With a new number typed but not saved, *Send new login
+details* is disabled. Otherwise it would go to the *old* number — the stored one, not the
+typed one — which is exactly the silent failure this exists to end. Under the button, the
+number it will go to is printed, so the manager sees it every time.
+
+**Members, lossless.** A member added in the app has one name stored twice; one imported
+from a notebook can have distinct Arabic and English names. The edit form shows one name
+field for the first kind and both for the second, so correcting one never overwrites the
+other. Body and lifestyle stay out of it — they belong to the member's own intake.

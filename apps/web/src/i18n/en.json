@@ -167,7 +167,9 @@
       "markLeft": "They left the gym",
       "confirmLeft": "Mark {{name}} as having left?",
       "leftNote": "They come off the roster and the lapsed list. Nothing is deleted — their payments stay in the records, and you can bring them back from the “Left” list.",
-      "bringBack": "They came back"
+      "bringBack": "They came back",
+      "edit": "Edit details",
+      "nameEn": "Name in English"
     },
     "add": {
       "title": "New member",
@@ -218,12 +220,17 @@
       "addSomeone": "Add someone",
       "role": "What they can do",
       "roleSignsOut": "Changing this signs them out of the app.",
-      "resetPassword": "New password",
+      "resetPassword": "Send new login details",
       "remove": "Remove",
       "confirmRemove": "Remove {{name}} from this gym?",
       "removeNote": "They lose access here right away. Their account itself stays, so nothing breaks at another gym they work at.",
       "lastOwner": "A gym needs at least one owner. Make someone else the owner first.",
-      "notAllowed": "You can only do this for a coach. Ask the gym owner."
+      "notAllowed": "You can only do this for a coach. Ask the gym owner.",
+      "details": "Name and number",
+      "detailsSaved": "Saved",
+      "sendsTo": "Goes to",
+      "resetNote": "makes a new password — the old one stops working",
+      "resetDone": "New password ready"
     },
     "settings": {
       "title": "Your gym",

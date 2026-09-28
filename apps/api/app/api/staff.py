@@ -1,9 +1,9 @@
 import uuid
 from datetime import UTC, datetime
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -35,6 +35,11 @@ class StaffOut(BaseModel):
     id: uuid.UUID
     username: str
     name: str
+    #: Added so the staff screen can show — and correct — the number a
+    #: password reset is sent to. Visible only to a gym's managers and
+    #: super_admins (every route here is ManagerOrAdmin at least), who are
+    #: exactly the people who need to reach their own staff.
+    phone: str
     role: str
 
 
@@ -53,7 +58,10 @@ async def list_staff(
         )
     ).all()
     return [
-        StaffOut(id=user.id, username=user.username, name=user.name, role=role)
+        StaffOut(
+            id=user.id, username=user.username, name=user.name, phone=user.phone,
+            role=role,
+        )
         for user, role in rows
     ]
 
@@ -105,7 +113,10 @@ async def create_staff(
     await session.flush()  # staff_gym_roles.staff_user_id references staff just added above
     session.add(StaffGymRole(gym_id=claims.gym_id, staff_user_id=staff.id, role=body.role))
 
-    return StaffOut(id=staff.id, username=staff.username, name=staff.name, role=body.role)
+    return StaffOut(
+        id=staff.id, username=staff.username, name=staff.name, phone=staff.phone,
+        role=body.role,
+    )
 
 
 # ---------------------------------------------------------------------
@@ -243,7 +254,71 @@ async def change_staff_role(
         role.role = body.role
         await _revoke_refresh_tokens(session, staff_user_id)
 
-    return StaffOut(id=user.id, username=user.username, name=user.name, role=body.role)
+    return StaffOut(
+        id=user.id, username=user.username, name=user.name, phone=user.phone,
+        role=body.role,
+    )
+
+
+class UpdateStaffDetailsRequest(BaseModel):
+    """Who someone is and how to reach them — not what they may do.
+
+    Both optional so the screen can send only what changed. The phone goes
+    through LebanesePhone like every other phone that enters the system
+    (decision 44): this is the number a password reset is sent to, so a
+    wrong shape here is an account nobody can recover.
+    """
+
+    name: Annotated[str, Field(min_length=1, max_length=80)] | None = None
+    phone: LebanesePhone | None = None
+
+
+@router.patch("/{staff_user_id}/details", response_model=StaffOut)
+async def update_staff_details(
+    staff_user_id: uuid.UUID,
+    body: UpdateStaffDetailsRequest,
+    session: CurrentSession,
+    claims: AccessTokenClaims = ManagerOrAdmin,
+) -> StaffOut:
+    """Correct a staff member's name or phone number. Decision 46.
+
+    **Its own route, not a field on PATCH /staff/{id}.** That one changes
+    what someone may do, is super_admin-only, and signs them out; this one
+    changes who they are, and neither of those should follow from fixing a
+    typo in a phone number. Same split as POST /members/{id}/status.
+
+    **The same rule as resetting a password:** a super_admin edits anyone at
+    their gym, a manager only coaches. A manager who could rewrite a peer's
+    phone could point that peer's password reset at their own number.
+
+    **The account is shared across gyms** (staff_users carries no RLS,
+    decision 16), so the new phone applies wherever this person works. That
+    is no wider than POST /staff/{id}/password/reset, which already lets any
+    gym they work at set their password and read it back — and it is the
+    honest behaviour, since it is one person with one phone.
+
+    Signs nobody out: neither field is a credential.
+    """
+    user, role = await _staff_at_this_gym(session, staff_user_id)
+
+    if claims.role == "manager" and role.role != "coach":
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, "Managers can only edit a coach's details"
+        )
+
+    if body.name is not None:
+        name = body.name.strip()
+        if not name:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Name cannot be blank")
+        user.name = name
+    if body.phone is not None:
+        user.phone = body.phone
+    await session.flush()
+
+    return StaffOut(
+        id=user.id, username=user.username, name=user.name, phone=user.phone,
+        role=role.role,
+    )
 
 
 @router.delete("/{staff_user_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -273,8 +348,9 @@ class StaffPasswordOut(BaseModel):
     username: str
     password: str
     #: So the caller can hand the password over on a wa.me link without a
-    #: second round trip. GET /staff deliberately still omits it — this is
-    #: the one moment a phone number is actually needed.
+    #: second round trip. GET /staff carries it too now (decision 46), so the
+    #: screen can show which number the password is about to go to — and
+    #: correct it first, which is the whole point of sending it here.
     phone: str
 
 

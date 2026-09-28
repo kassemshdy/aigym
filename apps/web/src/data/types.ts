@@ -335,7 +335,27 @@ export interface ApiStaff {
   id: string
   username: string
   name: string
+  /** Where a password reset is sent. Carried on the list so the screen can
+   * show it and correct it before anything goes out (decision 46). */
+  phone: string
   role: string
+}
+
+/** A member's identity fields. PATCH /members/{id} accepts the profile too,
+ * but the screen only ever corrects who someone is and how to reach them —
+ * body and lifestyle belong to the member's own intake. Send only what
+ * changed. */
+export interface UpdateMemberInput {
+  name?: string
+  name_en?: string
+  phone?: string
+}
+
+/** Who someone is, not what they may do — so it never touches the role
+ * and never signs anyone out. Send only what changed. */
+export interface UpdateStaffDetailsInput {
+  name?: string
+  phone?: string
 }
 
 /** Flat, not a hierarchy — `super_admin` is never implied by `manager`.

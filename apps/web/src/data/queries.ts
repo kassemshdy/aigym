@@ -80,6 +80,8 @@ import {
   mockUpdatePlan,
   mockUpdateProgram,
   mockUpdateProgressPhoto,
+  mockUpdateMember,
+  mockUpdateStaffDetails,
   mockUpdateStaffRole,
   mockUpdateVideo,
   mockWhatsappReminder,
@@ -140,9 +142,11 @@ import type {
   TokenPair,
   UpdateExerciseInput,
   UpdateGymInput,
+  UpdateMemberInput,
   UpdateMyProfileInput,
   UpdatePlanInput,
   UpdateProgramInput,
+  UpdateStaffDetailsInput,
   UpdateVideoInput,
 } from './types'
 
@@ -163,6 +167,21 @@ export async function setMemberStatus(
   return apiFetch(`/members/${memberId}/status`, {
     method: 'POST',
     body: { status },
+    idempotencyKey: newIdempotencyKey(),
+  })
+}
+
+/** Correct a member's name or phone. The server normalizes the phone like
+ * every other (decision 44) — this is the number their login code and the
+ * dues reminders go to. */
+export async function updateMember(
+  memberId: string,
+  input: UpdateMemberInput,
+): Promise<ApiMemberDetail> {
+  if (!API_URL) return mockUpdateMember(memberId, input)
+  return apiFetch(`/members/${memberId}`, {
+    method: 'PATCH',
+    body: input,
     idempotencyKey: newIdempotencyKey(),
   })
 }
@@ -809,6 +828,21 @@ export async function updateStaffRole(staffId: string, role: StaffRole): Promise
   return apiFetch(`/staff/${staffId}`, {
     method: 'PATCH',
     body: { role },
+    idempotencyKey: newIdempotencyKey(),
+  })
+}
+
+/** Correct a name or phone. Its own route, not a field on updateStaffRole:
+ * that one is super_admin-only and signs the person out, and fixing a typo
+ * in a phone number should do neither (decision 46). */
+export async function updateStaffDetails(
+  staffId: string,
+  input: UpdateStaffDetailsInput,
+): Promise<ApiStaff> {
+  if (!API_URL) return mockUpdateStaffDetails(staffId, input)
+  return apiFetch(`/staff/${staffId}/details`, {
+    method: 'PATCH',
+    body: input,
     idempotencyKey: newIdempotencyKey(),
   })
 }

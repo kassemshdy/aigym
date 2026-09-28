@@ -146,6 +146,11 @@ only the role, so their name stays taken and stops being visible — by design f
 account, by accident for the name. `scripts/staff_accounts.py` reports and releases;
 decision 45 says why it is a script and not a route.
 
+**Who someone is and what they may do are separate routes.** `PATCH /staff/{id}` is the
+role — super_admin-only, and it signs the person out. `PATCH /staff/{id}/details` is name
+and phone — the password-reset rule (super_admin anyone, manager coaches only), and it
+signs nobody out. Do not fold one into the other; decision 46.
+
 **A member logs in with a phone number and nothing else**, so the phone is a credential
 and its shape is load-bearing: both `/auth/member/*` endpoints normalize through
 `app/domain/phone.py` before they look anything up (decision 44). Neither may report that
