@@ -23,6 +23,10 @@ import io
 from dataclasses import dataclass, field
 from datetime import date, datetime
 
+# The one shape a phone number gets, wherever one enters the system — a
+# spreadsheet is only one of those doors. See app/domain/phone.py.
+from app.domain.phone import normalize_phone
+
 #: Errors are stable keys, not sentences: the client renders them through
 #: t() in the manager's own language, and an English string baked in here
 #: could not be translated at the point it is shown.
@@ -104,34 +108,6 @@ def decode(raw: bytes) -> str:
         # errors="replace" rather than another raise: one bad byte in a
         # 300-row file should cost that one name, not the whole import.
         return raw.decode("cp1256", errors="replace")
-
-
-def normalize_phone(value: str) -> str | None:
-    """A Lebanese mobile number in one shape, or None if it cannot be one.
-
-    Accepts the forms people actually type: 03 123456, 70/123 456,
-    +961 3 123456, 0096170123456, (03) 123-456. Returns +961 followed by
-    7 or 8 digits, which is what every other phone in this product looks
-    like — the WhatsApp links depend on it (app/domain/whatsapp.py).
-    """
-    digits = "".join(ch for ch in value if ch.isdigit())
-    if not digits:
-        return None
-
-    if digits.startswith("00961"):
-        national = digits[5:]
-    elif digits.startswith("961"):
-        national = digits[3:]
-    elif digits.startswith("0"):
-        # A local trunk prefix: 03 123456 is the same number as +961 3 123456.
-        national = digits[1:]
-    else:
-        national = digits
-
-    # Lebanese mobiles are 7 digits (03 X XX XX XX) or 8 (70/71/76/78/79/81).
-    if len(national) not in (7, 8):
-        return None
-    return f"+961{national}"
 
 
 #: Day-first, because that is how dates are written in Lebanon. An

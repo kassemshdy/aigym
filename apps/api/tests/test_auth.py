@@ -461,3 +461,72 @@ async def test_create_staff_rejects_duplicate_username(client: AsyncClient) -> N
         },
     )
     assert duplicate.status_code == 409
+
+
+async def test_a_member_can_log_in_with_the_number_the_way_they_write_it(
+    client: AsyncClient, monkeypatch
+) -> None:
+    """The roster holds +96176999333; the member types 03-style and spaced
+    forms of their own number. Before decision 44 both endpoints compared
+    the raw string, so the request answered `sent: true` and sent nothing,
+    and the login 401'd — the member saw "wrong or expired code" for a code
+    that was never addressed to them.
+    """
+    await _onboard_gym(client)
+    staff_login = await client.post(
+        "/auth/staff/login", json={"username": "mona", "password": "hunter22"}
+    )
+    me = await client.get(
+        "/auth/me", headers={"Authorization": f"Bearer {staff_login.json()['access_token']}"}
+    )
+    gym_id = uuid.UUID(me.json()["gym_id"])
+    await _insert_member(gym_id, phone="+96176999333")
+
+    sent: list[tuple[str, str]] = []
+
+    async def fake_send(*, to: str, body: str) -> bool:
+        sent.append((to, body))
+        return True
+
+    monkeypatch.setattr("app.api.auth.send_whatsapp_text", fake_send)
+
+    response = await client.post("/auth/member/code", json={"phone": "076 999 333"})
+    assert response.status_code == 200
+    assert len(sent) == 1, "no code was addressed to the member"
+    to, body = sent[0]
+    # Delivery always goes to the number on file, never to what was typed.
+    assert to == "+96176999333"
+    match = re.search(r"code is (\d{6})", body)
+    assert match, body
+
+    # And a third spelling on the login form still resolves to the same row.
+    login = await client.post(
+        "/auth/member/login", json={"phone": "+961 76/999333", "code": match.group(1)}
+    )
+    assert login.status_code == 200, login.text
+
+
+async def test_a_phone_that_cannot_be_lebanese_is_still_answered_blandly(
+    client: AsyncClient, monkeypatch
+) -> None:
+    """Garbage in the phone field must not be distinguishable from a number
+    that simply is not a member's: `sent: true` on one side, a flat 401 on
+    the other. A 422 here would tell a prober which of the two it hit."""
+    called = False
+
+    async def fake_send(*, to: str, body: str) -> bool:
+        nonlocal called
+        called = True
+        return True
+
+    monkeypatch.setattr("app.api.auth.send_whatsapp_text", fake_send)
+
+    code_response = await client.post("/auth/member/code", json={"phone": "not-a-phone"})
+    assert code_response.status_code == 200
+    assert code_response.json() == {"sent": True}
+    assert called is False
+
+    login = await client.post(
+        "/auth/member/login", json={"phone": "not-a-phone", "code": "123456"}
+    )
+    assert login.status_code == 401

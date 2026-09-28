@@ -8,11 +8,16 @@ import { Input } from '@/components/ui/Field'
 import { Empty, Page } from '@/components/ui/Page'
 import { listMembers } from '@/data/queries'
 import { useAsync } from '@/data/useAsync'
-import type { DuesStatus } from '@/data/types'
+import type { DuesStatus, MemberStatus } from '@/data/types'
 import { usd } from '@/lib/format'
 import type { Lang } from '@/i18n'
 
-type Filter = 'all' | DuesStatus
+/** Two axes in one row of chips, because from the desk it is one question:
+ * "show me who". `all` and the three dues states are active members;
+ * `left` is the only way back to someone marked as having left, since they
+ * are off every other list by design (decision 43). */
+type Filter = 'all' | DuesStatus | 'left'
+const FILTERS: Filter[] = ['all', 'due', 'soon', 'paid', 'left']
 
 export function ManagerMembers() {
   const { t, i18n } = useTranslation()
@@ -20,12 +25,14 @@ export function ManagerMembers() {
   const [q, setQ] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
 
-  const { data, loading, error } = useAsync(listMembers, [])
+  const lifecycle: MemberStatus = filter === 'left' ? 'left' : 'active'
+  const { data, loading, error } = useAsync(() => listMembers(lifecycle), [lifecycle])
 
   const list = useMemo(() => {
     const needle = q.trim().toLowerCase()
     return (data ?? []).filter((m) => {
-      if (filter !== 'all' && m.dues?.status !== filter) return false
+      // 'left' is answered by the fetch above, not by filtering here.
+      if (filter !== 'all' && filter !== 'left' && m.dues?.status !== filter) return false
       if (!needle) return true
       return (
         m.name.includes(needle) ||
@@ -40,9 +47,13 @@ export function ManagerMembers() {
       <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('common.search')} inputMode="search" />
 
       <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
-        {(['all', 'due', 'soon', 'paid'] as Filter[]).map((f) => (
+        {FILTERS.map((f) => (
           <Chip key={f} active={filter === f} onClick={() => setFilter(f)}>
-            {f === 'all' ? t('common.all') : t(`status.${f}`)}
+            {f === 'all'
+              ? t('common.all')
+              : f === 'left'
+                ? t('manager.members.left')
+                : t(`status.${f}`)}
           </Chip>
         ))}
       </div>

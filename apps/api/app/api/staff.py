@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.schemas import LebanesePhone
 from app.deps import CurrentSession, require_role
 from app.models import RefreshToken, StaffGymRole, StaffUser
 from app.security.hashing import generate_password, hash_secret
@@ -26,7 +27,7 @@ class CreateStaffRequest(BaseModel):
     username: str
     password: str
     name: str
-    phone: str
+    phone: LebanesePhone
     role: Literal["manager", "coach", "super_admin"]
 
 

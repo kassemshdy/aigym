@@ -202,10 +202,17 @@ in the endpoint docstrings, and in `docs/DEPLOY.md`'s go-live sequence:
    time the backfill is free rather than a guess.
 2. ~~**Nothing can mark a member as having left.**~~ **Fixed** — `members` carries
    `status` and `left_at`, leavers drop out of the roster, the lapsed list and the
-   analytics counts, and departures are countable for the first time. Decision 43.
+   analytics counts, and departures are countable for the first time. Decision 43. The
+   manager-facing half followed: the action sits last on the member's own screen behind a
+   confirm, and a `Left` chip on the members list is how a leaver is reached again.
 
 Both are now closed, and both were done while the tables were still empty — the only
 window in which neither migration has to guess.
+
+**Also closed since:** a member could not log in with their own number written the way
+Lebanon writes it — `03 123456` matched nothing, the endpoint answered `sent: true`
+regardless, and the login said the code was wrong. Every door a phone number comes in
+through now normalizes through `app/domain/phone.py`. Decision 44.
 
 **Still carried:** how to bill gym owners from Lebanon (decision 3 — tracked, not
 processed, is the interim answer), and whether video needs real access control

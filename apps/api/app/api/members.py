@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.schemas import LebanesePhone
 from app.deps import CurrentClaims, CurrentSession, require_role
 from app.domain.dues import DuesStatus, compute_dues
 from app.domain.whatsapp import wa_link
@@ -157,12 +158,24 @@ async def _to_member_out(session: AsyncSession, member: Member) -> MemberOut:
 
 
 @router.get("/members", response_model=list[MemberOut])
-async def list_members(session: CurrentSession) -> list[MemberOut]:
-    # Leavers are off the roster. They are not deleted — their attendance
-    # and payments are the history the dashboard is computed from — they
-    # just stop appearing where staff work. Decision 43.
+async def list_members(
+    session: CurrentSession,
+    status_filter: Annotated[str, Query(alias="status")] = "active",
+) -> list[MemberOut]:
+    # Leavers are off the roster by default. They are not deleted — their
+    # attendance and payments are the history the dashboard is computed
+    # from — they just stop appearing where staff work. Decision 43.
+    #
+    # `?status=left` is how they are reachable again: without it, marking
+    # someone as having left is a one-way door in the UI, and a mis-tap
+    # would need a database to undo.
+    if status_filter not in MEMBER_STATUSES:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            f"status must be one of {MEMBER_STATUSES}",
+        )
     result = await session.execute(
-        select(Member).where(Member.status == "active").order_by(Member.name_en)
+        select(Member).where(Member.status == status_filter).order_by(Member.name_en)
     )
     members = list(result.scalars().all())
     member_ids = [m.id for m in members]
@@ -246,7 +259,7 @@ async def get_member(
 class CreateMemberRequest(BaseModel):
     name: str
     name_en: str
-    phone: str
+    phone: LebanesePhone
     plan_id: uuid.UUID
     goal: str
     level: str
@@ -301,7 +314,7 @@ async def create_member(
 class UpdateMemberRequest(BaseModel):
     name: str | None = None
     name_en: str | None = None
-    phone: str | None = None
+    phone: LebanesePhone | None = None
     goal: str | None = None
     level: str | None = None
     height_cm: int | None = None

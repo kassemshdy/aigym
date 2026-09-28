@@ -72,7 +72,8 @@
     "loading": "Loading…",
     "error": "Something went wrong",
     "remove": "Remove",
-    "appName": "AIGym"
+    "appName": "AIGym",
+    "phoneInvalid": "A Lebanese mobile number, like 70 123 456"
   },
   "status": {
     "paid": "Paid",
@@ -137,7 +138,8 @@
     "members": {
       "title": "Members",
       "count": "{{count}} members",
-      "empty": "No members match this filter"
+      "empty": "No members match this filter",
+      "left": "Left"
     },
     "member": {
       "phone": "Phone",
@@ -160,7 +162,12 @@
       "daysPerWeek": "Days per week",
       "sleep": "Sleep hours",
       "weightHistory": "Weight over time",
-      "editPlan": "Edit workout plan"
+      "editPlan": "Edit workout plan",
+      "leftOn": "Left the gym on {{date}}",
+      "markLeft": "They left the gym",
+      "confirmLeft": "Mark {{name}} as having left?",
+      "leftNote": "They come off the roster and the lapsed list. Nothing is deleted — their payments stay in the records, and you can bring them back from the “Left” list.",
+      "bringBack": "They came back"
     },
     "add": {
       "title": "New member",

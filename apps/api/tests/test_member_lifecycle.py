@@ -200,3 +200,40 @@ async def test_an_unknown_status_is_refused(client: AsyncClient) -> None:
     assert bad.status_code == 422
     still = await client.get(f"/members/{member_id}", headers=headers)
     assert still.json()["status"] == "active"
+
+
+async def test_a_leaver_is_reachable_again_through_the_status_filter(
+    client: AsyncClient,
+) -> None:
+    """Without this the UI's "they left" button is a one-way door: the member
+    drops off every list a manager can open, so undoing a mis-tap would take
+    a database. Decision 43."""
+    _gym_id, headers = await _gym(client, "lifecycle-filter")
+    member_id = await _add(client, headers, "+96176555001")
+
+    await client.post(
+        f"/members/{member_id}/status", headers=_idem(headers), json={"status": "left"}
+    )
+
+    default_list = await client.get("/members", headers=headers)
+    assert [m["id"] for m in default_list.json()] == []
+
+    leavers = await client.get("/members?status=left", headers=headers)
+    assert [m["id"] for m in leavers.json()] == [member_id]
+    assert leavers.json()[0]["left_at"] is not None
+
+    # And back again, with left_at cleared — not a second departure later.
+    await client.post(
+        f"/members/{member_id}/status", headers=_idem(headers), json={"status": "active"}
+    )
+    back = await client.get("/members", headers=headers)
+    assert [m["id"] for m in back.json()] == [member_id]
+    assert back.json()[0]["left_at"] is None
+
+
+async def test_an_unknown_status_filter_is_rejected_rather_than_silently_empty(
+    client: AsyncClient,
+) -> None:
+    _gym_id, headers = await _gym(client, "lifecycle-filter-bad")
+    response = await client.get("/members?status=lapsed", headers=headers)
+    assert response.status_code == 422, response.text

@@ -6,7 +6,9 @@ ones two routers would otherwise define twice and let drift apart.
 
 from typing import Annotated
 
-from pydantic import BaseModel, Field
+from pydantic import AfterValidator, BaseModel, Field
+
+from app.domain.phone import normalize_phone
 
 
 class BilingualName(BaseModel):
@@ -21,3 +23,22 @@ class BilingualName(BaseModel):
 
     ar: Annotated[str, Field(min_length=1, max_length=60)]
     en: Annotated[str, Field(min_length=1, max_length=60)]
+
+
+def _canonical_phone(value: str) -> str:
+    phone = normalize_phone(value)
+    if phone is None:
+        raise ValueError("not a Lebanese mobile number")
+    return phone
+
+
+#: A phone number stored in one shape, whoever typed it (decision 44). The
+#: value that reaches the route is already `+961…`, so the roster, the
+#: WhatsApp links and the member's own login all compare equal.
+#:
+#: A number that cannot be one becomes a 422 naming the field, rather than
+#: a row nobody can ever reach: `wa_link` would build wa.me/03123456 and
+#: the member's login would never match. The two `/auth/member/*` endpoints
+#: deliberately do *not* use this — one must always answer `sent: true` and
+#: the other always 401, so neither can say anything about the input.
+LebanesePhone = Annotated[str, AfterValidator(_canonical_phone)]

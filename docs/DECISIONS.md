@@ -901,3 +901,58 @@ Landed while `members` held zero rows, so the column default filled everything a
 was nothing to guess at — the same reasoning as decision 42. Deciding after the fact
 *which* of a year's inactive members had actually quit is not a migration, it is
 archaeology.
+
+**The way back matters as much as the way out.** `GET /members` takes `?status=`,
+defaulting to `active`, and the members screen carries a `Left` chip beside the three dues
+chips. Without it the button that marks someone as having left is a one-way door: they
+drop off every list a manager can open, so undoing a mis-tap would take a database. Two
+axes share one row of chips because from the front desk it is one question — "show me
+who" — and the fetch, not a client-side filter, answers the lifecycle half.
+
+The action itself lives only on the member's own screen, last on the page, behind a
+confirm that says what happens. Not on the lapsed list, where a manager notices someone
+is gone: that row already has a 48px WhatsApp button, and a second action next to it is
+how a "remind them" tap becomes a departure. Two taps to get to the member is the right
+price for that.
+
+## 44. A phone number has one shape, because it is the only thing a member logs in with
+
+A member typed `03 123456` — their own number, written the way it is written on every
+card in Lebanon — and the app said a code had been sent. Nothing had been sent.
+`POST /auth/member/code` compared the raw string against `members.phone`, found nobody,
+and answered `sent: true` because it must answer `sent: true` whatever it finds
+(decision 20: anything else turns it into a phone-number enumeration endpoint). Then
+`/auth/member/login` 401'd, and the screen said the code was wrong or expired. Three
+correct behaviours, one member locked out of the product, and no error anywhere for a gym
+owner to report.
+
+`normalize_phone` already existed — in `app/domain/csv_import.py`, written for a notebook
+export, handling every form the same member would type. It was one import away from the
+login the whole time. That is the actual lesson: the rule was not missing, it was filed
+under the one door it was first needed at.
+
+So it moves to **`app/domain/phone.py`**, and every door uses it:
+
+- `POST /members` and `PATCH /members/{id}`, via `schemas.LebanesePhone` — the roster
+  stores `+961…` whoever typed it, and a number that cannot be one is a **422 naming the
+  field**, not a row nobody can reach. `wa_link` would otherwise build `wa.me/03123456`,
+  which fails silently at WhatsApp rather than at us.
+- `POST /staff` the same way. A staff phone is where `POST /auth/staff/password/reset`
+  delivers, so a wrong shape is an account with no recovery path.
+- `POST /gyms` normalizes **inside the handler**, deliberately not through the annotated
+  type: pydantic validates before the handler runs, and this route must answer 401 to
+  anyone without the operator secret whatever they put in the body.
+- Both `/auth/member/*` endpoints normalize and then say nothing about the result —
+  `sent: true` on one side, a flat 401 on the other, exactly as before. A 422 here would
+  tell a prober which of the two they hit.
+
+The client keeps a copy in `src/lib/phone.ts`, the same pairing `whatsapp.ts` has with
+`app/domain/whatsapp.py`. This is the one place the "one validation path" rule from
+decision 37 bends, and only for *when* the answer is given, never for *what* it is: the
+server still decides. Without it, a manager on step 1 of a five-step wizard learns their
+typo on step 5, as `common.error`, with nothing pointing at the phone. ~0.2 KB.
+
+**Not done: backfilling existing rows.** Every phone on the live database went in through
+the seed or the CSV import, both already canonical, so there is nothing to convert. A gym
+that arrives with a messy table gets it fixed by the import, which is where their data
+comes in anyway.

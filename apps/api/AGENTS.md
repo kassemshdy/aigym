@@ -22,7 +22,8 @@ app/
 │                     dues.py (derived status), workout.py (today's-workout resolution,
 │                     also derived), whatsapp.py (wa.me links), analytics.py (the numbers
 │                     the sales guarantee is settled on — decision 35), csv_import.py
-│                     (a notebook export, normalized — decision 37), guardrails.py,
+│                     (a notebook export, normalized — decision 37), phone.py (one
+│                     shape for every number that enters — decision 44), guardrails.py,
 │                     ai_context.py, evals.py
 ├── security/         jwt.py (encode/decode), hashing.py (bcrypt for PINs and codes)
 ├── api/              route modules, aggregated in router.py — auth.py, onboarding.py
@@ -32,7 +33,8 @@ app/
 │                     member_import.py, payments.py, plans.py, analytics.py, checkins.py,
 │                     exercises.py, machines.py, programs.py, sessions.py, nutrition.py,
 │                     media.py, chat.py, ai_drafts.py; schemas.py holds request models
-│                     shared by more than one of them
+│                     shared by more than one of them, and `LebanesePhone` — the
+│                     annotated str every route taking a phone number should use
 └── middleware/        idempotency.py — the Idempotency-Key contract
 
 alembic/versions/      migrations, in order: schema → RLS policies → auth tables →
@@ -134,6 +136,12 @@ not a different role).
 Two auth flows read from tables *before* `app.gym_id` is known, and take different
 approaches (decisions 18, 19) — read the docstrings on `get_owner_sessionmaker()` in
 `db.py` and on `MemberLoginCode` in `models/auth.py` before adding a third pattern.
+
+**A member logs in with a phone number and nothing else**, so the phone is a credential
+and its shape is load-bearing: both `/auth/member/*` endpoints normalize through
+`app/domain/phone.py` before they look anything up (decision 44). Neither may report that
+the number was unusable — one always answers `sent: true`, the other always 401, or the
+endpoint becomes a way to test whether a number belongs to a member.
 
 ## Before committing
 

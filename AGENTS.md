@@ -80,6 +80,10 @@ not a screenshot tool.
   per-photo and explicit, deletion is real. Never add a bulk-share setting or a default
   that shows a member's body to anyone. Decision 11.
 - **A food estimate is never logged without the member confirming it.** Decision 12.
+- **A phone number never reaches the database in the shape someone typed it.** Every
+  route that takes one normalizes through `app/domain/phone.py` — `schemas.LebanesePhone`
+  on a request model does it for you. A raw phone is a member who cannot log in and a
+  WhatsApp link that goes nowhere, and neither fails loudly. Decision 44.
 - **Never make the tab bar `fixed`, and never use `h-full` for the shell.** It is
   `h-dvh flex flex-col` with `main` as `flex-1 min-h-0 overflow-y-auto`. Safari's collapsing
   address bar breaks `height:100%`, which left the bar floating mid-screen on a real phone.
@@ -224,6 +228,9 @@ is settled on:
    carries `status` (`active` | `left`) and `left_at`. **Any new query that lists or
    counts members must filter to `status == "active"`** — the lapsed list, the roster and
    the analytics counts all do, and forgetting it is the drift itself. History is kept
-   deliberately: a leaver is never deleted.
+   deliberately: a leaver is never deleted. The manager marks someone as having left from
+   the member's own screen, and reaches them again through the `Left` chip on the members
+   list (`GET /members?status=left`) — **that chip is the only way back, so nothing may
+   remove it without another one.**
 
 Both of Phase 6's written-down limitations are now closed.

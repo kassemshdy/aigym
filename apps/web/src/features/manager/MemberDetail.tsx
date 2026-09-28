@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Card, CardTitle } from '@/components/ui/Card'
@@ -10,7 +10,13 @@ import { Field, Input, Row, Segmented } from '@/components/ui/Field'
 import { Sparkline } from '@/components/ui/Sparkline'
 import { Icon } from '@/components/ui/Icon'
 import { Empty, Page } from '@/components/ui/Page'
-import { getMember, listPayments, recordPayment, whatsappReminderLink } from '@/data/queries'
+import {
+  getMember,
+  listPayments,
+  recordPayment,
+  setMemberStatus,
+  whatsappReminderLink,
+} from '@/data/queries'
 import { useAsync } from '@/data/useAsync'
 import { listSep, shortDate, usd } from '@/lib/format'
 import { cn } from '@/lib/cn'
@@ -29,6 +35,14 @@ export function ManagerMemberDetail() {
   const [amount, setAmount] = useState('')
   const [method, setMethod] = useState<'cash' | 'transfer'>('cash')
   const [saving, setSaving] = useState(false)
+  const [confirmingLeave, setConfirmingLeave] = useState(false)
+  const leaveCard = useRef<HTMLDivElement>(null)
+  // The confirm grows downward off the bottom of a long page, so the
+  // buttons it asks about would otherwise open where nobody can see
+  // them. Hooks run before the early returns below on purpose.
+  useEffect(() => {
+    if (confirmingLeave) leaveCard.current?.scrollIntoView({ block: 'end' })
+  }, [confirmingLeave])
 
   if (member.loading) return <Page><Empty>{t('common.loading')}</Empty></Page>
   if (member.error || !member.data) return <Page><Empty>{t('common.none')}</Empty></Page>
@@ -57,6 +71,18 @@ export function ManagerMemberDetail() {
   }
 
   const memberPayments = (payments.data ?? []).filter((p) => p.member_id === id)
+  const hasLeft = m.status === 'left'
+
+  async function changeStatus(next: 'active' | 'left') {
+    setSaving(true)
+    try {
+      await setMemberStatus(id, next)
+      setConfirmingLeave(false)
+      member.reload()
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
     <Page>
@@ -68,6 +94,13 @@ export function ManagerMemberDetail() {
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-lg font-extrabold">{name}</h1>
             <p className="text-muted tnum text-sm" dir="ltr">{m.phone}</p>
+            {hasLeft && m.left_at ? (
+              // Not a StatusBadge: green/amber/red are payment state and
+              // nothing else, and this is not about money. Decision 43.
+              <p className="mt-0.5 text-sm font-bold">
+                {t('manager.member.leftOn', { date: shortDate(m.left_at, lang) })}
+              </p>
+            ) : null}
           </div>
           {m.dues ? <StatusBadge status={m.dues.status} big /> : null}
         </div>
@@ -198,6 +231,37 @@ export function ManagerMemberDetail() {
       </Card>
 
       <SharedPhotos memberId={id} />
+
+      {/* Last on the page on purpose: a manager scrolls past everything they
+          normally came for before they can reach it. Decision 43. */}
+      <div ref={leaveCard}>
+        <Card className="p-4">
+          {hasLeft ? (
+            <Button full size="lg" disabled={saving} onClick={() => void changeStatus('active')}>
+              {t('manager.member.bringBack')}
+            </Button>
+          ) : confirmingLeave ? (
+            <div className="space-y-2">
+              <p className="text-sm font-semibold">{t('manager.member.confirmLeft', { name })}</p>
+              <p className="text-muted text-xs">{t('manager.member.leftNote')}</p>
+              <div className="flex gap-2">
+                <Button variant="secondary" size="lg" onClick={() => setConfirmingLeave(false)}>
+                  {t('common.cancel')}
+                </Button>
+                {/* Black, not red: red means payment state in this product
+                    and nothing else. The sentence above carries the weight. */}
+                <Button full size="lg" disabled={saving} onClick={() => void changeStatus('left')}>
+                  {t('manager.member.markLeft')}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button variant="secondary" full size="lg" onClick={() => setConfirmingLeave(true)}>
+              {t('manager.member.markLeft')}
+            </Button>
+          )}
+        </Card>
+      </div>
     </Page>
   )
 }

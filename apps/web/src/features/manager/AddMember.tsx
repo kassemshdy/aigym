@@ -7,6 +7,7 @@ import { Field, Input, Segmented } from '@/components/ui/Field'
 import { Icon } from '@/components/ui/Icon'
 import { Empty, Page } from '@/components/ui/Page'
 import { createMember, listPlans } from '@/data/queries'
+import { normalizePhone } from '@/lib/phone'
 import { useAsync } from '@/data/useAsync'
 import { usd } from '@/lib/format'
 import { waLink } from '@/lib/whatsapp'
@@ -47,6 +48,11 @@ export function ManagerAddMember() {
     setForm((f) => ({ ...f, [k]: v }))
 
   const selectedPlanId = form.planId || plans.data?.[0]?.id || ''
+  // The server stores every number as +961… and 422s one it cannot
+  // (decision 44). Checked here too so a typo is caught on the step
+  // that holds the field, rather than four steps later as a generic
+  // failure with nothing pointing at the phone.
+  const phoneOk = normalizePhone(form.phone) !== null
 
   async function finish() {
     setSaving(true)
@@ -130,6 +136,9 @@ export function ManagerAddMember() {
                 placeholder="+961 70 000 000"
               />
             </Field>
+            {form.phone.trim() && !phoneOk ? (
+              <p className="text-muted text-sm font-semibold">{t('common.phoneInvalid')}</p>
+            ) : null}
           </>
         )}
 
@@ -259,7 +268,7 @@ export function ManagerAddMember() {
         <Button
           size="lg"
           full
-          disabled={saving || (step === 0 && (!form.name.trim() || !form.phone.trim()))}
+          disabled={saving || (step === 0 && (!form.name.trim() || !phoneOk))}
           onClick={() => (step === STEPS.length - 1 ? void finish() : setStep((s) => s + 1))}
         >
           {step === STEPS.length - 1 ? t('manager.add.finish') : t('common.next')}
