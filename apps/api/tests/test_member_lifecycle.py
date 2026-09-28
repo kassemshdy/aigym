@@ -81,6 +81,15 @@ async def _lapse(gym_id: uuid.UUID, member_id: str, *, days_ago: int) -> None:
         sub.starts_at = sub.ends_at - sold
 
 
+async def _joined(gym_id: uuid.UUID, member_id: str, *, days_ago: int) -> None:
+    """Backdate joining: a member who never came is only missing once they
+    have had `min_days` to come (decision 48)."""
+    async with tenant_session(gym_id) as session:
+        member = await session.get(Member, uuid.UUID(member_id))
+        assert member is not None
+        member.joined_at = datetime.now(UTC) - timedelta(days=days_ago)
+
+
 async def test_a_member_starts_active(client: AsyncClient) -> None:
     _, headers = await _gym(client, "life-a")
     member_id = await _add(client, headers, "+96174200001")
@@ -95,7 +104,9 @@ async def test_a_leaver_drops_off_the_roster_and_out_of_lapsed(client: AsyncClie
     gym_id, headers = await _gym(client, "life-b")
     staying = await _add(client, headers, "+96174200002")
     leaving = await _add(client, headers, "+96174200003")
-    # Both look lapsed: no attendance at all.
+    # Both look lapsed: no attendance at all, since joining 60 days ago.
+    await _joined(gym_id, staying, days_ago=60)
+    await _joined(gym_id, leaving, days_ago=60)
     await _lapse(gym_id, leaving, days_ago=40)
 
     before = await client.get("/members/lapsed?min_days=14", headers=headers)
@@ -119,6 +130,7 @@ async def test_a_leaver_stops_inflating_the_dashboard(client: AsyncClient) -> No
     gym_id, headers = await _gym(client, "life-c")
     await _add(client, headers, "+96174200004")
     leaving = await _add(client, headers, "+96174200005")
+    await _joined(gym_id, leaving, days_ago=60)
     await _lapse(gym_id, leaving, days_ago=40)
 
     before = (await client.get("/analytics/summary?weeks=12", headers=headers)).json()

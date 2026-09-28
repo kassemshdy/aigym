@@ -1,15 +1,16 @@
 import uuid
 from collections.abc import Sequence
 from datetime import UTC, date, datetime, timedelta
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.schemas import LebanesePhone
+from app.api.schemas import PhoneNumber
 from app.deps import CurrentClaims, CurrentSession, require_role
+from app.domain.analytics import is_missing
 from app.domain.dues import DuesStatus, compute_dues
 from app.domain.whatsapp import wa_link
 from app.models import Attendance, Member, MemberProfile, Payment, Plan, Subscription
@@ -199,8 +200,8 @@ class LapsedMemberOut(BaseModel):
 async def lapsed_members(
     session: CurrentSession, min_days: Annotated[int, Query(ge=0)] = 14
 ) -> list[LapsedMemberOut]:
-    """The GTM number: members 14+ days without a visit, or who have never
-    checked in at all."""
+    """The GTM number: members 14+ days without a visit — counted from the
+    day they joined when they have never checked in (`is_missing`)."""
     # Someone who quit is not "missing" — leaving them here is what made
     # this list grow forever and the GTM number meaningless. Decision 43.
     result = await session.execute(select(Member).where(Member.status == "active"))
@@ -212,7 +213,10 @@ async def lapsed_members(
     for member in members:
         last_visit = visits.get(member.id)
         days_since = (today - last_visit).days if last_visit else None
-        if days_since is None or days_since >= min_days:
+        if is_missing(
+            last_visit=last_visit, joined_on=member.joined_at.date(),
+            as_of=today, min_days=min_days,
+        ):
             out.append(
                 LapsedMemberOut(
                     id=member.id, name=member.name, name_en=member.name_en, phone=member.phone,
@@ -259,7 +263,7 @@ async def get_member(
 class CreateMemberRequest(BaseModel):
     name: str
     name_en: str
-    phone: LebanesePhone
+    phone: PhoneNumber
     plan_id: uuid.UUID
     goal: str
     level: str
@@ -270,6 +274,10 @@ class CreateMemberRequest(BaseModel):
     days_per_week: int
     job: str
     sleep_hours: float
+    #: How the first period was paid at the desk, or "unpaid" when it was
+    #: not. Defaults to cash because that is what happens at a Lebanese
+    #: front desk: someone joins and pays in the same minute. Decision 48.
+    payment_method: Literal["cash", "transfer", "unpaid"] = "cash"
 
 
 @router.post("/members", response_model=MemberDetailOut, status_code=status.HTTP_201_CREATED)
@@ -299,11 +307,28 @@ async def create_member(
             sleep_hours=body.sleep_hours, weight_trend=[],
         )
     )
+    # The first period used to be created paid-through with no Payment
+    # behind it, so a member showed "Paid" while their history showed no
+    # money, and recording the fee afterwards stacked a second period on
+    # top. Now the period is backed by a Payment, or it is not granted.
+    if body.payment_method == "unpaid":
+        # A period that has already ended: dues read it as owed today, for
+        # exactly the plan's price, and the first Record payment starts the
+        # real period from the day it is paid (record_payment's max()).
+        ends_at = now
+    else:
+        ends_at = now + timedelta(days=plan.days)
+        session.add(
+            Payment(
+                id=uuid.uuid4(), gym_id=claims.gym_id, member_id=member.id,
+                amount_usd=plan.price_usd, at=now, method=body.payment_method,
+                recorded_by_staff_id=claims.subject_id,
+            )
+        )
     session.add(
         Subscription(
             id=uuid.uuid4(), gym_id=claims.gym_id, member_id=member.id, plan_id=plan.id,
-            price_usd=plan.price_usd, days=plan.days,
-            starts_at=now, ends_at=now + timedelta(days=plan.days),
+            price_usd=plan.price_usd, days=plan.days, starts_at=now, ends_at=ends_at,
         )
     )
     await session.flush()
@@ -314,7 +339,7 @@ async def create_member(
 class UpdateMemberRequest(BaseModel):
     name: str | None = None
     name_en: str | None = None
-    phone: LebanesePhone | None = None
+    phone: PhoneNumber | None = None
     goal: str | None = None
     level: str | None = None
     height_cm: int | None = None

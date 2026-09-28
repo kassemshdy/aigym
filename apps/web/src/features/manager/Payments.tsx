@@ -19,7 +19,7 @@ export function ManagerPayments() {
   const total = data.reduce((s, p) => s + p.amount_usd, 0)
 
   return (
-    <Page title={t('manager.payments.title')} sub={`${t('manager.home.collected')} · ${usd(total)}`}>
+    <Page title={t('manager.payments.title')} sub={`${t('manager.payments.total')} · ${usd(total)}`}>
       {data.length === 0 ? (
         <Empty>{t('common.none')}</Empty>
       ) : (

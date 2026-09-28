@@ -13,7 +13,7 @@ import { usd } from '@/lib/format'
 import { waLink } from '@/lib/whatsapp'
 import type { Lang } from '@/i18n'
 import { useGymName } from '@/gym/GymProvider'
-import type { ApiMemberInjury } from '@/data/types'
+import type { ApiMemberInjury, JoinPaymentMethod } from '@/data/types'
 import { cn } from '@/lib/cn'
 import { InjuryEditor } from '@/features/member/InjuryEditor'
 
@@ -43,11 +43,13 @@ export function ManagerAddMember() {
     bodyFat: '',
     sleepHours: '7',
     injuries: [] as ApiMemberInjury[],
+    payment: 'cash' as JoinPaymentMethod,
   })
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) =>
     setForm((f) => ({ ...f, [k]: v }))
 
   const selectedPlanId = form.planId || plans.data?.[0]?.id || ''
+  const selectedPlan = plans.data?.find((p) => p.id === selectedPlanId)
   // The server stores every number as +961… and 422s one it cannot
   // (decision 44). Checked here too so a typo is caught on the step
   // that holds the field, rather than four steps later as a generic
@@ -72,6 +74,7 @@ export function ManagerAddMember() {
         days_per_week: Number(form.daysPerWeek),
         job: form.job,
         sleep_hours: Number(form.sleepHours) || 7,
+        payment_method: form.payment,
       })
       setDone(true)
     } catch {
@@ -140,7 +143,6 @@ export function ManagerAddMember() {
                 onChange={(e) => set('phone', e.target.value)}
                 inputMode="tel"
                 dir="ltr"
-                placeholder="+961 70 000 000"
               />
             </Field>
             {form.phone.trim() && !phoneOk ? (
@@ -175,6 +177,34 @@ export function ManagerAddMember() {
             )}
           </Field>
         )}
+
+        {/* Asked on the plan step, beside the price it is about. Cash is
+            preselected because joining and paying happen in the same
+            minute at a Lebanese desk; without this the member showed
+            "Paid" with no payment behind it. Decision 48. */}
+        {step === 1 && selectedPlan ? (
+          <div>
+            <Field label={t('manager.add.paidToday')}>
+              <Segmented
+                value={form.payment}
+                onChange={(v) => set('payment', v)}
+                columns={3}
+                options={[
+                  { value: 'cash', label: t('manager.payments.cash') },
+                  { value: 'transfer', label: t('manager.payments.transfer') },
+                  { value: 'unpaid', label: t('manager.add.notYet') },
+                ]}
+              />
+            </Field>
+            {/* Outside the Field: its <label> forwards a tap anywhere inside
+                it to the first button, so a note in there selects Cash. */}
+            <p className="text-muted mt-2 text-sm font-semibold">
+              {t(form.payment === 'unpaid' ? 'manager.add.owesNote' : 'manager.add.paidNote', {
+                amount: usd(selectedPlan.price_usd),
+              })}
+            </p>
+          </div>
+        ) : null}
 
         {step === 2 && (
           <>

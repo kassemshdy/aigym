@@ -171,7 +171,9 @@ async def test_lapsed_counts_members_with_no_attendance_at_all(
     body = (
         await client.get(f"/analytics/summary?weeks={WEEKS}", headers=headers)
     ).json()
-    assert body["lapsed_now"] == 4, "nobody has ever checked in"
+    # Nobody has ever checked in, but D joined five days ago and has not
+    # had two weeks to be missing yet — measured from joining (decision 48).
+    assert body["lapsed_now"] == 3
     # Only A, B and C existed when the window opened — counting D against a
     # date before they joined would invent churn.
     assert body["lapsed_at_window_start"] == 3

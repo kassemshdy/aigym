@@ -295,7 +295,6 @@ export function ManagerMemberDetail() {
                 onChange={(e) => setDraftPhone(e.target.value)}
                 inputMode="tel"
                 dir="ltr"
-                placeholder="+961 70 000 000"
               />
             </Field>
             {draftPhone.trim() && draftPhoneNormalized === null ? (

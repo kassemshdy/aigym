@@ -79,7 +79,10 @@ coach), never a program change.
 - A form that takes a phone number gates its submit on `normalizePhone()` from
   `lib/phone.ts`, which mirrors `app/domain/phone.py`. The server is still the authority —
   it normalizes what it stores and 422s what it cannot — this is only so the person finds
-  out while they are still looking at the field. Decision 44.
+  out while they are still looking at the field. Decision 44. Lebanese numbers need no
+  country code; any other is accepted with `+` or `00` and its code (decision 49). No
+  phone field carries a placeholder number — a Lebanese example told a member abroad
+  that theirs would not do.
 - Anything a member writes or photographs goes through `useStore()` actions. Do not add a
   second place that mutates food entries, photos, or chat.
 - New progress-photo code starts from `sharedWithCoach: false`. If you find yourself

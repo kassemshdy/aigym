@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.schemas import LebanesePhone
+from app.api.schemas import PhoneNumber
 from app.deps import CurrentSession, require_role
 from app.models import RefreshToken, StaffGymRole, StaffUser
 from app.security.hashing import generate_password, hash_secret
@@ -27,7 +27,7 @@ class CreateStaffRequest(BaseModel):
     username: str
     password: str
     name: str
-    phone: LebanesePhone
+    phone: PhoneNumber
     role: Literal["manager", "coach", "super_admin"]
 
 
@@ -264,13 +264,13 @@ class UpdateStaffDetailsRequest(BaseModel):
     """Who someone is and how to reach them — not what they may do.
 
     Both optional so the screen can send only what changed. The phone goes
-    through LebanesePhone like every other phone that enters the system
+    through PhoneNumber like every other phone that enters the system
     (decision 44): this is the number a password reset is sent to, so a
     wrong shape here is an account nobody can recover.
     """
 
     name: Annotated[str, Field(min_length=1, max_length=80)] | None = None
-    phone: LebanesePhone | None = None
+    phone: PhoneNumber | None = None
 
 
 @router.patch("/{staff_user_id}/details", response_model=StaffOut)

@@ -73,7 +73,7 @@
     "error": "Something went wrong",
     "remove": "Remove",
     "appName": "AIGym",
-    "phoneInvalid": "A Lebanese mobile number, like 70 123 456"
+    "phoneInvalid": "Check the number. Outside Lebanon, start with + and the country code."
   },
   "status": {
     "paid": "Paid",
@@ -128,12 +128,12 @@
       "cameToday": "Came today",
       "owes": "Owe money",
       "endingSoon": "Ending soon",
-      "collected": "Collected, {{weeks}} wks",
       "whoOwes": "Who owes money",
       "seeAll": "See all",
       "addMember": "Register new member",
       "plans": "Plans and prices",
-      "import": "Bring in members"
+      "import": "Bring in members",
+      "takenIn": "Money in, {{weeks}} wks"
     },
     "members": {
       "title": "Members",
@@ -186,7 +186,11 @@
       "goal": "Their goal",
       "level": "Their level",
       "finish": "Register",
-      "created": "Member registered"
+      "created": "Member registered",
+      "paidToday": "Paid today?",
+      "notYet": "Not yet",
+      "paidNote": "{{amount}} goes in the records as paid today.",
+      "owesNote": "They will show as owing {{amount}} until you record it."
     },
     "plans": {
       "title": "Plans",
@@ -207,7 +211,8 @@
       "method": "Method",
       "cash": "Cash",
       "transfer": "Transfer",
-      "by": "Recorded by"
+      "by": "Recorded by",
+      "total": "All recorded"
     },
     "staff": {
       "title": "Staff",

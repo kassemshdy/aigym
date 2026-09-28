@@ -235,7 +235,6 @@ export function ManagerImport() {
                         onChange={(e) => update(row.line, { phone: e.target.value })}
                         inputMode="tel"
                         dir="ltr"
-                        placeholder="+961 70 000 000"
                       />
                     </Field>
                     {planOptions.length > 0 ? (

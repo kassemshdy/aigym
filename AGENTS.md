@@ -81,7 +81,7 @@ not a screenshot tool.
   that shows a member's body to anyone. Decision 11.
 - **A food estimate is never logged without the member confirming it.** Decision 12.
 - **A phone number never reaches the database in the shape someone typed it.** Every
-  route that takes one normalizes through `app/domain/phone.py` — `schemas.LebanesePhone`
+  route that takes one normalizes through `app/domain/phone.py` — `schemas.PhoneNumber`
   on a request model does it for you. A raw phone is a member who cannot log in and a
   WhatsApp link that goes nowhere, and neither fails loudly. Decision 44.
 - **Never make the tab bar `fixed`, and never use `h-full` for the shell.** It is
@@ -240,3 +240,10 @@ is settled on:
    remove it without another one.**
 
 Both of Phase 6's written-down limitations are now closed.
+
+**A period that reads as paid must have a `Payment` behind it** (decision 48). Registering
+a member records the join fee (`payment_method`, default `cash`) or leaves them owing it
+(`unpaid`, a zero-length period). Never grant a paid-through period with no money — that
+showed "Paid" beside an empty payment history, and the fee recorded later stacked a second
+period. **Anything deciding whether a member is "missing" goes through `is_missing`**, which
+counts a never-visited member from the day they joined; the list and the dashboard share it.
