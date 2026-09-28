@@ -39,7 +39,7 @@ from app.domain.analytics import (
     renewal_outcomes,
     week_starts,
 )
-from app.models import Attendance, Member, Subscription
+from app.models import Attendance, Member, Payment, Subscription
 from app.security.jwt import AccessTokenClaims
 
 router = APIRouter(tags=["analytics"])
@@ -89,6 +89,14 @@ class AnalyticsSummaryOut(BaseModel):
     #: watch the lapsed list grow.
     left_members: int
     left_members_previous: int
+    #: Every dollar recorded at the desk inside the window, and the one
+    #: before — join fees included. `collection` cannot answer "how much
+    #: came in": it measures renewals of periods that fell due, so a gym
+    #: that signed ten members this week reads $0 there until the first of
+    #: those periods ends. Both numbers are right; they answer different
+    #: questions, and the Home tile asks this one. Decision 48.
+    taken_usd: float
+    taken_usd_previous: float
     series: list[SeriesPointOut]
 
 
@@ -177,12 +185,22 @@ async def analytics_summary(
     # Roster counts — active only. A member who quit must stop inflating
     # "lapsed" and "active", which is the drift decision 43 exists to stop.
     members = [m for m in everyone if m.status == "active"]
-    all_ids = [m.id for m in members]
-    joined_before_window = [m.id for m in members if m.joined_at < window_start]
+    joined_on = {m.id: m.joined_at.date() for m in members}
+    joined_before_window = {
+        m.id: m.joined_at.date() for m in members if m.joined_at < window_start
+    }
     departures = [m.left_at for m in everyone if m.left_at is not None]
 
     visits_now = await _last_visits_on_or_before(session, today)
     visits_then = await _last_visits_on_or_before(session, window_start.date())
+
+    taken = (
+        await session.execute(
+            select(Payment.at, Payment.amount_usd).where(
+                Payment.at >= previous_start, Payment.at <= now
+            )
+        )
+    ).all()
 
     series_starts = week_starts(end=today, weeks=weeks)
     buckets = bucket_by_week(outcomes=current, starts=series_starts)
@@ -194,13 +212,13 @@ async def analytics_summary(
         collection=_to_out(collection_stats(current)),
         collection_previous=_to_out(collection_stats(previous)),
         lapsed_now=lapsed_count_as_of(
-            member_ids=all_ids, last_visit_before=visits_now,
+            joined_on=joined_on, last_visit_before=visits_now,
             as_of=today, min_days=LAPSED_AFTER_DAYS,
         ),
         # Only members who had already joined — counting today's roster
         # against a date before they existed would invent churn.
         lapsed_at_window_start=lapsed_count_as_of(
-            member_ids=joined_before_window, last_visit_before=visits_then,
+            joined_on=joined_before_window, last_visit_before=visits_then,
             as_of=window_start.date(), min_days=LAPSED_AFTER_DAYS,
         ),
         new_members=sum(1 for m in members if m.joined_at >= window_start),
@@ -212,6 +230,8 @@ async def analytics_summary(
         left_members_previous=sum(
             1 for at in departures if previous_start <= at < window_start
         ),
+        taken_usd=sum(float(amount) for at, amount in taken if at >= window_start),
+        taken_usd_previous=sum(float(amount) for at, amount in taken if at < window_start),
         series=[
             SeriesPointOut(
                 week_start=start,

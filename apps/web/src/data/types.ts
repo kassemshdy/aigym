@@ -103,7 +103,12 @@ export interface CreateMemberInput {
   days_per_week: number
   job: 'desk' | 'active' | 'shift'
   sleep_hours: number
+  /** How the first period was paid at the desk. The server defaults to
+   * cash; "unpaid" registers them owing the plan price. Decision 48. */
+  payment_method?: JoinPaymentMethod
 }
+
+export type JoinPaymentMethod = 'cash' | 'transfer' | 'unpaid'
 
 export interface UpdateMyProfileInput {
   goal?: 'lose' | 'gain' | 'strength' | 'health'
@@ -630,6 +635,11 @@ export interface ApiAnalyticsSummary {
   new_members: number
   new_members_previous: number
   active_members: number
+  /** Every dollar recorded at the desk in the window, join fees included.
+   * `collection` measures renewals only, so it reads $0 for a gym that
+   * has only signed people up so far. Decision 48. */
+  taken_usd: number
+  taken_usd_previous: number
   /** Pre-bucketed by the server so the client does no date arithmetic. */
   series: ApiAnalyticsWeek[]
 }

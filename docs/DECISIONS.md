@@ -1074,3 +1074,44 @@ a member at the desk; tight for one sent remotely who reads WhatsApp an hour lat
 ask again. Loosening it is a security trade, not a UI fix, and is left for someone to
 decide on purpose. Configuring the WhatsApp Business API makes self-service work and
 leaves this as the fallback.
+
+## 48. Joining is paid, or it is owed — never "paid" with nothing behind it
+
+Reported from the live app, three screenshots at once: a member added that day showed
+**Paid**, with no payment in their history; the dashboard said **$0 collected**; and the
+same member sat at the top of **Missing members** for "0 days".
+
+**The first period was granted, not sold.** `create_member` made a subscription running
+from today to today plus the plan's days, and no `Payment`. So the badge said paid while
+the records held no money — and recording the fee afterwards went through
+`record_payment`, which *renews*, stacking a second period on top. The member got two
+periods for one price.
+
+Now `POST /members` takes `payment_method`: `cash` (the default — joining and paying are
+the same minute at a Lebanese desk), `transfer`, or `unpaid`.
+
+- **Paid**: the period plus a `Payment` for the plan's price, recorded by whoever
+  registered them. No renewal.
+- **Unpaid**: a period that ends the moment it starts. Dues read it as owed today, for
+  exactly the plan's price, with no new dues logic (decision 17 stays true); the first
+  Record payment then starts the real period from the day it is paid, via
+  `record_payment`'s `max(ends_at, now)`. Analytics sees an ordinary period that fell
+  due at joining, which is what it was.
+
+The Add Member flow asks on the plan step, beside the price, preselected to Cash.
+
+**"$0 collected" was right, and the wrong number for that tile.** `collection` measures
+renewals of periods that fell due — the guarantee's figure — so a gym that has only
+signed people up reads $0 until the first period ends. The summary now also returns
+`taken_usd` (every payment recorded in the window, join fees included) and its previous
+window. Home shows that, as *Money in*; Insights keeps *Collected* for the guarantee. Both
+numbers are correct; they answer different questions, and the Home tile was asking the
+other one. The Payments screen's header had been borrowing Home's label without its
+`weeks` parameter over an all-time total; it now says *All recorded*.
+
+**Missing is measured from joining.** A member who never visited counted as missing
+outright, so anyone registered today led the list. `is_missing` (in
+`app/domain/analytics.py`) measures a never-visited member from `joined_at` instead, and
+both `GET /members/lapsed` and the dashboard's lapsed counts use it, so they cannot
+disagree. Someone who joined three weeks ago and never came is still missing — that is
+the case the list exists for. The list says *Never came* for them rather than "0 days".

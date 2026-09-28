@@ -67,13 +67,16 @@ export function ManagerHome() {
         <Tile n={String(checkIns.data.length)} label={t('manager.home.cameToday')} />
         <Tile n={String(owing.length)} label={t('manager.home.owes')} tone="due" />
         <Tile n={String(ending.length)} label={t('manager.home.endingSoon')} tone="soon" />
-        {/* Was every payment ever recorded, summed, under a label that said
-            "this month". Now the real windowed aggregate the dashboard is
-            built on, so the two screens cannot disagree. */}
+        {/* Money actually recorded in the window, join fees included. It
+            used to show `collection.collected_usd`, which counts renewals
+            only — so a gym that had signed up members and taken their money
+            read "$0 collected". That figure stays on Insights, where the
+            guarantee is argued; this is the one a manager checks the cash
+            drawer against. Decision 48. */}
         {insights.data ? (
           <Tile
-            n={usd(insights.data.collection.collected_usd)}
-            label={t('manager.home.collected', { weeks: INSIGHTS_WEEKS })}
+            n={usd(insights.data.taken_usd)}
+            label={t('manager.home.takenIn', { weeks: INSIGHTS_WEEKS })}
           />
         ) : null}
       </div>
@@ -180,7 +183,9 @@ export function ManagerHome() {
                   <Avatar name={name} />
                   <span className="min-w-0 flex-1 truncate font-semibold">{name}</span>
                   <span className="text-soon tnum text-sm font-bold">
-                    {t('lapsed.days', { count: m.days_since_visit ?? 0 })}
+                    {m.days_since_visit === null
+                      ? t('lapsed.never')
+                      : t('lapsed.days', { count: m.days_since_visit })}
                   </span>
                 </Link>
               </li>

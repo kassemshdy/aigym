@@ -240,3 +240,10 @@ is settled on:
    remove it without another one.**
 
 Both of Phase 6's written-down limitations are now closed.
+
+**A period that reads as paid must have a `Payment` behind it** (decision 48). Registering
+a member records the join fee (`payment_method`, default `cash`) or leaves them owing it
+(`unpaid`, a zero-length period). Never grant a paid-through period with no money — that
+showed "Paid" beside an empty payment history, and the fee recorded later stacked a second
+period. **Anything deciding whether a member is "missing" goes through `is_missing`**, which
+counts a never-visited member from the day they joined; the list and the dashboard share it.

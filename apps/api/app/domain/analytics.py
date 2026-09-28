@@ -123,24 +123,39 @@ def collection_stats(outcomes: list[RenewalOutcome]) -> CollectionStats:
     )
 
 
+def is_missing(*, last_visit: date | None, joined_on: date, as_of: date, min_days: int) -> bool:
+    """Has this member gone `min_days` without coming in, as of `as_of`?
+
+    A member who never visited is measured from the day they joined, not
+    counted as missing outright. Counting them outright put someone
+    registered this morning at the top of "Missing members" for "0 days" —
+    reported from the live app. Someone who joined three weeks ago and never
+    came is still missing, which is the case the list exists for.
+    """
+    since = last_visit if last_visit is not None else joined_on
+    return (as_of - since).days >= min_days
+
+
 def lapsed_count_as_of(
     *,
-    member_ids: list[uuid.UUID],
+    joined_on: dict[uuid.UUID, date],
     last_visit_before: dict[uuid.UUID, date],
     as_of: date,
     min_days: int,
 ) -> int:
-    """How many of these members had gone `min_days` without a visit as of
-    `as_of`. `last_visit_before` is each member's most recent attendance on
-    or before that date — a member with no entry never visited, which
-    counts as lapsed, matching GET /members/lapsed.
+    """How many of these members (the keys of `joined_on`) had gone
+    `min_days` without a visit as of `as_of`. `last_visit_before` is each
+    member's most recent attendance on or before that date. Same rule as
+    GET /members/lapsed — `is_missing` — so the two can never disagree.
     """
-    lapsed = 0
-    for member_id in member_ids:
-        last = last_visit_before.get(member_id)
-        if last is None or (as_of - last).days >= min_days:
-            lapsed += 1
-    return lapsed
+    return sum(
+        1
+        for member_id, joined in joined_on.items()
+        if is_missing(
+            last_visit=last_visit_before.get(member_id), joined_on=joined,
+            as_of=as_of, min_days=min_days,
+        )
+    )
 
 
 def week_starts(*, end: date, weeks: int) -> list[date]:

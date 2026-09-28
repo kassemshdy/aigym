@@ -409,7 +409,14 @@ export function mockLapsedMembers(minDays: number): ApiLapsedMember[] {
   return mockMembers
     .filter((m) => lifecycle(m.id) === 'active')
     .map((m) => ({ member: m, days: daysSinceVisit(m.id) }))
-    .filter((row) => row.days >= minDays)
+    // Never visited counts from joining, as is_missing does on the server:
+    // someone registered this morning is not missing (decision 48).
+    .filter(
+      (row) =>
+        (Number.isFinite(row.days)
+          ? row.days
+          : (todayMs() - dayMs(row.member.joinedAt)) / DAY_MS) >= minDays,
+    )
     .sort((a, b) => b.days - a.days)
     .map(({ member: m, days }) => ({
       id: m.id,
@@ -424,9 +431,14 @@ export function mockLapsedMembers(minDays: number): ApiLapsedMember[] {
 export function mockCreateMember(input: CreateMemberInput): ApiMemberDetail {
   const plan = findMockPlan(input.plan_id)
   const today = todayIso()
-  const endsAt = plan
-    ? new Date(Date.now() + plan.days * 86_400_000).toISOString().slice(0, 10)
-    : today
+  // Same rule as create_member (decision 48): a paid join is a payment
+  // behind a period; an unpaid one owes the plan price from today.
+  const method = input.payment_method ?? 'cash'
+  const unpaid = method === 'unpaid'
+  const endsAt =
+    plan && !unpaid
+      ? new Date(Date.now() + plan.days * 86_400_000).toISOString().slice(0, 10)
+      : today
   const member: MockMember = {
     id: newId(),
     name: input.name,
@@ -435,8 +447,8 @@ export function mockCreateMember(input: CreateMemberInput): ApiMemberDetail {
     planId: input.plan_id,
     joinedAt: today,
     endsAt,
-    status: 'paid',
-    owedUsd: 0,
+    status: unpaid ? 'due' : 'paid',
+    owedUsd: unpaid ? (plan?.price_usd ?? 0) : 0,
     lastVisit: null,
     goal: input.goal,
     level: input.level,
@@ -454,6 +466,12 @@ export function mockCreateMember(input: CreateMemberInput): ApiMemberDetail {
     weightTrend: [],
   }
   mockMembers = [...mockMembers, member]
+  if (method !== 'unpaid') {
+    mockPayments = [
+      ...mockPayments,
+      { id: newId(), memberId: member.id, amountUsd: plan?.price_usd ?? 0, at: today, method, by: 'You' },
+    ]
+  }
   return toApiMemberDetail(member)
 }
 
@@ -1329,8 +1347,8 @@ function mockLastVisitBefore(memberId: string, cutoff: number): number | null {
 
 function mockLapsedCount(members: MockMember[], asOf: number, minDays: number): number {
   return members.filter((m) => {
-    const last = mockLastVisitBefore(m.id, asOf)
-    return last === null || (asOf - last) / DAY_MS >= minDays
+    const since = mockLastVisitBefore(m.id, asOf) ?? dayMs(m.joinedAt)
+    return (asOf - since) / DAY_MS >= minDays
   }).length
 }
 
@@ -1373,6 +1391,12 @@ export function mockAnalyticsSummary(weeks: number, lapsedAfterDays: number): Ap
       (m) => dayMs(m.joinedAt) >= previousStart && dayMs(m.joinedAt) < windowStart,
     ).length,
     active_members: mockMembers.length,
+    taken_usd: mockPayments
+      .filter((p) => dayMs(p.at) >= windowStart && dayMs(p.at) <= today)
+      .reduce((sum, p) => sum + p.amountUsd, 0),
+    taken_usd_previous: mockPayments
+      .filter((p) => dayMs(p.at) >= previousStart && dayMs(p.at) < windowStart)
+      .reduce((sum, p) => sum + p.amountUsd, 0),
     series: starts.map((start, i) => {
       const next = starts[i + 1] ?? Infinity
       const stats = mockCollectionStats(

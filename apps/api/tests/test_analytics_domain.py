@@ -132,20 +132,25 @@ def test_on_time_rate_is_none_rather_than_zero_when_nothing_was_due() -> None:
     assert stats.on_time_rate is None
 
 
-def test_lapsed_counts_a_member_who_never_visited() -> None:
-    a, b, c = _member(), _member(), _member()
+def test_lapsed_counts_a_member_who_never_visited_from_the_day_they_joined() -> None:
+    a, b, c, d = _member(), _member(), _member(), _member()
     as_of = date(2026, 6, 30)
+    long_ago = as_of - timedelta(days=200)
     count = lapsed_count_as_of(
-        member_ids=[a, b, c],
+        joined_on={
+            a: long_ago,
+            b: long_ago,
+            c: as_of - timedelta(days=14),  # joined two weeks ago, never came
+            d: as_of,  # joined this morning, has not had the chance yet
+        },
         last_visit_before={
             a: as_of - timedelta(days=13),  # still active
             b: as_of - timedelta(days=14),  # exactly at the threshold
-            # c never visited
         },
         as_of=as_of,
         min_days=14,
     )
-    assert count == 2
+    assert count == 2, "b and c — never d, who registered today"
 
 
 def test_week_starts_are_mondays_oldest_first() -> None:

@@ -7,7 +7,7 @@ from httpx import AsyncClient
 from sqlalchemy import event, select
 
 from app.db import get_engine, tenant_session
-from app.models import Attendance, Subscription
+from app.models import Attendance, Member, Subscription
 
 ONBOARDING_SECRET = "dev-onboarding-secret-change-me"
 _phone_counter = itertools.count(1)
@@ -120,7 +120,11 @@ async def test_lapsed_members_endpoint(client: AsyncClient) -> None:
     recently_visited = await client.post(
         "/members", headers=_idem(headers), json=_member_payload(plan_id, "+96174000004")
     )
+    just_joined = await client.post(
+        "/members", headers=_idem(headers), json=_member_payload(plan_id, "+96174000007")
+    )
     recent_id = recently_visited.json()["id"]
+    never_id = never_visited.json()["id"]
 
     async with tenant_session(gym_id) as session:
         session.add(
@@ -129,12 +133,20 @@ async def test_lapsed_members_endpoint(client: AsyncClient) -> None:
                 date=datetime.now(UTC).date(),
             )
         )
+        never = await session.get(Member, uuid.UUID(never_id))
+        assert never is not None
+        never.joined_at = datetime.now(UTC) - timedelta(days=20)
 
     lapsed = await client.get("/members/lapsed?min_days=14", headers=headers)
     assert lapsed.status_code == 200
-    lapsed_ids = {m["id"] for m in lapsed.json()}
-    assert never_visited.json()["id"] in lapsed_ids
-    assert recent_id not in lapsed_ids
+    by_id = {m["id"]: m for m in lapsed.json()}
+    assert never_id in by_id
+    # Null, not 0: "never came" is a different fact from "came today".
+    assert by_id[never_id]["days_since_visit"] is None
+    assert recent_id not in by_id
+    # Registered today and not in yet is not missing — the live-app report
+    # was exactly this member, listed as "missing, 0 days" (decision 48).
+    assert just_joined.json()["id"] not in by_id
 
 
 async def test_whatsapp_reminder_composer(client: AsyncClient) -> None:
@@ -217,8 +229,10 @@ async def test_list_payments(client: AsyncClient) -> None:
     payments = await client.get("/payments", headers=headers)
     assert payments.status_code == 200
     rows = payments.json()
-    assert len(rows) == 1
-    assert rows[0]["member_id"] == member_id
+    # Newest first: the renewal, then the fee taken at the desk on joining
+    # (decision 48 — joining is paid in cash unless the desk says not).
+    assert len(rows) == 2
+    assert {r["member_id"] for r in rows} == {member_id}
     assert rows[0]["amount_usd"] == 40.0
 
 
