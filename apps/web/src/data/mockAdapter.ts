@@ -59,6 +59,7 @@ import type {
   ApiMachine,
   ApiMember,
   ApiMemberDetail,
+  ApiMemberLoginCode,
   ApiMemberProfile,
   ApiNutritionLog,
   ApiPayment,
@@ -181,6 +182,14 @@ export function mockSetMemberStatus(memberId: string, status: MemberStatus): Api
     mockLeftAt.delete(memberId)
   }
   return toApiMemberDetail(m)
+}
+
+export function mockSendMemberLoginCode(memberId: string): ApiMemberLoginCode {
+  const m = mockMembers.find((x) => x.id === memberId)
+  if (!m) throw new ApiError(404, 'Member not found')
+  // Not crypto — mock mode never logs anyone in. Six digits, like the real one.
+  const code = String(Math.floor(100000 + Math.random() * 900000))
+  return { code, phone: m.phone, ttl_minutes: 5 }
 }
 
 export function mockUpdateMember(memberId: string, input: UpdateMemberInput): ApiMemberDetail {

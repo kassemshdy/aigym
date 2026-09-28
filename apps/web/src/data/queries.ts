@@ -80,6 +80,7 @@ import {
   mockUpdatePlan,
   mockUpdateProgram,
   mockUpdateProgressPhoto,
+  mockSendMemberLoginCode,
   mockUpdateMember,
   mockUpdateStaffDetails,
   mockUpdateStaffRole,
@@ -106,6 +107,7 @@ import type {
   ApiMachine,
   ApiMember,
   ApiMemberDetail,
+  ApiMemberLoginCode,
   ApiMemberProfile,
   ApiNutritionLog,
   ApiPayment,
@@ -167,6 +169,17 @@ export async function setMemberStatus(
   return apiFetch(`/members/${memberId}/status`, {
     method: 'POST',
     body: { status },
+    idempotencyKey: newIdempotencyKey(),
+  })
+}
+
+/** A manager sends a member their login code (decision 47). Staff-only on
+ * the server. The message is written here, not on the server, so it is in
+ * the member's language and links straight to the code step. */
+export async function sendMemberLoginCode(memberId: string): Promise<ApiMemberLoginCode> {
+  if (!API_URL) return mockSendMemberLoginCode(memberId)
+  return apiFetch(`/auth/member/${memberId}/code`, {
+    method: 'POST',
     idempotencyKey: newIdempotencyKey(),
   })
 }

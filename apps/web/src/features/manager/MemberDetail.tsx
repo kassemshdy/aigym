@@ -14,11 +14,16 @@ import {
   getMember,
   listPayments,
   recordPayment,
+  sendMemberLoginCode,
   setMemberStatus,
   updateMember,
   whatsappReminderLink,
 } from '@/data/queries'
+import { cn } from '@/lib/cn'
 import { normalizePhone } from '@/lib/phone'
+import { waLink } from '@/lib/whatsapp'
+import { useGymName } from '@/gym/GymProvider'
+import type { ApiMemberLoginCode } from '@/data/types'
 import { useAsync } from '@/data/useAsync'
 import { listSep, shortDate, usd } from '@/lib/format'
 import type { Lang } from '@/i18n'
@@ -38,6 +43,8 @@ export function ManagerMemberDetail() {
   const [saving, setSaving] = useState(false)
   const [confirmingLeave, setConfirmingLeave] = useState(false)
   const [editing, setEditing] = useState(false)
+  const [loginCode, setLoginCode] = useState<ApiMemberLoginCode | null>(null)
+  const gymName = useGymName(lang)
   const [draftName, setDraftName] = useState('')
   const [draftNameEn, setDraftNameEn] = useState('')
   const [draftPhone, setDraftPhone] = useState('')
@@ -91,6 +98,36 @@ export function ManagerMemberDetail() {
     draftName.trim() !== '' &&
     (!splitName || draftNameEn.trim() !== '') &&
     draftPhoneNormalized !== null
+
+  /** A member cannot get a code by themselves until the WhatsApp Business
+   * API is configured — the self-service one is created and never sent.
+   * So the front desk sends it, the way this product sends everything
+   * (decision 4, decision 47). The link opens their login at the code
+   * step with their phone filled in, so there is nothing to retype. */
+  async function sendLoginCode() {
+    setSaving(true)
+    try {
+      const sent = await sendMemberLoginCode(id)
+      setLoginCode(sent)
+      const link = `${window.location.origin}/login?phone=${encodeURIComponent(sent.phone)}&step=code`
+      window.open(
+        waLink(
+          sent.phone,
+          t('whatsapp.memberLoginCode', {
+            name,
+            gym: gymName,
+            code: sent.code,
+            minutes: sent.ttl_minutes,
+            link,
+          }),
+        ),
+        '_blank',
+        'noreferrer',
+      )
+    } finally {
+      setSaving(false)
+    }
+  }
 
   function startEditing() {
     setRecording(false)
@@ -183,7 +220,30 @@ export function ManagerMemberDetail() {
             <Icon name="dumbbell" />
             {t('manager.member.editPlan')}
           </Link>
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => void sendLoginCode()}
+            className={cn(buttonClass('secondary', 'lg'), 'col-span-2')}
+          >
+            <Icon name="lock" />
+            {t('manager.member.sendLoginCode')}
+          </button>
         </div>
+
+        {/* Also on screen, for a member standing at the desk: read it out
+            and they are in, WhatsApp or not. Only the digits are isolated,
+            never the Arabic around them. */}
+        {loginCode ? (
+          <p className="text-muted mt-3 text-center text-sm">
+            {t('manager.member.codeLabel')}{' '}
+            <bdi className="tnum text-ink text-base font-extrabold" dir="ltr">
+              {loginCode.code}
+            </bdi>
+            {' · '}
+            {t('manager.member.codeValid', { minutes: loginCode.ttl_minutes })}
+          </p>
+        ) : null}
 
         {recording ? (
           <div className="border-line mt-4 space-y-3 border-t pt-4">

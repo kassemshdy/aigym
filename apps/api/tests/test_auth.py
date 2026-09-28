@@ -530,3 +530,33 @@ async def test_a_phone_that_cannot_be_lebanese_is_still_answered_blandly(
         "/auth/member/login", json={"phone": "not-a-phone", "code": "123456"}
     )
     assert login.status_code == 401
+
+
+async def test_the_front_desk_code_comes_back_whole_and_logs_the_member_in(
+    client: AsyncClient,
+) -> None:
+    """The route a manager uses to send a member their login code. It returns
+    the code and the phone as well as a pre-built link, so the app can write
+    the message in the member's language and point it at the code step — and
+    the code it returns has to be the one that works, not a lookalike."""
+    await _onboard_gym(client)
+    staff_login = await client.post(
+        "/auth/staff/login", json={"username": "mona", "password": "hunter22"}
+    )
+    auth_header = {"Authorization": f"Bearer {staff_login.json()['access_token']}"}
+    me = await client.get("/auth/me", headers=auth_header)
+    member_id = await _insert_member(uuid.UUID(me.json()["gym_id"]), phone="+96176999444")
+
+    sent = await client.post(f"/auth/member/{member_id}/code", headers=auth_header)
+    assert sent.status_code == 200, sent.text
+    body = sent.json()
+    assert body["phone"] == "+96176999444"
+    assert body["ttl_minutes"] == get_settings().member_code_ttl_minutes
+    assert re.fullmatch(r"\d{6}", body["code"]), body["code"]
+    # Same code in both places, so the old link and the new message agree.
+    assert body["code"] in unquote(body["wa_link"])
+
+    login = await client.post(
+        "/auth/member/login", json={"phone": body["phone"], "code": body["code"]}
+    )
+    assert login.status_code == 200, login.text

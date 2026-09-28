@@ -341,6 +341,16 @@ export interface ApiStaff {
   role: string
 }
 
+/** A login code a manager sends from the member's screen, since members
+ * cannot reliably get one themselves until the WhatsApp Business API is
+ * configured (decision 47). `code` is shown on screen too, for a member
+ * standing at the desk. */
+export interface ApiMemberLoginCode {
+  code: string
+  phone: string
+  ttl_minutes: number
+}
+
 /** A member's identity fields. PATCH /members/{id} accepts the profile too,
  * but the screen only ever corrects who someone is and how to reach them —
  * body and lifestyle belong to the member's own intake. Send only what

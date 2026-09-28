@@ -1043,3 +1043,34 @@ number it will go to is printed, so the manager sees it every time.
 from a notebook can have distinct Arabic and English names. The edit form shows one name
 field for the first kind and both for the second, so correcting one never overwrites the
 other. Body and lifestyle stay out of it — they belong to the member's own intake.
+
+## 47. A manager sends a member their login code from the app
+
+A member logs in with their phone and a six-digit code sent over WhatsApp. The
+self-service route sends it through the WhatsApp Business API — and on the live service
+its credentials (`AIGYM_WHATSAPP_ACCESS_TOKEN`, `AIGYM_WHATSAPP_PHONE_NUMBER_ID`) are not
+set, so `send_whatsapp_text` returns `False` and nothing is sent. The screen still says
+"sent", on purpose (decision 20: it must not reveal which numbers are members). The
+result was that **no member could log in**, and nothing anywhere said so.
+
+The staff route `POST /auth/member/{id}/code` already made a code and returned a
+`wa.me` link for a person to send — decision 4's shape, no cost, no Meta approval. It
+had no button. Now the member's screen has **Send login code**.
+
+- **The route returns `code`, `phone` and `ttl_minutes`** as well as its link, so the
+  app writes the message in the member's language and adds a link that opens their login
+  already at the code step, phone filled in. The code was always in plaintext inside the
+  link, so returning it exposes nothing, and the route is staff-only.
+- **The code is also shown on screen**, for a member standing at the desk — read it out
+  and they are in.
+- **The login page takes `?phone=` and `?step=code`**, and gained *I already have a
+  code*: asking for another would only spend the hourly limit.
+- **The welcome message links to the app**, which it never did.
+- **The code box's hint said `1234`.** Codes are six digits, so the hint described a code
+  that cannot exist, and was typed in, and read as "wrong code".
+
+Codes still expire after **5 minutes** (`member_code_ttl_minutes`, decision 13). Fine for
+a member at the desk; tight for one sent remotely who reads WhatsApp an hour later — they
+ask again. Loosening it is a security trade, not a UI fix, and is left for someone to
+decide on purpose. Configuring the WhatsApp Business API makes self-service work and
+leaves this as the fallback.

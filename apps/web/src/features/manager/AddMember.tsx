@@ -93,7 +93,14 @@ export function ManagerAddMember() {
           <a
             href={waLink(
               form.phone,
-              t('whatsapp.welcome', { name: form.name, gym: gymName }),
+              t('whatsapp.welcome', {
+                name: form.name,
+                gym: gymName,
+                // Straight to their own login, phone already filled in.
+                link: `${window.location.origin}/login?phone=${encodeURIComponent(
+                  normalizePhone(form.phone) ?? form.phone,
+                )}`,
+              }),
             )}
             target="_blank"
             rel="noreferrer"
