@@ -8,7 +8,7 @@
 > |---|---|---|
 > | `Postgres` | `5209a40a` | `postgres-ssl:18`, EU West; the app lives in its `railway` database (see *The database is named `railway`* below) |
 > | `api-BlMk` | `100277f6` | root `/apps/api`; domain `api-blmk-release.up.railway.app`; `media` volume at `/data/media` |
-> | `web-QeVY` | `4bc4236d` | root `/apps/web`; domain `web-qevy-release.up.railway.app`, to be renamed to `trpa` |
+> | `web-QeVY` | `4bc4236d` | root `/apps/web`; domain **`trpa.up.railway.app`** (moved from `production` on 2026-09-28; was `web-qevy-release`) |
 > | `ops-mJUc` | `ef903bd0` | `bash scripts/ops.sh`, restart policy NEVER |
 >
 > All four are in `europe-west4-drams3a`. `Release` was built from an empty database with
@@ -18,8 +18,13 @@
 >
 > **Not yet done, and not safe to skip:** `Release` has **no backups** — no bucket, no
 > `backup` service. The `aigym-backups` bucket belongs to `production` and is deleted with
-> it. Build `Release`'s backups, and copy the old dumps out, **before** deleting
-> `production`. Also still to do: move the `trpa` domain across, and delete `production`.
+> it. Turn on Railway's own backups for `Release`'s Postgres volume, and copy the old dumps
+> out, **before** deleting `production`. The `trpa` domain is on `Release` now, so
+> `production` serves nothing public and deleting it is the last step.
+>
+> `api-BlMk`'s `AIGYM_CORS_ORIGINS` still lists `web-qevy-release` beside `trpa`. The old
+> host no longer exists, so the entry is dead but harmless; drop it the next time that
+> variable is touched.
 >
 > Why the move: on 2026-09-28 `europe-west4-drams3a` was briefly reported invalid for the
 > `production` services and a deploy hung at `INITIALIZING` with no region; four services
