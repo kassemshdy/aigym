@@ -24,6 +24,25 @@ def test_every_way_a_lebanese_number_gets_written() -> None:
         assert normalize_phone(written) == expected, written
 
 
-def test_a_number_that_cannot_be_lebanese_is_rejected_rather_than_mangled() -> None:
-    for written in ("", "   ", "abc", "12345", "701234567890", "+1 415 555 0100"):
+def test_a_number_with_its_country_code_is_accepted_from_anywhere() -> None:
+    """Decision 49: a gym has members on foreign SIMs, and refusing them
+    outright left the manager with no way to register them at all."""
+    for written, expected in [
+        ("+1 415 555 0100", "+14155550100"),
+        ("+33 6 12 34 56 78", "+33612345678"),
+        ("0044 7700 900123", "+447700900123"),
+        ("+971-50-123-4567", "+971501234567"),
+    ]:
+        assert normalize_phone(written) == expected, written
+
+
+def test_a_number_that_cannot_be_right_is_rejected_rather_than_mangled() -> None:
+    for written in (
+        "", "   ", "abc", "12345",
+        "701234567890",  # too long for Lebanon, and no country code to say where else
+        "+961 70 123",  # a Lebanese number with digits missing, not another country
+        "+961 70 123 456 789",
+        "+1234",  # too short to be anyone's phone
+        "+1234567890123456",  # past E.164's 15 digits
+    ):
         assert normalize_phone(written) is None, written

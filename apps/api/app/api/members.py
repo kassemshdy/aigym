@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.schemas import LebanesePhone
+from app.api.schemas import PhoneNumber
 from app.deps import CurrentClaims, CurrentSession, require_role
 from app.domain.analytics import is_missing
 from app.domain.dues import DuesStatus, compute_dues
@@ -263,7 +263,7 @@ async def get_member(
 class CreateMemberRequest(BaseModel):
     name: str
     name_en: str
-    phone: LebanesePhone
+    phone: PhoneNumber
     plan_id: uuid.UUID
     goal: str
     level: str
@@ -339,7 +339,7 @@ async def create_member(
 class UpdateMemberRequest(BaseModel):
     name: str | None = None
     name_en: str | None = None
-    phone: LebanesePhone | None = None
+    phone: PhoneNumber | None = None
     goal: str | None = None
     level: str | None = None
     height_cm: int | None = None

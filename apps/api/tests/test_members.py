@@ -272,3 +272,22 @@ async def test_a_member_cannot_be_added_under_a_number_nobody_can_be_reached_on(
     assert create.status_code == 422, create.text
     # The 422 names the field, so the form can put the error on it.
     assert create.json()["detail"][0]["loc"][-1] == "phone"
+
+
+async def test_a_member_on_a_foreign_sim_can_be_registered(client: AsyncClient) -> None:
+    """Decision 49: Lebanese-only refused them outright, leaving the desk no
+    way to add them at all. With a country code the number is stored in the
+    same + and digits shape, so their WhatsApp link and login still work."""
+    _gym_id, headers = await _gym_and_staff_token(client, slug="members-phone-intl")
+    plan_id = await _get_a_plan_id(client, headers)
+
+    create = await client.post(
+        "/members", headers=_idem(headers), json=_member_payload(plan_id, "+33 6 12 34 56 78")
+    )
+    assert create.status_code == 201, create.text
+    assert create.json()["phone"] == "+33612345678"
+
+    reminder = await client.get(
+        f"/members/{create.json()['id']}/whatsapp-reminder?lang=en", headers=headers
+    )
+    assert reminder.json()["wa_link"].startswith("https://wa.me/33612345678")

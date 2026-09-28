@@ -81,10 +81,14 @@ export function MemberLogin() {
             onChange={(e) => setPhone(e.target.value)}
             inputMode="tel"
             dir="ltr"
-            placeholder="+961 70 000 000"
             autoFocus
           />
         </Field>
+        {/* Without it a foreign number typed without its country code
+            leaves a disabled button and no reason. Decision 49. */}
+        {phone.replace(/[^\d]/g, '').length >= 7 && normalizePhone(phone) === null ? (
+          <p className="text-muted text-sm font-semibold">{t('common.phoneInvalid')}</p>
+        ) : null}
 
         {error ? (
           <p className="bg-ink rounded-xl px-4 py-3 text-sm font-semibold text-white">
@@ -97,7 +101,7 @@ export function MemberLogin() {
             variant="brand"
             full
             size="lg"
-            /* A parseable Lebanese number, not just six characters. The
+            /* A parseable phone number, not just six characters. The
                endpoint answers `sent: true` whatever it is given so it can't
                be used to test whether a number is a member's (decision 20),
                and that silence meant a typo produced the "check WhatsApp"

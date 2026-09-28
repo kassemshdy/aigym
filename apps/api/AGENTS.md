@@ -33,7 +33,7 @@ app/
 │                     member_import.py, payments.py, plans.py, analytics.py, checkins.py,
 │                     exercises.py, machines.py, programs.py, sessions.py, nutrition.py,
 │                     media.py, chat.py, ai_drafts.py; schemas.py holds request models
-│                     shared by more than one of them, and `LebanesePhone` — the
+│                     shared by more than one of them, and `PhoneNumber` — the
 │                     annotated str every route taking a phone number should use
 └── middleware/        idempotency.py — the Idempotency-Key contract
 

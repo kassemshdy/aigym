@@ -73,7 +73,7 @@
     "error": "Something went wrong",
     "remove": "Remove",
     "appName": "AIGym",
-    "phoneInvalid": "A Lebanese mobile number, like 70 123 456"
+    "phoneInvalid": "Check the number. Outside Lebanon, start with + and the country code."
   },
   "status": {
     "paid": "Paid",

@@ -228,7 +228,6 @@ export function ManagerStaff() {
                             }}
                             inputMode="tel"
                             dir="ltr"
-                            placeholder="+961 70 000 000"
                           />
                         </Field>
                         {draftPhone.trim() && draftPhoneNormalized === null ? (
@@ -420,7 +419,6 @@ export function ManagerStaff() {
               onChange={(e) => setPhone(e.target.value)}
               inputMode="tel"
               dir="ltr"
-              placeholder="+961 70 000 000"
             />
           </Field>
           {phone.trim() && !phoneOk ? (

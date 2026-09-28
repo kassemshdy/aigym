@@ -143,7 +143,6 @@ export function ManagerAddMember() {
                 onChange={(e) => set('phone', e.target.value)}
                 inputMode="tel"
                 dir="ltr"
-                placeholder="+961 70 000 000"
               />
             </Field>
             {form.phone.trim() && !phoneOk ? (

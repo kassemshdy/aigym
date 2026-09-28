@@ -28,12 +28,13 @@ class BilingualName(BaseModel):
 def _canonical_phone(value: str) -> str:
     phone = normalize_phone(value)
     if phone is None:
-        raise ValueError("not a Lebanese mobile number")
+        raise ValueError("not a phone number: outside Lebanon, include the country code")
     return phone
 
 
 #: A phone number stored in one shape, whoever typed it (decision 44). The
-#: value that reaches the route is already `+961…`, so the roster, the
+#: value that reaches the route is already `+` and digits (`+961…` for a
+#: Lebanese number, decision 49 for any other), so the roster, the
 #: WhatsApp links and the member's own login all compare equal.
 #:
 #: A number that cannot be one becomes a 422 naming the field, rather than
@@ -41,4 +42,4 @@ def _canonical_phone(value: str) -> str:
 #: the member's login would never match. The two `/auth/member/*` endpoints
 #: deliberately do *not* use this — one must always answer `sent: true` and
 #: the other always 401, so neither can say anything about the input.
-LebanesePhone = Annotated[str, AfterValidator(_canonical_phone)]
+PhoneNumber = Annotated[str, AfterValidator(_canonical_phone)]

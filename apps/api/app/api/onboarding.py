@@ -53,7 +53,7 @@ class OnboardGymRequest(BaseModel):
     manager_name: str
     manager_username: str
     manager_password: str
-    #: Deliberately not schemas.LebanesePhone, which would 422 before
+    #: Deliberately not schemas.PhoneNumber, which would 422 before
     #: the secret is checked: this route answers 401 to anyone without
     #: the operator secret, whatever they sent in the body. Normalized
     #: inside the handler instead (decision 44).
@@ -86,7 +86,7 @@ async def onboard_gym(
     manager_phone = normalize_phone(body.manager_phone)
     if manager_phone is None:
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_CONTENT, "manager_phone is not a Lebanese mobile number"
+            status.HTTP_422_UNPROCESSABLE_CONTENT, "manager_phone is not a phone number"
         )
 
     gym_id = uuid.uuid4()

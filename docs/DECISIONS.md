@@ -1115,3 +1115,27 @@ outright, so anyone registered today led the list. `is_missing` (in
 both `GET /members/lapsed` and the dashboard's lapsed counts use it, so they cannot
 disagree. Someone who joined three weeks ago and never came is still missing — that is
 the case the list exists for. The list says *Never came* for them rather than "0 days".
+
+## 49. Any phone number with its country code, not only Lebanese ones
+
+Decision 44 gave every phone one stored shape and, with it, accepted Lebanese mobiles only.
+A gym has members on foreign SIMs — a visitor, an expat, someone back for the summer — and
+the desk had no way to register them: the form refused the number, and every phone field
+showed a `+961 70 000 000` placeholder that said as much.
+
+The stored shape does not change: `+` and digits, the thing WhatsApp links and the member
+login compare against. What is accepted widens:
+
+- **Lebanese forms need no country code**, exactly as before — `03 123456`,
+  `70/123 456`, `0096170123456` all become `+961…`.
+- **Any other number is accepted written with `+` or `00`** and its country code, up to
+  E.164's 15 digits: `+33 6 12 34 56 78` is stored as `+33612345678`.
+- **A bare foreign number is still refused**, and so is `+961` with the wrong number of
+  digits. Without a country code there is no telling where `0612345678` is, and a guess
+  stores a number nobody can reach — decision 44's failure, just quieter.
+
+The placeholders are gone from every phone field, and the hint under a field that cannot
+be right now says to add the country code rather than asking for a Lebanese number. The
+login screen shows the same hint, where before a foreign number left a disabled button and
+no reason. `schemas.LebanesePhone` is `schemas.PhoneNumber`, since the name had stopped
+being true.
