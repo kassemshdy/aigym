@@ -19,7 +19,7 @@ import pytest
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from app.models import Member, Payment, Plan
+from app.models import Coach, GymClass, Member, Payment, Plan, StaffUser
 from app.settings import get_settings
 
 _SEED_PATH = Path(__file__).resolve().parent.parent / "scripts" / "seed.py"
@@ -189,3 +189,51 @@ async def test_the_live_path_bootstraps_configuration_on_an_empty_database(
 
     assert plans > 0, "a new gym got no plans"
     assert members == 0, "the live path invented members on a fresh gym"
+
+
+async def test_the_live_path_removes_the_placeholder_coaches_and_keeps_real_ones(
+    sessionmaker_and_seed,
+) -> None:
+    """Coach Assaf, Karim and Abed sat on a live gym's booking screen with no
+    account behind them and no way to remove them. A deploy clears them and
+    their classes, and leaves a coach the gym actually has. Decision 50."""
+    sm, seed = sessionmaker_and_seed
+    gym_id = seed.GYM_ID
+
+    async with sm() as session:
+        await seed.seed(session, demo=True)
+
+    async with sm() as session:
+        account = StaffUser(
+            id=uuid.uuid4(), username=f"real-coach-{uuid.uuid4().hex[:6]}",
+            phone="+96176999333", name="Real Coach", password_hash=None,
+        )
+        session.add(account)
+        await session.flush()
+        real_coach = Coach(
+            id=uuid.uuid4(), gym_id=gym_id, name={"ar": "x", "en": "x"},
+            speciality={"ar": "", "en": ""}, staff_user_id=account.id,
+        )
+        session.add(real_coach)
+        await session.flush()
+        real_class = GymClass(
+            id=uuid.uuid4(), gym_id=gym_id, title={"ar": "يوغا", "en": "Yoga"},
+            coach_id=real_coach.id, weekdays=[1], time="08:00", duration_min=45,
+        )
+        session.add(real_class)
+        await session.commit()
+
+    for _ in range(2):
+        async with sm() as session:
+            await seed.seed(session, demo=False)
+
+    async with sm() as session:
+        coaches = set(
+            (await session.execute(select(Coach.id).where(Coach.gym_id == gym_id))).scalars()
+        )
+        classes = set(
+            (await session.execute(select(GymClass.id).where(GymClass.gym_id == gym_id))).scalars()
+        )
+
+    assert coaches == {real_coach.id}, "placeholder coaches survived, or the real one went"
+    assert classes == {real_class.id}, "placeholder classes survived, or the real one went"

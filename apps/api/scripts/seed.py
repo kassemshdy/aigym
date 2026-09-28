@@ -393,6 +393,24 @@ async def _remove_demo_people(session: AsyncSession) -> None:
     await session.flush()
 
 
+async def _remove_demo_coaches(session: AsyncSession) -> None:
+    """Clear the placeholder coaches and their classes from a live gym.
+
+    Coach Assaf, Karim and Abed are demo fixtures with no account behind
+    them, and a live gym showed them on every member's booking screen with
+    no way to remove them. A gym's bookable coaches are its coach accounts
+    now (decision 50), and its classes are set on the Classes screen.
+
+    Only these fixed seed ids are touched. Classes go first: classes.coach_id
+    is ON DELETE RESTRICT. Bookings with a placeholder coach cascade — the
+    coach never existed, so neither did the session.
+    """
+    coach_ids = [uid("coach", mock_id) for mock_id, _name, _speciality in COACH_ROWS]
+    await session.execute(delete(GymClass).where(GymClass.coach_id.in_(coach_ids)))
+    await session.execute(delete(Coach).where(Coach.id.in_(coach_ids)))
+    await session.flush()
+
+
 async def _seed_live(session: AsyncSession) -> None:
     """The production path: bootstrap a gym's configuration without ever
     destroying or overwriting anything. Two rules, both the opposite of what
@@ -425,13 +443,6 @@ async def _seed_live(session: AsyncSession) -> None:
             session, Plan(id=uid("plan", mock_id), gym_id=GYM_ID, name=name,
                           price_usd=price, days=days)
         )
-    coach_ids: dict[str, uuid.UUID] = {}
-    for mock_id, name, speciality in COACH_ROWS:
-        cid = uid("coach", mock_id)
-        coach_ids[mock_id] = cid
-        await _put_if_absent(
-            session, Coach(id=cid, gym_id=GYM_ID, name=name, speciality=speciality)
-        )
     for mock_id, name, area in MACHINE_ROWS:
         await _put_if_absent(
             session, Machine(id=uid("machine", mock_id), gym_id=GYM_ID, name=name, area=area)
@@ -442,18 +453,11 @@ async def _seed_live(session: AsyncSession) -> None:
             Exercise(id=uid("exercise", mock_id), gym_id=GYM_ID, name=name,
                      muscle_group=muscle_group, active=True),
         )
-    await session.flush()  # classes.coach_id references the coaches just added
-
-    for mock_id, title, coach_mock_id, weekdays, time, duration in CLASS_ROWS:
-        await _put_if_absent(
-            session,
-            GymClass(id=uid("class", mock_id), gym_id=GYM_ID, title=title,
-                     coach_id=coach_ids[coach_mock_id], weekdays=weekdays,
-                     time=time, duration_min=duration),
-        )
+    await session.flush()
 
     await _seed_owner_account(session)
     await _remove_demo_people(session)
+    await _remove_demo_coaches(session)
     await session.commit()
 
 

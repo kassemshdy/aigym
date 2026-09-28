@@ -517,6 +517,18 @@ export interface ApiGymClass {
   duration_min: number
 }
 
+/** Mirrors CreateClassRequest in app/api/booking.py. `time` is "HH:MM",
+ * 24-hour; the server stores `weekdays` once each, in order. Decision 50. */
+export interface CreateClassInput {
+  title: { ar: string; en: string }
+  coach_id: string
+  weekdays: number[]
+  time: string
+  duration_min: number
+}
+
+export type UpdateClassInput = Partial<CreateClassInput>
+
 export interface ApiBooking {
   id: string
   coach_id: string

@@ -334,8 +334,8 @@ function ProgramEditorForm({
                       onClick={() => startEditingVideo(e)}
                       className={
                         e.video_url
-                          ? 'text-brand flex size-11 shrink-0 items-center justify-center'
-                          : 'text-muted flex size-11 shrink-0 items-center justify-center'
+                          ? 'text-ink flex size-11 shrink-0 items-center justify-center'
+                          : 'text-muted/50 flex size-11 shrink-0 items-center justify-center'
                       }
                     >
                       <Icon name="play" size={18} />

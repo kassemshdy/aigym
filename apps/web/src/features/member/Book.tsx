@@ -47,6 +47,16 @@ export function MemberBook() {
     )
   }
 
+  // A gym's bookable coaches are its coach accounts (decision 50), so a
+  // gym that has not added one yet has nobody to book — say so plainly.
+  if (coaches.data.length === 0) {
+    return (
+      <Page>
+        <Empty>{t('book.noCoaches')}</Empty>
+      </Page>
+    )
+  }
+
   const pickedCoachId = coachId ?? coaches.data[0]?.id ?? null
   const coach = coaches.data.find((c) => c.id === pickedCoachId)
   // The first session with the gym is free; after that a private session is paid.
@@ -95,9 +105,13 @@ export function MemberBook() {
             >
               <span className="min-w-0 flex-1">
                 <span className="block font-bold">{text(c.name, lang)}</span>
-                <span className={cn('block text-xs', pickedCoachId === c.id ? 'text-white/70' : 'text-muted')}>
-                  {text(c.speciality, lang)}
-                </span>
+                {/* A coach account has no speciality until someone writes
+                    one, and an empty line under the name read as missing. */}
+                {text(c.speciality, lang) ? (
+                  <span className={cn('block text-xs', pickedCoachId === c.id ? 'text-white/70' : 'text-muted')}>
+                    {text(c.speciality, lang)}
+                  </span>
+                ) : null}
               </span>
               {pickedCoachId === c.id ? <Icon name="check" size={18} /> : null}
             </button>

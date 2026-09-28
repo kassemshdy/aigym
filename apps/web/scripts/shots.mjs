@@ -34,6 +34,18 @@ const SCREENS = [
       await page.waitForTimeout(200)
     },
   ],
+  ['manager-classes', '/manager/classes', 'phone'],
+  [
+    'manager-classes-edit',
+    '/manager/classes',
+    'phone',
+    // The form (coach picker, the seven day toggles) only exists once a
+    // class is open — the widest row on the screen at 390px.
+    async (page) => {
+      await page.getByRole('button', { name: /^(Edit|عدّل)$/ }).first().click()
+      await page.waitForTimeout(200)
+    },
+  ],
   ['manager-settings', '/manager/settings', 'phone'],
   ['manager-import', '/manager/import', 'phone'],
   [

@@ -100,6 +100,12 @@ export function ManagerHome() {
             <span className="flex-1 font-semibold">{t('manager.home.plans')}</span>
           </Card>
         </Link>
+        <Link to="/manager/classes">
+          <Card className="flex min-h-tap items-center gap-3 p-4">
+            <Icon name="calendar" />
+            <span className="flex-1 font-semibold">{t('manager.home.classes')}</span>
+          </Card>
+        </Link>
         <Link to="/manager/settings">
           <Card className="flex min-h-tap items-center gap-3 p-4">
             <Icon name="user" />

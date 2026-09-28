@@ -24,6 +24,7 @@ import { ManagerInsights } from '@/features/manager/Insights'
 import { ManagerLapsed } from '@/features/manager/Lapsed'
 import { ManagerSettings } from '@/features/manager/Settings'
 import { ManagerStaff } from '@/features/manager/Staff'
+import { ManagerClasses } from '@/features/manager/Classes'
 import { StaffLogin } from '@/features/manager/Login'
 import { API_URL, getStaffRole, isMemberSignedIn, isStaffSignedIn } from '@/data/client'
 import { MemberVideoDetail, MemberVideos } from '@/features/member/Videos'
@@ -92,6 +93,7 @@ export default function App() {
           <Route path="settings" element={<ManagerSettings />} />
           <Route path="import" element={<ManagerImport />} />
           <Route path="plans" element={<ManagerPlans />} />
+          <Route path="classes" element={<ManagerClasses />} />
           <Route path="payments" element={<ManagerPayments />} />
           <Route path="staff" element={<ManagerStaff />} />
           <Route path="programs/:memberId" element={<ProgramEditor />} />

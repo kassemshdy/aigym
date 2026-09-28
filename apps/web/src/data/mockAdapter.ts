@@ -75,6 +75,8 @@ import type {
   CreateExerciseInput,
   CreateFoodEntryInput,
   CreateMemberInput,
+  CreateClassInput,
+  UpdateClassInput,
   CreateNutritionLogInput,
   CreatePlanInput,
   CreateProgramInput,
@@ -1082,15 +1084,42 @@ export function mockListCoaches(): ApiCoach[] {
   return seedCoaches.map((c) => ({ id: c.id, name: toBilingual(c.name), speciality: toBilingual(c.speciality) }))
 }
 
+let mockClasses: ApiGymClass[] = seedClasses.map((c) => ({
+  id: c.id,
+  title: toBilingual(c.title),
+  coach_id: c.coachId,
+  weekdays: c.weekdays,
+  time: c.time,
+  duration_min: c.durationMin,
+}))
+
 export function mockListClasses(): ApiGymClass[] {
-  return seedClasses.map((c) => ({
-    id: c.id,
-    title: toBilingual(c.title),
-    coach_id: c.coachId,
-    weekdays: c.weekdays,
-    time: c.time,
-    duration_min: c.durationMin,
-  }))
+  return [...mockClasses].sort((a, b) => a.time.localeCompare(b.time))
+}
+
+/** Same rules as app/api/booking.py: days stored once, in order. */
+const tidyDays = (days: number[]) => [...new Set(days)].sort((a, b) => a - b)
+
+export function mockCreateClass(input: CreateClassInput): ApiGymClass {
+  const created: ApiGymClass = { id: newId(), ...input, weekdays: tidyDays(input.weekdays) }
+  mockClasses = [...mockClasses, created]
+  return created
+}
+
+export function mockUpdateClass(classId: string, input: UpdateClassInput): ApiGymClass {
+  const current = mockClasses.find((c) => c.id === classId)
+  if (!current) throw new ApiError(404, 'No class with that id at this gym')
+  const updated: ApiGymClass = {
+    ...current,
+    ...input,
+    weekdays: tidyDays(input.weekdays ?? current.weekdays),
+  }
+  mockClasses = mockClasses.map((c) => (c.id === classId ? updated : c))
+  return updated
+}
+
+export function mockDeleteClass(classId: string): void {
+  mockClasses = mockClasses.filter((c) => c.id !== classId)
 }
 
 let mockBookings: ApiBooking[] = seedBookings
