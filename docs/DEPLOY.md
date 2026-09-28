@@ -469,12 +469,22 @@ Useful commands:
 
 ```bash
 python scripts/db_report.py                       # row counts, per table, counted for real
+python scripts/staff_accounts.py                  # who has an account, and where they work
+python scripts/staff_accounts.py --release assaf  # give a removed person's username back
 python scripts/backup_db.py                       # dump to the bucket, prune to the newest 60
 python scripts/restore_db.py --into "$AIGYM_DATABASE_URL_MIGRATIONS"
 python scripts/set_staff_password.py              # prompts — see the note below
 python scripts/set_gym_billing.py
 bash scripts/bootstrap_db.sh                      # create the db and the app role
 ```
+
+`staff_accounts.py` with no arguments only reads — it is the way to answer "does this
+person already have an account, and where", which the app deliberately cannot show you
+(decision 45). `--release` is the only part that writes, it refuses anyone who still holds
+access at any gym, and it renames rather than deletes so the person's payments and
+sessions stay attributed. On `ops`, where there is no terminal to pass arguments on, set
+`AIGYM_RELEASE_STAFF_USERNAME` instead — and delete it after the run, as with
+`set_staff_password.py`'s variables.
 
 **The interactive scripts do not work here.** `set_staff_password.py` and
 `set_gym_billing.py` prompt on stdin, and a Railway deploy has no terminal attached.

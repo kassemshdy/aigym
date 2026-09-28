@@ -956,3 +956,48 @@ typo on step 5, as `common.error`, with nothing pointing at the phone. ~0.2 KB.
 the seed or the CSV import, both already canonical, so there is nothing to convert. A gym
 that arrives with a messy table gets it fixed by the import, which is where their data
 comes in anyway.
+
+## 45. A removed staff member's username can be given back, by a script
+
+Reported from the live app: adding a manager answered "it exists", and the staff list
+showed nobody by that name. Both were right, which is what made it unreportable.
+
+`staff_users` carries no RLS — staff login has to find the row before any gym is known
+(decision 16) — so usernames are unique across every gym on the platform. Access is a
+separate row in `staff_gym_roles`, which *is* gym-scoped. `DELETE /staff/{id}` removes
+only the access, keeping the account, deliberately: a coach who also works at another gym
+must not be deleted there because one gym let them go. The consequence nobody wrote down
+is that the username stays taken forever, and taken by a row the gym can no longer see.
+
+**The account cannot simply be deleted.** Every historical reference to a staff member is
+`ON DELETE SET NULL` — payments recorded, AI drafts approved, sessions run, content
+uploaded. Deleting would silently blank "who took this money" across the gym's whole
+history, which is worse than the bug.
+
+**Nor can a gym reclaim a name it does not own.** Auto-attaching an existing account to
+whoever asks for its username would be account theft with a side of enumeration: type
+names until one stops 409-ing, and pull another gym's coach onto your roster.
+
+So the name is freed by renaming the orphaned account —
+`assaf` → `assaf.released.3f9a1c` — keeping the row and its id, and therefore every
+attribution it carries. An account holding no role anywhere cannot log in at all
+(`staff_login` answers 403 "This account has no gym access"), so its username is the only
+thing of value left in it.
+
+**Why `scripts/staff_accounts.py` and not an endpoint.** Deciding whether a username *can*
+be freed means asking "does this person hold a role at any gym" — the exact cross-gym read
+`staff_gym_roles`' policy exists to block. In a request that needs a second call site for
+`get_owner_sessionmaker()`, which decision 18 pins to staff login alone and nowhere else.
+A script connects as the migrations role, where the read is legitimate and already the
+convention (`seed.py`, `set_gym_plans.py`, `set_staff_password.py`). At a handful of gyms
+an operator script is the honest tool — decision 36's reasoning again. The same script
+reports which accounts exist and where, which is how this was diagnosed at all: the
+database has no public endpoint, so there was no other way to look.
+
+`POST /staff`'s 409 also stopped being a dead end. It still refuses to say *who* holds the
+name or at which gym — that would leak another gym's roster one guess at a time — but it
+now says the part a manager can act on: names are shared across gyms, an account outlives
+its removal, so a name used here before is still taken; pick another.
+
+**If this recurs often enough to annoy, the follow-up is the endpoint**, and it needs
+decision 18 reopened rather than quietly worked around.
