@@ -85,6 +85,13 @@ const SCREENS = [
   ['coach-ai', '/coach/ai', 'ipad'],
   ['coach-videos', '/coach/videos', 'ipad'],
   ['program-editor', '/coach/programs/m1', 'ipad'],
+  // The same coach screens on a phone. Coaches were assumed to be on the
+  // gym's iPad, and a coach on their own phone found the program editor's
+  // steppers pushed off the card — which only the iPad run never showed.
+  ['coach-queue-phone', '/coach', 'phone'],
+  ['coach-card-phone', '/coach/member/m1', 'phone'],
+  ['coach-session-phone', '/coach/session/m1', 'phone'],
+  ['program-editor-phone', '/coach/programs/m1', 'phone'],
   ['member-today', '/member', 'phone'],
   ['member-calendar', '/member/calendar', 'phone'],
   ['member-book', '/member/book', 'phone'],
