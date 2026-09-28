@@ -386,7 +386,9 @@
       "link": "YouTube link or video ID",
       "duration": "Duration (seconds)",
       "muscleGroup": "Muscle group",
-      "equipment": "Equipment"
+      "equipment": "Equipment",
+      "badLink": "That is not a YouTube link. Copy it from the Share button.",
+      "isShort": "A Short — it will play full height, like on YouTube."
     }
   },
   "member": {
@@ -399,7 +401,8 @@
       "by": "Recorded at {{gym}}",
       "views": "{{count}} views",
       "filterMuscle": "Muscle",
-      "filterEquipment": "Equipment"
+      "filterEquipment": "Equipment",
+      "shorts": "Shorts"
     },
     "progress": {
       "title": "My progress",

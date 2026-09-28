@@ -182,6 +182,8 @@ export const videos: Video[] = [
   { id: 'v6', title: { ar: 'سكوات — عمق وركبة', en: 'Squat — Depth and Knees' }, provider: 'youtube', externalId: 'ultWZbUMPL8', seconds: 265, muscle: 'legs', equipment: 'barbell', views: 259 },
   { id: 'v7', title: { ar: 'رفعة ميتة رومانية', en: 'Romanian Deadlift' }, provider: 'youtube', externalId: '2SHsk9AzdjA', seconds: 199, muscle: 'legs', equipment: 'barbell', views: 134 },
   { id: 'v8', title: { ar: 'تسخين الكتف قبل التمرين', en: 'Shoulder Warm-up' }, provider: 'youtube', externalId: 'Cv6mtHMFsdA', seconds: 154, muscle: 'shoulders', equipment: 'bodyweight', views: 88 },
+  // A YouTube Short (DEMIC, @officialdemic), so the vertical layout is in the prototype.
+  { id: 'v9', title: { ar: 'صلّح غلطات البلانك', en: 'Fix Your Plank Mistakes' }, provider: 'youtube_short', externalId: 'nE9N5MD2zNI', seconds: 45, muscle: 'core', equipment: 'bodyweight', views: 61 },
 ]
 
 export const aiDrafts: AiDraft[] = [

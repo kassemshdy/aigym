@@ -113,6 +113,7 @@ const SCREENS = [
   ['member-photos', '/member/photos', 'phone'],
   ['member-videos', '/member/videos', 'phone'],
   ['member-video-detail', '/member/videos/v1', 'phone'],
+  ['member-video-short', '/member/videos/v9', 'phone'],
   ['member-progress', '/member/progress', 'phone'],
   ['member-profile', '/member/profile', 'phone'],
   ['member-profile-edit', '/member/profile/edit', 'phone'],

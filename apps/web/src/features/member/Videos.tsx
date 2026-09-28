@@ -11,11 +11,34 @@ import { useAsync } from '@/data/useAsync'
 import type { ApiVideo } from '@/data/types'
 import type { Lang } from '@/i18n'
 import { useGymName } from '@/gym/GymProvider'
+import { isShort, youtubeThumb } from '@/lib/youtube'
 
 const MUSCLES = ['chest', 'back', 'legs', 'shoulders', 'core'] as const
 
-const thumb = (v: ApiVideo) =>
-  v.provider === 'youtube' ? `https://img.youtube.com/vi/${v.external_id}/mqdefault.jpg` : ''
+const thumb = youtubeThumb
+
+/** A Short as YouTube shows it: a vertical tile, title over the picture. */
+function ShortTile({ v, lang }: { v: ApiVideo; lang: Lang }) {
+  return (
+    <Link
+      to={`/member/videos/${v.id}`}
+      className="bg-ink relative block aspect-[9/16] overflow-hidden rounded-2xl"
+    >
+      <img
+        src={thumb(v)}
+        alt=""
+        loading="lazy"
+        onError={(e) => {
+          e.currentTarget.hidden = true
+        }}
+        className="size-full object-cover"
+      />
+      <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent p-3 pt-10">
+        <span className="line-clamp-2 text-sm font-bold text-white">{v.title[lang]}</span>
+      </span>
+    </Link>
+  )
+}
 
 export function MemberVideos() {
   const { t, i18n } = useTranslation()
@@ -40,6 +63,8 @@ export function MemberVideos() {
   }
 
   const list = videos.data.filter((v) => muscle === 'all' || v.muscle_group === muscle)
+  const shorts = list.filter(isShort)
+  const long = list.filter((v) => !isShort(v))
 
   return (
     <Page title={t('member.videos.title')} sub={t('member.videos.by', { gym: gymName })}>
@@ -56,8 +81,19 @@ export function MemberVideos() {
 
       {list.length === 0 ? <Empty>{t('common.none')}</Empty> : null}
 
+      {shorts.length > 0 ? (
+        <section className="space-y-2">
+          <h2 className="font-extrabold">{t('member.videos.shorts')}</h2>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {shorts.map((v) => (
+              <ShortTile key={v.id} v={v} lang={lang} />
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       <div className="grid gap-3 sm:grid-cols-2">
-        {list.map((v) => (
+        {long.map((v) => (
           <Link key={v.id} to={`/member/videos/${v.id}`}>
             <Card className="overflow-hidden">
               <div className="bg-ink relative aspect-video">
@@ -120,14 +156,20 @@ export function MemberVideoDetail() {
     <Page>
       <BackLink to="/member/videos" />
       <Card className="overflow-hidden">
-        {/* Unlisted embed: zero hosting cost, and the link is the only access control. */}
-        <div className="bg-ink aspect-video">
+        {/* Unlisted embed: zero hosting cost, and the link is the only access control.
+            A Short is filmed vertically, so it gets a 9:16 frame sized by the
+            screen's height — in 16:9 it played as a strip between black bars. */}
+        <div className={isShort(v) ? 'bg-ink flex justify-center' : 'bg-ink aspect-video'}>
           <iframe
             src={`https://www.youtube-nocookie.com/embed/${v.external_id}`}
             title={v.title[lang]}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
-            className="size-full border-0"
+            className={
+              isShort(v)
+                ? 'aspect-[9/16] h-[58dvh] max-w-full border-0'
+                : 'size-full border-0'
+            }
           />
         </div>
         <div className="p-4">

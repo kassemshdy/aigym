@@ -1168,3 +1168,19 @@ exactly that link.
 
 A booking coach has no speciality until someone writes one, so the Book screen hides the
 empty line, and says plainly when a gym has no coach to book yet.
+
+## 51. YouTube Shorts play as Shorts
+
+A gym wanted its library filled from a creator's YouTube Shorts. Two things stood in the
+way: the add form did not recognise a `youtube.com/shorts/…` link at all, and every video
+played in a 16:9 box, where a vertical Short is a thin strip between black bars.
+
+A Short is stored as provider `youtube_short` — the same kind of id through the same embed
+URL, so no schema change; the provider only decides the shape. The member's library shows
+Shorts first as a row of vertical tiles, and plays one in a 9:16 frame sized to 58% of the
+screen height, which leaves its title visible on a phone. The add form reads watch, share,
+embed, live and Shorts links, fills 60 seconds for a Short, and refuses a link it cannot
+read rather than saving a video that never plays.
+
+The library is not filled automatically. Which videos a gym shows its members, and whose,
+is the gym's call; the coach pastes each link on Coach → Videos.
