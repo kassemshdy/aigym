@@ -241,30 +241,34 @@ function ProgramEditorForm({
                       aria-label={t('program.moveUp')}
                       disabled={i === 0}
                       onClick={() => moveRow(i, -1)}
-                      className="text-muted flex size-9 items-center justify-center disabled:opacity-30"
+                      // Up and down, not › and ‹: this reorders the list, and
+                      // sideways chevrons read as next/previous.
+                      className="text-muted flex size-11 -rotate-90 items-center justify-center disabled:opacity-30"
                     >
-                      <Icon name="chevron" size={16} />
+                      <Icon name="chevron" size={18} />
                     </button>
                     <button
                       type="button"
                       aria-label={t('program.moveDown')}
                       disabled={i === rows.length - 1}
                       onClick={() => moveRow(i, 1)}
-                      className="text-muted flex size-9 rotate-180 items-center justify-center disabled:opacity-30"
+                      className="text-muted flex size-11 rotate-90 items-center justify-center disabled:opacity-30"
                     >
-                      <Icon name="chevron" size={16} />
+                      <Icon name="chevron" size={18} />
                     </button>
                     <button
                       type="button"
                       aria-label={t('program.remove')}
                       onClick={() => removeRow(row.key)}
-                      className="text-due flex size-9 items-center justify-center"
+                      className="text-muted flex size-11 items-center justify-center"
                     >
                       <Icon name="close" size={16} />
                     </button>
                   </div>
                 </div>
-                <div className="mt-3 grid grid-cols-2 gap-3">
+                {/* Stacked on a phone: two steppers side by side need ~430px,
+                    and at 390 the second one's + was pushed off the card. */}
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 sm:gap-3">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-muted text-xs font-semibold">{t('program.sets')}</span>
                     <Stepper
@@ -334,8 +338,8 @@ function ProgramEditorForm({
                       onClick={() => startEditingVideo(e)}
                       className={
                         e.video_url
-                          ? 'text-brand flex size-11 shrink-0 items-center justify-center'
-                          : 'text-muted flex size-11 shrink-0 items-center justify-center'
+                          ? 'text-ink flex size-11 shrink-0 items-center justify-center'
+                          : 'text-muted/50 flex size-11 shrink-0 items-center justify-center'
                       }
                     >
                       <Icon name="play" size={18} />

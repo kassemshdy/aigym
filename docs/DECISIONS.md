@@ -1139,3 +1139,48 @@ be right now says to add the country code rather than asking for a Lebanese numb
 login screen shows the same hint, where before a foreign number left a disabled button and
 no reason. `schemas.LebanesePhone` is `schemas.PhoneNumber`, since the name had stopped
 being true.
+
+## 50. The coaches a member can book are the gym's coach accounts
+
+Reported from the live app: a member's **Book** screen offered Coach Assaf, Karim and Abed.
+They were demo fixtures the seed wrote into every gym, including a live one, with no
+account behind them and no screen that could remove them. A coach the gym added under
+Staff, meanwhile, never appeared — `coaches` (who can be booked) and `staff_gym_roles`
+(who works here) had never been connected, although `coaches.staff_user_id` existed for
+exactly that link.
+
+- **Becoming a coach makes someone bookable.** `POST /staff` with role `coach`, or a role
+  change to `coach`, gives the account a booking profile at that gym, once (a partial
+  unique index on `(gym_id, staff_user_id)`). A migration gives one to every coach account
+  that already existed.
+- **Stopping being one hides them, and deletes nothing.** `GET /coaches` returns a linked
+  profile only while its account still holds the coach role here. A booking cascades with
+  its coach, so removing the row would erase the member's history; hiding it does not.
+- **The name is read from the account**, so correcting it under Staff corrects it on the
+  booking screen. A profile with no account behind it is still listed as before, which
+  keeps the demo database and hand-made profiles working.
+- **The live seed removes the placeholders** — their fixed ids only, classes first
+  (`classes.coach_id` is `RESTRICT`) — and no longer writes them. Real coaches and their
+  classes are left alone; a test pins that across two deploys.
+- **A gym sets its own classes** on a new **Classes** screen (Home → Classes):
+  `POST/PATCH/DELETE /classes`, managers and super_admins only. A class needs a coach, so
+  with none the screen points to Staff; days are stored once each, in order, 0 = Sunday.
+
+A booking coach has no speciality until someone writes one, so the Book screen hides the
+empty line, and says plainly when a gym has no coach to book yet.
+
+## 51. YouTube Shorts play as Shorts
+
+A gym wanted its library filled from a creator's YouTube Shorts. Two things stood in the
+way: the add form did not recognise a `youtube.com/shorts/…` link at all, and every video
+played in a 16:9 box, where a vertical Short is a thin strip between black bars.
+
+A Short is stored as provider `youtube_short` — the same kind of id through the same embed
+URL, so no schema change; the provider only decides the shape. The member's library shows
+Shorts first as a row of vertical tiles, and plays one in a 9:16 frame sized to 58% of the
+screen height, which leaves its title visible on a phone. The add form reads watch, share,
+embed, live and Shorts links, fills 60 seconds for a Short, and refuses a link it cannot
+read rather than saving a video that never plays.
+
+The library is not filled automatically. Which videos a gym shows its members, and whose,
+is the gym's call; the coach pastes each link on Coach → Videos.

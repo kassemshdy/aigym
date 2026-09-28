@@ -8,18 +8,10 @@ import { Empty, Page } from '@/components/ui/Page'
 import { createVideo, listVideos, updateVideo } from '@/data/queries'
 import { useAsync } from '@/data/useAsync'
 import type { Lang } from '@/i18n'
+import { isShort, parseYoutube, YOUTUBE, YOUTUBE_SHORT } from '@/lib/youtube'
 
 const MUSCLES = ['chest', 'back', 'legs', 'shoulders', 'arms', 'core'] as const
 const EQUIPMENT = ['barbell', 'dumbbell', 'machine', 'bodyweight'] as const
-
-/** Accepts either a bare YouTube video id or a full watch/share/embed URL —
- * one less thing the coach has to get exactly right (decision 28: no live
- * oEmbed fetch, so this is the only parsing help they get). */
-function extractYoutubeId(input: string): string {
-  const trimmed = input.trim()
-  const url = trimmed.match(/(?:v=|youtu\.be\/|embed\/)([\w-]{11})/)
-  return url ? url[1] : trimmed
-}
 
 /** The video library's staff-side management screen (Phase 4 stage 3) —
  * reachable by any staff role per app/api/videos.py, linked from the
@@ -47,14 +39,18 @@ export function CoachVideos() {
     setSeconds('')
   }
 
+  const link = parseYoutube(urlOrId)
+
   async function submit() {
+    if (!link) return
     setSaving(true)
     setError(false)
     try {
       await createVideo({
         title: { ar: title.trim(), en: title.trim() },
-        provider: 'youtube',
-        external_id: extractYoutubeId(urlOrId),
+        // A Shorts link plays in a vertical frame (lib/youtube.ts).
+        provider: link.short ? YOUTUBE_SHORT : YOUTUBE,
+        external_id: link.id,
         muscle_group: muscle,
         equipment,
         seconds: Number(seconds),
@@ -98,6 +94,7 @@ export function CoachVideos() {
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-semibold">{v.title[lang]}</span>
                   <span className="text-muted block text-xs">
+                    {isShort(v) ? `${t('member.videos.shorts')} · ` : ''}
                     {t(`muscle.${v.muscle_group}`, v.muscle_group)} ·{' '}
                     {t(`equipment.${v.equipment}`, v.equipment)}
                   </span>
@@ -125,11 +122,22 @@ export function CoachVideos() {
           <Field label={t('coach.videos.link')}>
             <Input
               value={urlOrId}
-              onChange={(e) => setUrlOrId(e.target.value)}
+              onChange={(e) => {
+                setUrlOrId(e.target.value)
+                // Shorts run a minute or less; saves typing a number the
+                // coach would have to look up.
+                const pasted = parseYoutube(e.target.value)
+                if (pasted?.short && !seconds.trim()) setSeconds('60')
+              }}
               dir="ltr"
-              placeholder="https://youtube.com/watch?v=..."
+              placeholder="https://youtube.com/shorts/..."
             />
           </Field>
+          {urlOrId.trim() && !link ? (
+            <p className="text-muted text-sm font-semibold">{t('coach.videos.badLink')}</p>
+          ) : link?.short ? (
+            <p className="text-muted text-sm font-semibold">{t('coach.videos.isShort')}</p>
+          ) : null}
           <Field label={t('coach.videos.duration')}>
             <Input
               value={seconds}
@@ -175,7 +183,7 @@ export function CoachVideos() {
             <Button
               full
               size="lg"
-              disabled={saving || !title.trim() || !urlOrId.trim() || !seconds.trim()}
+              disabled={saving || !title.trim() || !link || !seconds.trim()}
               onClick={() => void submit()}
             >
               {t('common.save')}

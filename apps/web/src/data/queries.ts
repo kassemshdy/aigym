@@ -48,6 +48,9 @@ import {
   mockLapsedMembers,
   mockListAiDrafts,
   mockListClasses,
+  mockCreateClass,
+  mockUpdateClass,
+  mockDeleteClass,
   mockListCoaches,
   mockListExercises,
   mockListFoodEntries,
@@ -125,6 +128,8 @@ import type {
   CreateExerciseInput,
   CreateFoodEntryInput,
   CreateMemberInput,
+  CreateClassInput,
+  UpdateClassInput,
   CreateNutritionLogInput,
   CreatePlanInput,
   CreateProgramInput,
@@ -630,6 +635,25 @@ export async function listCoaches(): Promise<ApiCoach[]> {
 export async function listClasses(): Promise<ApiGymClass[]> {
   if (!API_URL) return mockListClasses()
   return apiFetch('/classes')
+}
+
+export async function createClass(input: CreateClassInput): Promise<ApiGymClass> {
+  if (!API_URL) return mockCreateClass(input)
+  return apiFetch('/classes', { method: 'POST', body: input, idempotencyKey: newIdempotencyKey() })
+}
+
+export async function updateClass(classId: string, input: UpdateClassInput): Promise<ApiGymClass> {
+  if (!API_URL) return mockUpdateClass(classId, input)
+  return apiFetch(`/classes/${classId}`, {
+    method: 'PATCH',
+    body: input,
+    idempotencyKey: newIdempotencyKey(),
+  })
+}
+
+export async function deleteClass(classId: string): Promise<void> {
+  if (!API_URL) return mockDeleteClass(classId)
+  return apiFetch(`/classes/${classId}`, { method: 'DELETE', idempotencyKey: newIdempotencyKey() })
 }
 
 export async function listMyBookings(): Promise<ApiBooking[]> {

@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.booking import ensure_coach_profile
 from app.api.schemas import PhoneNumber
 from app.deps import CurrentSession, require_role
 from app.models import RefreshToken, StaffGymRole, StaffUser
@@ -112,6 +113,9 @@ async def create_staff(
     session.add(staff)
     await session.flush()  # staff_gym_roles.staff_user_id references staff just added above
     session.add(StaffGymRole(gym_id=claims.gym_id, staff_user_id=staff.id, role=body.role))
+    if body.role == "coach":
+        # Bookable from the moment the account exists (decision 50).
+        await ensure_coach_profile(session, gym_id=claims.gym_id, staff=staff)
 
     return StaffOut(
         id=staff.id, username=staff.username, name=staff.name, phone=staff.phone,
@@ -236,6 +240,9 @@ async def change_staff_role(
 ) -> StaffOut:
     """Change what someone is allowed to do at this gym.
 
+    Becoming a coach makes them bookable; stopping being one takes them off
+    the booking list without touching their past bookings (decision 50).
+
     **super_admin only, deliberately.** Decision 25 lets a manager create
     coaches, and carrying that shape over to role changes leaves a manager
     with nothing legitimate to do: promoting a coach hands out access the
@@ -253,6 +260,8 @@ async def change_staff_role(
     if role.role != body.role:
         role.role = body.role
         await _revoke_refresh_tokens(session, staff_user_id)
+        if body.role == "coach":
+            await ensure_coach_profile(session, gym_id=role.gym_id, staff=user)
 
     return StaffOut(
         id=user.id, username=user.username, name=user.name, phone=user.phone,

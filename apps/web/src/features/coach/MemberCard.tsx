@@ -153,9 +153,18 @@ function MemberCardBody({
         </p>
 
         {injuries.length > 0 ? (
-          <p className="bg-soon-bg text-soon mt-2 rounded-xl px-4 py-3 text-center text-sm font-bold">
+          // Black outline, not amber: amber means "payment due soon" in this
+          // product. It printed each note only, so an injury saved with a
+          // body part and no note showed as a bare "Injuries:".
+          <p className="border-ink mt-2 rounded-xl border-2 px-4 py-3 text-center text-sm font-bold">
             {t('manager.member.injuries')}:{' '}
-            {injuries.map((i) => i.note[lang]).join(listSep(lang))}
+            {injuries
+              .map((i) => {
+                const note = i.note[lang] || i.note[lang === 'ar' ? 'en' : 'ar']
+                const part = t(`injuryBodyPart.${i.body_part}`)
+                return note ? `${part} — ${note}` : part
+              })
+              .join(listSep(lang))}
           </p>
         ) : null}
       </Card>

@@ -34,6 +34,18 @@ const SCREENS = [
       await page.waitForTimeout(200)
     },
   ],
+  ['manager-classes', '/manager/classes', 'phone'],
+  [
+    'manager-classes-edit',
+    '/manager/classes',
+    'phone',
+    // The form (coach picker, the seven day toggles) only exists once a
+    // class is open — the widest row on the screen at 390px.
+    async (page) => {
+      await page.getByRole('button', { name: /^(Edit|عدّل)$/ }).first().click()
+      await page.waitForTimeout(200)
+    },
+  ],
   ['manager-settings', '/manager/settings', 'phone'],
   ['manager-import', '/manager/import', 'phone'],
   [
@@ -73,6 +85,13 @@ const SCREENS = [
   ['coach-ai', '/coach/ai', 'ipad'],
   ['coach-videos', '/coach/videos', 'ipad'],
   ['program-editor', '/coach/programs/m1', 'ipad'],
+  // The same coach screens on a phone. Coaches were assumed to be on the
+  // gym's iPad, and a coach on their own phone found the program editor's
+  // steppers pushed off the card — which only the iPad run never showed.
+  ['coach-queue-phone', '/coach', 'phone'],
+  ['coach-card-phone', '/coach/member/m1', 'phone'],
+  ['coach-session-phone', '/coach/session/m1', 'phone'],
+  ['program-editor-phone', '/coach/programs/m1', 'phone'],
   ['member-today', '/member', 'phone'],
   ['member-calendar', '/member/calendar', 'phone'],
   ['member-book', '/member/book', 'phone'],
@@ -101,6 +120,7 @@ const SCREENS = [
   ['member-photos', '/member/photos', 'phone'],
   ['member-videos', '/member/videos', 'phone'],
   ['member-video-detail', '/member/videos/v1', 'phone'],
+  ['member-video-short', '/member/videos/v9', 'phone'],
   ['member-progress', '/member/progress', 'phone'],
   ['member-profile', '/member/profile', 'phone'],
   ['member-profile-edit', '/member/profile/edit', 'phone'],

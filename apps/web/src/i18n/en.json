@@ -133,7 +133,8 @@
       "addMember": "Register new member",
       "plans": "Plans and prices",
       "import": "Bring in members",
-      "takenIn": "Money in, {{weeks}} wks"
+      "takenIn": "Money in, {{weeks}} wks",
+      "classes": "Classes"
     },
     "members": {
       "title": "Members",
@@ -283,6 +284,21 @@
         "already_a_member": "Already one of your members"
       },
       "plan": "Plan"
+    },
+    "classes": {
+      "title": "Classes",
+      "sub": "Your weekly schedule",
+      "nameEn": "Name in English",
+      "nameAr": "Name in Arabic",
+      "coach": "Who runs it",
+      "days": "Which days",
+      "time": "Starts at",
+      "minutes": "Minutes",
+      "add": "Add a class",
+      "empty": "No classes yet",
+      "needCoach": "A class needs a coach. Add one under Staff, then come back here.",
+      "noCoach": "No coach",
+      "confirmDelete": "Remove {{name}} from the schedule?"
     }
   },
   "coach": {
@@ -370,7 +386,9 @@
       "link": "YouTube link or video ID",
       "duration": "Duration (seconds)",
       "muscleGroup": "Muscle group",
-      "equipment": "Equipment"
+      "equipment": "Equipment",
+      "badLink": "That is not a YouTube link. Copy it from the Share button.",
+      "isShort": "A Short — it will play full height, like on YouTube."
     }
   },
   "member": {
@@ -383,7 +401,8 @@
       "by": "Recorded at {{gym}}",
       "views": "{{count}} views",
       "filterMuscle": "Muscle",
-      "filterEquipment": "Equipment"
+      "filterEquipment": "Equipment",
+      "shorts": "Shorts"
     },
     "progress": {
       "title": "My progress",
@@ -555,7 +574,8 @@
     "confirm": "Confirm booking",
     "done": "Booked",
     "summary": "{{coach}} · {{day}} at {{time}}",
-    "introNote": "First intro session is free"
+    "introNote": "First intro session is free",
+    "noCoaches": "No coaches to book yet. Ask at the front desk."
   },
   "lapsed": {
     "title": "Missing members",

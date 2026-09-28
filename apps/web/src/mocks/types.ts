@@ -108,7 +108,7 @@ export interface NutritionEntry {
 export interface Video {
   id: string
   title: { ar: string; en: string }
-  provider: 'youtube' | 'vimeo'
+  provider: 'youtube' | 'youtube_short' | 'vimeo'
   externalId: string
   seconds: number
   muscle: 'chest' | 'back' | 'legs' | 'shoulders' | 'arms' | 'core'

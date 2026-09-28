@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Card, CardTitle } from '@/components/ui/Card'
+import { buttonClass } from '@/components/ui/Button'
 import { Avatar } from '@/components/ui/Avatar'
 import { StatusBadge } from '@/components/ui/Badge'
 import { Icon } from '@/components/ui/Icon'
@@ -68,7 +69,9 @@ export function CoachQueue() {
       <Link
         to="/coach/check-in"
         data-tour="coach-checkin"
-        className="border-line text-brand flex min-h-tap items-center justify-center gap-2 rounded-xl border px-4 text-sm font-bold"
+        // Solid yellow: the one headline action on this screen. It was yellow
+        // text on the pale page, which on a real screen read as nothing.
+        className={buttonClass('brand', 'lg', true)}
       >
         <Icon name="check" />
         {t('coach.queue.checkIn')}
