@@ -159,6 +159,12 @@ Two more services sit alongside them:
 - **The database is Railway's managed Postgres** (`postgres-ssl:18`), not a raw Docker
   image — so it has scheduled backups, pooling and a data panel. Same PostgreSQL: RLS,
   `DISTINCT ON` and every migration are unchanged. Decision 40.
+- **On Railway the app lives in the `railway` database, not `aigym`.** `AIGYM_DB=railway`,
+  and the two database URLs end in `/railway`. The Data panel only ever shows the
+  `railway` database and has no picker, so with the app in `aigym` it showed an empty
+  server beside 28 real tables. Locally and in CI it is still `aigym`. **Do not change
+  Railway's back to `aigym` to match local** — that is what hid the data. Changing it is
+  three variables, and the two URLs are the ones people miss. `docs/DEPLOY.md`.
 - **`ops`** shares the `api` image and database and has **no port, no healthcheck and no
   domain** — it is not reachable from the internet. Set `AIGYM_OPS_COMMAND` and press
   Deploy to run one maintenance script. `set_staff_password.py` takes
