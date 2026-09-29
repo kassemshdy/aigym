@@ -10,21 +10,23 @@ happened, since a queued write can replay minutes or hours after it was made.
 
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.programs import _active_program
 from app.deps import CurrentClaims, CurrentSession, require_role
+from app.domain.rotation import next_day
 from app.domain.workout import ProgramExerciseRow, resolve_today_workout
 from app.models import (
     CheckIn,
     Exercise,
     Machine,
     Member,
+    MemberProgram,
     ProgramExercise,
     WorkoutSession,
     WorkoutSet,
@@ -55,6 +57,8 @@ class WorkoutSessionOut(BaseModel):
     started_at: datetime
     finished_at: datetime | None
     effort_band: str | None
+    program_id: uuid.UUID | None = None
+    day_index: int | None = None
     sets: list[WorkoutSetOut]
 
 
@@ -73,6 +77,8 @@ async def _to_session_out(
         started_at=workout_session.started_at,
         finished_at=workout_session.finished_at,
         effort_band=workout_session.effort_band,
+        program_id=workout_session.program_id,
+        day_index=workout_session.day_index,
         sets=[WorkoutSetOut.model_validate(s) for s in result.scalars().all()],
     )
 
@@ -82,6 +88,10 @@ class CreateWorkoutSessionRequest(BaseModel):
     member_id: uuid.UUID
     check_in_id: uuid.UUID | None = None
     started_at: datetime
+    #: The plan and day being trained, so the next visit knows what follows.
+    #: Optional: an offline client built before decision 53 omits them.
+    program_id: uuid.UUID | None = None
+    day_index: int | None = None
 
 
 @router.post(
@@ -97,6 +107,14 @@ async def create_workout_session(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Member not found")
     if body.check_in_id is not None and await session.get(CheckIn, body.check_in_id) is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Check-in not found")
+    if body.program_id is not None:
+        program = await session.get(MemberProgram, body.program_id)
+        if program is None or program.member_id != body.member_id:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_CONTENT, "That plan is not this member's"
+            )
+        if body.day_index is not None and not 0 <= body.day_index < max(1, len(program.days)):
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "The plan has no such day")
 
     workout_session = WorkoutSession(
         id=body.id or uuid.uuid4(),
@@ -104,6 +122,8 @@ async def create_workout_session(
         member_id=body.member_id,
         check_in_id=body.check_in_id,
         started_at=body.started_at,
+        program_id=body.program_id,
+        day_index=body.day_index if body.program_id is not None else None,
     )
     session.add(workout_session)
     await session.flush()
@@ -233,11 +253,51 @@ class TodayWorkoutOut(BaseModel):
     program_title: dict[str, Any] | None
     exercises: list[TodayExerciseOut]
     open_session_id: uuid.UUID | None
+    #: Which day these exercises are, of how many, and every day's title,
+    #: so a coach can see "Day 2 of 3 — Pull" and switch. Decision 53.
+    day_index: int = 0
+    day_count: int = 1
+    days: list[dict[str, Any]] = []
+
+
+async def _due_day(
+    session: AsyncSession,
+    program: MemberProgram,
+    open_session: WorkoutSession | None,
+) -> int:
+    """The day this member is due on this plan. A session already open on
+    it keeps its day — refreshing mid-workout must not jump to the next one.
+    Otherwise the day after the last session that logged at least one set:
+    one that was opened and abandoned did not train anything."""
+    day_count = max(1, len(program.days))
+    if (
+        open_session is not None
+        and open_session.program_id == program.id
+        and open_session.day_index is not None
+        and open_session.day_index < day_count
+    ):
+        return open_session.day_index
+    last = (
+        await session.execute(
+            select(WorkoutSession.day_index)
+            .where(
+                WorkoutSession.program_id == program.id,
+                WorkoutSession.day_index.is_not(None),
+                exists().where(WorkoutSet.session_id == WorkoutSession.id),
+            )
+            .order_by(WorkoutSession.started_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    return next_day(day_count, last)
 
 
 @router.get("/members/{member_id}/today-workout", response_model=TodayWorkoutOut)
 async def get_today_workout(
-    member_id: uuid.UUID, session: CurrentSession, claims: CurrentClaims
+    member_id: uuid.UUID,
+    session: CurrentSession,
+    claims: CurrentClaims,
+    day: Annotated[int | None, Query(ge=0)] = None,
 ) -> TodayWorkoutOut:
     """Powers CoachMemberCard's "today's workout" and, since Phase 4 stage
     7, a member's own MemberToday screen — decision 2's "broaden, don't
@@ -269,11 +329,20 @@ async def get_today_workout(
             open_session_id=open_session.id if open_session else None,
         )
 
+    day_count = max(1, len(program.days))
+    # `?day=` is the coach choosing a different day than the one due; one
+    # the plan no longer has falls back to the due day rather than erroring.
+    day_index = day if day is not None and day < day_count else await _due_day(
+        session, program, open_session
+    )
     rows = (
         await session.execute(
             select(ProgramExercise, Exercise.name)
             .join(Exercise, Exercise.id == ProgramExercise.exercise_id)
-            .where(ProgramExercise.program_id == program.id)
+            .where(
+                ProgramExercise.program_id == program.id,
+                ProgramExercise.day_index == day_index,
+            )
             .order_by(ProgramExercise.order_index)
         )
     ).all()
@@ -315,4 +384,7 @@ async def get_today_workout(
             for e in exercises
         ],
         open_session_id=open_session.id if open_session else None,
+        day_index=day_index,
+        day_count=day_count,
+        days=program.days,
     )

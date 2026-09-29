@@ -25,10 +25,14 @@ class Exercise(Base, UUIDPrimaryKeyMixin, GymScopedMixin, TimestampMixin):
 
 
 class MemberProgram(Base, UUIDPrimaryKeyMixin, GymScopedMixin, TimestampMixin):
-    """A member's assigned plan: one flat list of exercises, no day-of-week
-    rotation. Only one program per member is ever active — assigning a new
-    one archives the old one instead of deleting it, so past sessions keep
-    a sensible program to point back to."""
+    """A member's assigned plan. Only one program per member is ever active —
+    assigning a new one archives the old one instead of deleting it, so past
+    sessions keep a sensible program to point back to.
+
+    A plan has days that repeat in order (Push, Pull, Legs, Push…), not
+    days of the week: members miss days, and a Monday plan done on Tuesday
+    is still the next workout. `days` holds each day's title; an empty list
+    is a one-day plan, which is every plan written before decision 53."""
 
     __tablename__ = "member_programs"
 
@@ -40,6 +44,9 @@ class MemberProgram(Base, UUIDPrimaryKeyMixin, GymScopedMixin, TimestampMixin):
         UUID(as_uuid=True), ForeignKey("staff_users.id", ondelete="SET NULL"), nullable=True
     )
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    days: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, nullable=False, server_default="[]", default=list
+    )
 
 
 class ProgramExercise(Base, UUIDPrimaryKeyMixin, GymScopedMixin, TimestampMixin):
@@ -53,6 +60,11 @@ class ProgramExercise(Base, UUIDPrimaryKeyMixin, GymScopedMixin, TimestampMixin)
     )
     exercise_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("exercises.id", ondelete="RESTRICT"), nullable=False
+    )
+    #: Which of the program's days this exercise belongs to; 0 for a
+    #: one-day plan.
+    day_index: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="0", default=0
     )
     order_index: Mapped[int] = mapped_column(Integer, nullable=False)
     sets: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -81,6 +93,12 @@ class WorkoutSession(Base, UUIDPrimaryKeyMixin, GymScopedMixin, TimestampMixin):
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     effort_band: Mapped[str | None] = mapped_column(String, nullable=True)
+    #: Which plan and which of its days this session trained, so the next
+    #: visit knows what comes after it. Null for sessions before decision 53.
+    program_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("member_programs.id", ondelete="SET NULL"), nullable=True
+    )
+    day_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
 class WorkoutSet(Base, UUIDPrimaryKeyMixin, GymScopedMixin, TimestampMixin):

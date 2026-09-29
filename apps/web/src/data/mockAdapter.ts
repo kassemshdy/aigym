@@ -33,6 +33,7 @@ import type {
 import { ApiError } from './client'
 import { waLink } from '@/lib/whatsapp'
 import { normalizePhone } from '@/lib/phone'
+import { nextDay } from '@/lib/rotation'
 import { replyTo } from '@/mocks/agents'
 import type { AgentId } from '@/mocks/types'
 import { text } from '@/lib/format'
@@ -594,11 +595,13 @@ function seedPrograms(): ApiProgram[] {
     id: `program-${plan.memberId}`,
     member_id: plan.memberId,
     title: plan.title,
+    days: [],
     archived_at: null,
     exercises: plan.exercises.map((e, i) => ({
       id: `${plan.memberId}-pe-${e.id}`,
       exercise_id: e.id,
       exercise_name: e.name,
+      day_index: 0,
       order_index: i,
       sets: e.sets,
       reps: toBilingual(e.reps),
@@ -721,11 +724,13 @@ export function mockCreateProgram(memberId: string, input: CreateProgramInput): 
     id: newId(),
     member_id: memberId,
     title: input.title,
+    days: input.days ?? [],
     archived_at: null,
     exercises: input.exercises.map((ex, i) => ({
       id: newId(),
       exercise_id: ex.exercise_id,
       exercise_name: exerciseName(ex.exercise_id),
+      day_index: ex.day_index ?? 0,
       order_index: i,
       sets: ex.sets,
       reps: ex.reps,
@@ -744,10 +749,12 @@ export function mockReplaceProgramExercises(
   if (idx === -1) throw new Error('Program not found')
   const updated: ApiProgram = {
     ...mockPrograms[idx],
+    days: input.days ?? mockPrograms[idx].days,
     exercises: input.exercises.map((ex, i) => ({
       id: newId(),
       exercise_id: ex.exercise_id,
       exercise_name: exerciseName(ex.exercise_id),
+      day_index: ex.day_index ?? 0,
       order_index: i,
       sets: ex.sets,
       reps: ex.reps,
@@ -776,7 +783,7 @@ export function mockUpdateProgram(programId: string, input: UpdateProgramInput):
   return updated
 }
 
-export function mockGetTodayWorkout(memberId: string): ApiTodayWorkout {
+export function mockGetTodayWorkout(memberId: string, day?: number): ApiTodayWorkout {
   const program = mockGetActiveProgram(memberId)
   const openSession =
     mockWorkoutSessions.find((s) => s.member_id === memberId && s.finished_at === null) ?? null
@@ -787,8 +794,23 @@ export function mockGetTodayWorkout(memberId: string): ApiTodayWorkout {
       program_title: null,
       exercises: [],
       open_session_id: openSession?.id ?? null,
+      day_index: 0,
+      day_count: 1,
+      days: [],
     }
   }
+
+  // Same rule as sessions.py's _due_day: an open session keeps its day,
+  // otherwise the day after the last session that logged a set.
+  const dayCount = Math.max(1, program.days.length)
+  const trained = mockWorkoutSessions
+    .filter((s) => s.program_id === program.id && s.day_index != null && s.sets.length > 0)
+    .sort((a, b) => b.started_at.localeCompare(a.started_at))
+  const dueDay =
+    openSession?.program_id === program.id && openSession.day_index != null
+      ? openSession.day_index
+      : nextDay(dayCount, trained[0]?.day_index ?? null)
+  const dayIndex = day !== undefined && day < dayCount ? day : dueDay
 
   const lastWeights = new Map<string, number>()
   const allSets = mockWorkoutSessions
@@ -800,7 +822,7 @@ export function mockGetTodayWorkout(memberId: string): ApiTodayWorkout {
   return {
     program_id: program.id,
     program_title: program.title,
-    exercises: program.exercises.map((pe) => ({
+    exercises: program.exercises.filter((pe) => pe.day_index === dayIndex).map((pe) => ({
       program_exercise_id: pe.id,
       exercise_id: pe.exercise_id,
       exercise_name: pe.exercise_name,
@@ -811,6 +833,9 @@ export function mockGetTodayWorkout(memberId: string): ApiTodayWorkout {
       last_weight_kg: lastWeights.get(pe.exercise_id) ?? null,
     })),
     open_session_id: openSession?.id ?? null,
+    day_index: dayIndex,
+    day_count: dayCount,
+    days: program.days,
   }
 }
 
@@ -829,6 +854,8 @@ export function mockCreateWorkoutSession(input: CreateWorkoutSessionInput): ApiW
     started_at: input.started_at,
     finished_at: null,
     effort_band: null,
+    program_id: input.program_id ?? null,
+    day_index: input.program_id ? (input.day_index ?? null) : null,
     sets: [],
   }
   mockWorkoutSessions = [...mockWorkoutSessions, session]

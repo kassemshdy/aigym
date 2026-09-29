@@ -749,9 +749,11 @@ export async function updateProgram(
   })
 }
 
-export async function getTodayWorkout(memberId: string): Promise<ApiTodayWorkout> {
-  if (!API_URL) return mockGetTodayWorkout(memberId)
-  return apiFetch(`/members/${memberId}/today-workout`)
+/** The day this member is due; pass `day` to see a different one (the
+ * coach choosing). Decision 53. */
+export async function getTodayWorkout(memberId: string, day?: number): Promise<ApiTodayWorkout> {
+  if (!API_URL) return mockGetTodayWorkout(memberId, day)
+  return apiFetch(`/members/${memberId}/today-workout${day === undefined ? '' : `?day=${day}`}`)
 }
 
 /** Finished sessions only, most recent first — the coach's "last workout"
@@ -782,6 +784,8 @@ export async function createWorkoutSession(
     started_at: input.started_at,
     finished_at: null,
     effort_band: null,
+    program_id: input.program_id ?? null,
+    day_index: input.day_index ?? null,
     sets: [],
   }
   return offlineFetch('/workout-sessions', { method: 'POST', body, localEcho })

@@ -223,22 +223,30 @@ export interface ApiProgramExercise {
   id: string
   exercise_id: string
   exercise_name: { ar: string; en: string }
+  /** Which of the plan's days; 0 on a one-day plan. Decision 53. */
+  day_index: number
   order_index: number
   sets: number
   reps: { ar: string; en: string }
   target_weight_kg: number | null
 }
 
+/** A day's title, e.g. { ar: 'دفع', en: 'Push' }. */
+export type ProgramDay = { ar: string; en: string }
+
 export interface ApiProgram {
   id: string
   member_id: string
   title: { ar: string; en: string }
+  /** The days, in the order they repeat. Empty for a one-day plan. */
+  days: ProgramDay[]
   archived_at: string | null
   exercises: ApiProgramExercise[]
 }
 
 export interface ProgramExerciseInput {
   exercise_id: string
+  day_index?: number
   sets: number
   reps: { ar: string; en: string }
   target_weight_kg?: number | null
@@ -246,11 +254,15 @@ export interface ProgramExerciseInput {
 
 export interface CreateProgramInput {
   title: { ar: string; en: string }
+  days?: ProgramDay[]
   exercises: ProgramExerciseInput[]
 }
 
+/** Days travel with the exercises: adding a day and filling it is one
+ * save, and removing a day takes its exercises with it. */
 export interface ReplaceProgramExercisesInput {
   exercises: ProgramExerciseInput[]
+  days?: ProgramDay[]
 }
 
 export interface UpdateProgramInput {
@@ -275,6 +287,8 @@ export interface ApiWorkoutSession {
   started_at: string
   finished_at: string | null
   effort_band: string | null
+  program_id?: string | null
+  day_index?: number | null
   sets: ApiWorkoutSet[]
 }
 
@@ -283,6 +297,9 @@ export interface CreateWorkoutSessionInput {
   member_id: string
   check_in_id?: string | null
   started_at: string
+  /** The plan and day being trained, so the next visit is the next day. */
+  program_id?: string | null
+  day_index?: number | null
 }
 
 export interface FinishWorkoutSessionInput {
@@ -316,6 +333,10 @@ export interface ApiTodayWorkout {
   program_title: { ar: string; en: string } | null
   exercises: ApiTodayExercise[]
   open_session_id: string | null
+  /** Which day these exercises are, of how many, and every day's title. */
+  day_index: number
+  day_count: number
+  days: ProgramDay[]
 }
 
 export interface ApiNutritionLog {

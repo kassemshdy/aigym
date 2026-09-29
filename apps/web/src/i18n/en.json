@@ -606,7 +606,15 @@
     "newExerciseName": "Exercise name",
     "muscleGroup": "Muscle group",
     "videoUrl": "Video link",
-    "saved": "Saved"
+    "saved": "Saved",
+    "templates": "Start from a template",
+    "templateReplaces": "This replaces the plan you are editing. Nothing is saved until you press Save.",
+    "useTemplate": "Use this template",
+    "dayN": "Day {{n}}",
+    "dayName": "Day name",
+    "removeDay": "Remove day",
+    "oneDay": "One day, repeated every visit. Add a day to split it (for example Push / Pull / Legs).",
+    "addDay": "Add a day"
   },
   "insights": {
     "title": "The numbers",

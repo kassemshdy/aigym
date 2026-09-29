@@ -1,15 +1,15 @@
-"""A member's assigned workout plan. One flat, editable list of exercises —
-no day-of-week rotation. Only one program per member is ever active;
+"""A member's assigned workout plan: days that repeat in order (decision 53),
+each an editable list of exercises. Only one program per member is ever active;
 assigning a new one archives the old one instead of deleting it, so a
 workout_set logged against an archived program's exercise still resolves
 (exercise_id points at the catalog, never at program_exercises)."""
 
 import uuid
 from datetime import UTC, datetime
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,8 +22,14 @@ router = APIRouter(tags=["programs"])
 ManagerOrCoach = Depends(require_role("super_admin", "manager", "coach"))
 
 
+#: Enough for any split a gym writes (PPL twice over is six); a limit so a
+#: typo cannot create a hundred empty days.
+MAX_DAYS = 7
+
+
 class ProgramExerciseIn(BaseModel):
     exercise_id: uuid.UUID
+    day_index: Annotated[int, Field(ge=0, lt=MAX_DAYS)] = 0
     sets: int
     reps: dict[str, Any]
     target_weight_kg: float | None = None
@@ -33,6 +39,7 @@ class ProgramExerciseOut(BaseModel):
     id: uuid.UUID
     exercise_id: uuid.UUID
     exercise_name: dict[str, Any]
+    day_index: int
     order_index: int
     sets: int
     reps: dict[str, Any]
@@ -43,8 +50,25 @@ class ProgramOut(BaseModel):
     id: uuid.UUID
     member_id: uuid.UUID
     title: dict[str, Any]
+    #: Each day's title, in order. Empty for a one-day plan.
+    days: list[dict[str, Any]]
     archived_at: datetime | None
     exercises: list[ProgramExerciseOut]
+
+
+DaysIn = Annotated[list[dict[str, Any]], Field(max_length=MAX_DAYS)]
+
+
+def _check_days(days: list[dict[str, Any]], exercises: list[ProgramExerciseIn]) -> None:
+    """Every exercise must sit on a day the plan has. A one-day plan (no
+    titles) has day 0 only."""
+    day_count = max(1, len(days))
+    stray = [e.day_index for e in exercises if e.day_index >= day_count]
+    if stray:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            f"Exercises on day {max(stray) + 1}, but the plan has {day_count} day(s)",
+        )
 
 
 async def _to_program_out(session: AsyncSession, program: MemberProgram) -> ProgramOut:
@@ -52,19 +76,21 @@ async def _to_program_out(session: AsyncSession, program: MemberProgram) -> Prog
         select(ProgramExercise, Exercise.name)
         .join(Exercise, Exercise.id == ProgramExercise.exercise_id)
         .where(ProgramExercise.program_id == program.id)
-        .order_by(ProgramExercise.order_index)
+        .order_by(ProgramExercise.day_index, ProgramExercise.order_index)
     )
     rows = result.all()
     return ProgramOut(
         id=program.id,
         member_id=program.member_id,
         title=program.title,
+        days=program.days,
         archived_at=program.archived_at,
         exercises=[
             ProgramExerciseOut(
                 id=pe.id,
                 exercise_id=pe.exercise_id,
                 exercise_name=exercise_name,
+                day_index=pe.day_index,
                 order_index=pe.order_index,
                 sets=pe.sets,
                 reps=pe.reps,
@@ -98,6 +124,7 @@ async def get_active_program(member_id: uuid.UUID, session: CurrentSession) -> P
 
 class CreateProgramRequest(BaseModel):
     title: dict[str, Any]
+    days: DaysIn = []
     exercises: list[ProgramExerciseIn]
 
 
@@ -113,6 +140,7 @@ async def create_program(
     member = await session.get(Member, member_id)
     if member is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Member not found")
+    _check_days(body.days, body.exercises)
 
     current = await _active_program(session, member_id)
     if current is not None:
@@ -123,6 +151,7 @@ async def create_program(
         gym_id=claims.gym_id,
         member_id=member_id,
         title=body.title,
+        days=body.days,
         created_by_staff_id=claims.subject_id,
     )
     session.add(program)
@@ -138,6 +167,7 @@ async def create_program(
                 gym_id=claims.gym_id,
                 program_id=program.id,
                 exercise_id=item.exercise_id,
+                day_index=item.day_index,
                 order_index=order_index,
                 sets=item.sets,
                 reps=item.reps,
@@ -151,6 +181,10 @@ async def create_program(
 
 class ReplaceExercisesRequest(BaseModel):
     exercises: list[ProgramExerciseIn]
+    #: Sent together with the exercises, because they only make sense
+    #: together: adding a day and filling it is one save, and removing one
+    #: must take its exercises with it. Omitted keeps the plan's days.
+    days: DaysIn | None = None
 
 
 @router.patch("/programs/{program_id}/exercises", response_model=ProgramOut)
@@ -163,6 +197,9 @@ async def replace_program_exercises(
     program = await session.get(MemberProgram, program_id)
     if program is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Program not found")
+    days = body.days if body.days is not None else program.days
+    _check_days(days, body.exercises)
+    program.days = days
 
     await session.execute(delete(ProgramExercise).where(ProgramExercise.program_id == program_id))
     for order_index, item in enumerate(body.exercises):
@@ -175,6 +212,7 @@ async def replace_program_exercises(
                 gym_id=claims.gym_id,
                 program_id=program.id,
                 exercise_id=item.exercise_id,
+                day_index=item.day_index,
                 order_index=order_index,
                 sets=item.sets,
                 reps=item.reps,
